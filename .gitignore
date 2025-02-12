@@ -1,0 +1,75 @@
+data
+*.pkl
+*.pdf
+.vs/
+*.sln
+*.txt
+*.vcxproj
+*.vcxproj.*
+.vscode/
+**/x64/
+**/Debug/
+**/Release/
+**/build/
+**/build*/
+*.csv
+stdout*
+stderr*
+**/__pycache__
+**/auto_generated/
+**/auto_generated*/
+**/*auto_generated/
+*.bin
+paper/plots
+
+#include literature
+!literature/*.pdf
+!*CMakeLists.txt
+
+#ignore data that is subject to change
+**/test/
+**/test*/
+
+*.aux
+*.blg
+*.fdb_latexmk
+*.log
+*.fls
+*.xml
+*.bbl
+*.bcf
+*.toc
+
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+cpp/packages

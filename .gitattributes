@@ -1,0 +1,22 @@
+# Enforce Unix newlines
+* text=auto eol=lf
+
+# These files are definitely text files
+*.sh
+*.cpp
+*.hpp
+*.py
+*.tex
+*.config
+*.txt
+
+# declare binary files that should not be modified
+*.gz binary
+*.pdf binary
+*.png binary
+*.pptx binary
+*.blender binary
+*.blend1 binary
+*.blend binary
+*.svg binary
+*.docx binary
