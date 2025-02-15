@@ -1,20 +1,50 @@
 #pragma once
 
 #include <mrock/utility/InputFileReader.hpp>
+#include <string>
 #include "GlobalDefinitions.hpp"
+#include "Laser.hpp"
+#include "TimeIntegrationConfig.hpp"
 
-namespace hgg {
+namespace HHG {
     class DiracSystem {
-        h_float E_F{};
-        h_float v_F{};
-        h_float band_width{};
-        h_float max_k{};
     public:
-        DiracSystem() = default;
-        DiracSystem(mrock::utility::InputFileReader& input);
+        using c_vector = complex_vector<2>;
+        using c_matrix = complex_matrix<2, 2>;
+        using r_matrix = real_matrix<2, 2>;
 
-        inline h_float dispersion(h_float k) {
-            return (v_F * k + E_F);
-        }
+        DiracSystem() = default;
+        /**
+         * @param _E_F Fermi energy in meV
+         * @param _v_F Fermi velocity in m/s
+         * @param _band_width in multiples of the photon energy
+         * @param _photon_energy hbar omega_L in meV
+         */
+        DiracSystem(h_float _E_F, h_float _v_F, h_float _band_width, h_float _photon_energy);
+
+        void time_evolution(std::vector<h_float>& alphas, std::vector<h_float>& betas, Laser const * const laser, 
+            h_float k_z, h_float kappa, const TimeIntegrationConfig& time_config) const;
+
+        void time_evolution_complex(std::vector<h_complex>& alphas, std::vector<h_complex>& betas, Laser const * const laser, 
+                h_float k_z, h_float kappa, const TimeIntegrationConfig& time_config) const;
+
+        std::string info() const;
+    private:
+        h_float E_F{}; ///< in units of the photon energy
+        h_float v_F{}; ///< in units of pm / T_L, where T_L = 1 / omega_L
+        h_float band_width{}; ///< in units of the photon energy
+        h_float max_k{};
+
+        h_float max_kappa_compare{};
+        h_float max_kappa(h_float k_z) const;
+
+        // the matrix V
+        r_matrix basic_transformation(h_float k_z, h_float kappa) const;
+
+        // M = i v_F * V * h * V^+
+        // d/dt (alpha, beta)^T = M * (alpha, beta)^T
+        c_matrix dynamical_matrix(h_float k_z, h_float kappa, h_float vector_potential) const;
+
+        h_float dispersion(h_float k_z, h_float kappa) const;
     };
 }

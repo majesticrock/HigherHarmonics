@@ -2,10 +2,10 @@
 
 #include "Laser.hpp"
 
-namespace hhg {
+namespace HHG {
     struct ContinuousLaser : public Laser {
-        ContinuousLaser(h_float frequency, h_float momentum_amplitude);
+        ContinuousLaser(h_float photon_energy, h_float E_0);
 
-        h_float envelope(c_float t) const final;
+        h_float envelope(h_float t) const final;
     };
 }
