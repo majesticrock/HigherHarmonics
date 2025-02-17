@@ -13,7 +13,7 @@ namespace HHG {
         using c_matrix = complex_matrix<2, 2>;
         using r_matrix = real_matrix<2, 2>;
 
-        DiracSystem() = default;
+        DiracSystem() = delete;
         /**
          * @param _E_F Fermi energy in meV
          * @param _v_F Fermi velocity in m/s
@@ -26,18 +26,21 @@ namespace HHG {
             h_float k_z, h_float kappa, const TimeIntegrationConfig& time_config) const;
 
         void time_evolution_complex(std::vector<h_complex>& alphas, std::vector<h_complex>& betas, Laser const * const laser, 
-                h_float k_z, h_float kappa, const TimeIntegrationConfig& time_config) const;
+            h_float k_z, h_float kappa, const TimeIntegrationConfig& time_config) const;
 
         std::string info() const;
 
         h_float dispersion(h_float k_z, h_float kappa) const;
-    private:
-        h_float E_F{}; ///< in units of the photon energy
-        h_float v_F{}; ///< in units of pm / T_L, where T_L = 1 / omega_L
-        h_float band_width{}; ///< in units of the photon energy
-        h_float max_k{};
 
-        h_float max_kappa_compare{};
+        h_float convert_to_z_integration(h_float abscissa) const;
+        h_float convert_to_kappa_integration(h_float abscissa, h_float k_z) const;
+    private:
+        const h_float E_F{}; ///< in units of the photon energy
+        const h_float v_F{}; ///< in units of pm / T_L, where T_L = 1 / omega_L
+        const h_float band_width{}; ///< in units of the photon energy
+        const h_float max_k{}; ///< in units of omega_L / v_F
+        const h_float max_kappa_compare{}; ///< in units of (omega_L / v_F)^2
+
         h_float max_kappa(h_float k_z) const;
 
         // the matrix V

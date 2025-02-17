@@ -1,5 +1,6 @@
 #include "DiracSystem.hpp"
 #include <cmath>
+#include <cassert>
 
 #include <boost/numeric/odeint.hpp>
 
@@ -22,8 +23,8 @@ namespace HHG {
         : E_F{ _E_F / _photon_energy }, 
         v_F{ _v_F * ((1e12 * hbar) / _photon_energy) }, // 1e12 for conversion to pm; T_L = hbar / _photon_energy
         band_width{ _band_width },
-        max_k { band_width / v_F }, // in pm
-        max_kappa_compare { band_width * band_width / (v_F * v_F) }  // in pm^2
+        max_k { band_width }, // in units of omega_L / v_F
+        max_kappa_compare { band_width * band_width }  // in units of (omega_L / v_F)^2
     {  }
 
     void DiracSystem::time_evolution(std::vector<h_float>& alphas, std::vector<h_float>& betas, Laser const * const laser, 
@@ -43,13 +44,13 @@ namespace HHG {
         h_float t_begin = time_config.t_begin;
         h_float t_end = t_begin + measure_every;
         
-        alphas.resize(time_config.n_measurements + 1);
-        betas.resize(time_config.n_measurements + 1);
+        alphas.resize(time_config.n_measurements);
+        betas.resize(time_config.n_measurements);
 
         alphas[0] = std::norm(current_state(0));
         betas[0] = std::norm(current_state(1));
         
-        for (int i = 0; i < time_config.n_measurements; ++i) {
+        for (int i = 1; i < time_config.n_measurements; ++i) {
 #ifdef adaptive_stepper
             integrate_adaptive(make_controlled<error_stepper_type>(abs_error, rel_error), right_side, current_state, t_begin, t_end, dt);
 #else
@@ -58,8 +59,8 @@ namespace HHG {
             current_state.normalize();      // We do not have relaxation, thus |alpha|^2 + |beta|^2 is a conserved quantity.
             current_state *= inital_norm;   // We enforce this explicitly
 
-            alphas[i + 1] = std::norm(current_state(0));
-            betas[i + 1] = std::norm(current_state(1));
+            alphas[i] = std::norm(current_state(0));
+            betas[i] = std::norm(current_state(1));
 
             t_begin = t_end;
             t_end += measure_every;
@@ -107,6 +108,24 @@ namespace HHG {
         }
     }
 
+    h_float DiracSystem::dispersion(h_float k_z, h_float kappa) const
+    {
+        return norm(kappa, k_z); // v_F is already contained within the k values
+    }
+
+    h_float DiracSystem::convert_to_z_integration(h_float abscissa) const
+    {
+        return max_k * abscissa;
+    }
+    
+    h_float DiracSystem::convert_to_kappa_integration(h_float abscissa, h_float k_z) const
+    {
+        const h_float k_z_squared = k_z * k_z;
+        assert(max_kappa_compare >= k_z_squared);
+        const h_float up = sqrt(max_kappa_compare - k_z_squared);
+        return 0.5 * up * (abscissa + h_float{1});
+    }
+
     std::string DiracSystem::info() const
     {
         return "DiracSystem\nE_F=" + std::to_string(E_F) + " * hbar omega_L"
@@ -137,17 +156,12 @@ namespace HHG {
 
     DiracSystem::c_matrix DiracSystem::dynamical_matrix(h_float k_z, h_float kappa, h_float vector_potential) const
     {
-        c_matrix h;
-        h << k_z - vector_potential, kappa,
-            kappa, -k_z + vector_potential;
-        h *= imaginary_unit * v_F;
+        c_matrix h; // v_F is already contained within the k values
+        h << k_z - v_F * vector_potential, kappa,
+            kappa, -k_z + v_F * vector_potential;
+        h *= imaginary_unit;
 
         const r_matrix V = basic_transformation(k_z, kappa);
         return V.adjoint() * h * V;
-    }
-
-    h_float DiracSystem::dispersion(h_float k_z, h_float kappa) const
-    {
-        return v_F * norm(kappa, k_z);
     }
 }

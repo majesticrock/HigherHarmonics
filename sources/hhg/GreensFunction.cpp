@@ -7,8 +7,6 @@
 #include <iostream>
 
 namespace HHG {
-    using mrock::utility::clock;
-
     inline GreensFunction::r_vector c_vector_to_real(const GreensFunction::c_vector& in, const int N) {
         auto real_begin = mrock::utility::make_real_part_iterator(in.data());
         auto real_end = mrock::utility::make_real_part_iterator_end(in.data(), N);
@@ -28,8 +26,10 @@ namespace HHG {
 
     void GreensFunction::compute_time_domain_greens_function(const int t_center, h_float phase_factor /* = 0 */ )
     {
+        using std::chrono::high_resolution_clock;
+
         std::cout << "Computing laser-cycle average for the Green's function." << std::endl;
-        clock::time_point begin = clock::now();
+        high_resolution_clock::time_point begin = high_resolution_clock::now();
 
         time_domain_greens_function.resize(greens_N, h_complex{});
         for (int t_rel = 0; t_rel < greens_N; ++t_rel) {
@@ -43,19 +43,20 @@ namespace HHG {
             //time_domain_greens_function[t_rel] *= std::exp(-x);
         }
 
-        clock::time_point end = clock::now();
+        high_resolution_clock::time_point end = high_resolution_clock::now();
 		std::cout << "Runtime = " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "[ms]" << std::endl;
     }
 
     void GreensFunction::fourier_transform_greens_function()
     {
+        using std::chrono::high_resolution_clock;
         std::cout << "Computing F-trafo for the Green's function." << std::endl;
-        clock::time_point begin = clock::now();
+        high_resolution_clock::time_point begin = high_resolution_clock::now();
 
         ComplexFFT fft(greens_N);
         fft.compute(time_domain_greens_function, fourier_greens_function);
 
-        clock::time_point end = clock::now();
+        high_resolution_clock::time_point end = high_resolution_clock::now();
 		std::cout << "Runtime = " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "[ms]" << std::endl;
     }
 
