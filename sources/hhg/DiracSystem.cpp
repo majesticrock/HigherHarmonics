@@ -3,6 +3,20 @@
 
 #include <boost/numeric/odeint.hpp>
 
+
+typedef HHG::DiracSystem::c_vector state_type;
+using namespace boost::numeric::odeint;
+
+#define adaptive_stepper
+#ifdef adaptive_stepper
+typedef runge_kutta_fehlberg78<state_type> error_stepper_type;
+#else
+typedef runge_kutta4<state_type> stepper_type;
+#endif
+
+constexpr HHG::h_float abs_error = 1.0e-12;
+constexpr HHG::h_float rel_error = 1.0e-8;
+
 namespace HHG {
     DiracSystem::DiracSystem(h_float _E_F, h_float _v_F, h_float _band_width, h_float _photon_energy)
         : E_F{ _E_F / _photon_energy }, 
@@ -15,10 +29,9 @@ namespace HHG {
     void DiracSystem::time_evolution(std::vector<h_float>& alphas, std::vector<h_float>& betas, Laser const * const laser, 
         h_float k_z, h_float kappa, const TimeIntegrationConfig& time_config) const
     {
-        using namespace boost::numeric::odeint;
-        typedef c_vector state_type;
-        runge_kutta4<state_type> stepper;
-
+#ifndef adaptive_stepper
+        stepper_type stepper;
+#endif
         auto right_side = [this, &laser, &k_z, &kappa](const state_type& alpha_beta, state_type& dxdt, const h_float t) {
             dxdt = this->dynamical_matrix(k_z, kappa, laser->laser_function(t)) * alpha_beta;
         };
@@ -37,9 +50,13 @@ namespace HHG {
         betas[0] = std::norm(current_state(1));
         
         for (int i = 0; i < time_config.n_measurements; ++i) {
+#ifdef adaptive_stepper
+            integrate_adaptive(make_controlled<error_stepper_type>(abs_error, rel_error), right_side, current_state, t_begin, t_end, dt);
+#else
             integrate_const(stepper, right_side, current_state, t_begin, t_end, dt);
-            //current_state.normalize();      // We do not have relaxation, thus |alpha|^2 + |beta|^2 is a conserved quantity.
-            //current_state *= inital_norm;   // We enforce this explicitly
+#endif
+            current_state.normalize();      // We do not have relaxation, thus |alpha|^2 + |beta|^2 is a conserved quantity.
+            current_state *= inital_norm;   // We enforce this explicitly
 
             alphas[i + 1] = std::norm(current_state(0));
             betas[i + 1] = std::norm(current_state(1));
@@ -52,9 +69,9 @@ namespace HHG {
     void DiracSystem::time_evolution_complex(std::vector<h_complex>& alphas, std::vector<h_complex>& betas, Laser const * const laser, 
         h_float k_z, h_float kappa, const TimeIntegrationConfig& time_config) const
     {
-        using namespace boost::numeric::odeint;
-        typedef c_vector state_type;
-        runge_kutta4<state_type> stepper;
+#ifndef adaptive_stepper
+        stepper_type stepper;
+#endif
 
         auto right_side = [this, &laser, &k_z, &kappa](const state_type& alpha_beta, state_type& dxdt, const h_float t) {
             dxdt = this->dynamical_matrix(k_z, kappa, laser->laser_function(t)) * alpha_beta;
@@ -74,7 +91,11 @@ namespace HHG {
         betas[0]  = current_state(1);
         
         for (int i = 0; i < time_config.n_measurements; ++i) {
+#ifdef adaptive_stepper
+            integrate_adaptive(make_controlled<error_stepper_type>(abs_error, rel_error), right_side, current_state, t_begin, t_end, dt);
+#else
             integrate_const(stepper, right_side, current_state, t_begin, t_end, dt);
+#endif
             current_state.normalize();      // We do not have relaxation, thus |alpha|^2 + |beta|^2 is a conserved quantity.
             current_state *= inital_norm;   // We enforce this explicitly
 

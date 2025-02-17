@@ -30,7 +30,7 @@ namespace HHG {
 
         void compute_alphas_betas(Laser const * const laser, h_float k_z, h_float kappa, const TimeIntegrationConfig& time_config);
 
-        void compute_time_domain_greens_function(const int t_center);
+        void compute_time_domain_greens_function(const int t_center, h_float phase_factor = 0);
 
         void fourier_transform_greens_function();
 

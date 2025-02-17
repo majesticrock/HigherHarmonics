@@ -26,7 +26,7 @@ namespace HHG {
         mrock::utility::function_time_ms(time_evolution, alphas, betas, laser, k_z, kappa, time_config);
     }
 
-    void GreensFunction::compute_time_domain_greens_function(const int t_center)
+    void GreensFunction::compute_time_domain_greens_function(const int t_center, h_float phase_factor /* = 0 */ )
     {
         std::cout << "Computing laser-cycle average for the Green's function." << std::endl;
         clock::time_point begin = clock::now();
@@ -38,8 +38,9 @@ namespace HHG {
             }
             time_domain_greens_function[t_rel] += 0.5 * (G(t_rel, t_center) + G(t_rel, t_center + measurements_per_cycle));
             time_domain_greens_function[t_rel] /= static_cast<h_float>(measurements_per_cycle);
-            const h_float x = 6 * static_cast<h_float>(t_rel - greens_N / 2) / static_cast<h_float>(greens_N);
-            time_domain_greens_function[t_rel] *= std::exp(-x * x);
+            time_domain_greens_function[t_rel] *= std::exp(-imaginary_unit * (2  * phase_factor * t_rel));
+            //const h_float x = 4 * static_cast<h_float>(t_rel) / static_cast<h_float>(greens_N);
+            //time_domain_greens_function[t_rel] *= std::exp(-x);
         }
 
         clock::time_point end = clock::now();

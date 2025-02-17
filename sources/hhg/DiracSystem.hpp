@@ -29,6 +29,8 @@ namespace HHG {
                 h_float k_z, h_float kappa, const TimeIntegrationConfig& time_config) const;
 
         std::string info() const;
+
+        h_float dispersion(h_float k_z, h_float kappa) const;
     private:
         h_float E_F{}; ///< in units of the photon energy
         h_float v_F{}; ///< in units of pm / T_L, where T_L = 1 / omega_L
@@ -44,7 +46,5 @@ namespace HHG {
         // M = i v_F * V * h * V^+
         // d/dt (alpha, beta)^T = M * (alpha, beta)^T
         c_matrix dynamical_matrix(h_float k_z, h_float kappa, h_float vector_potential) const;
-
-        h_float dispersion(h_float k_z, h_float kappa) const;
     };
 }

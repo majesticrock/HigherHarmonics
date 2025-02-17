@@ -21,12 +21,6 @@ namespace HHG {
     constexpr h_float hbar = h_float(6.582119569509065698e-13); // meV s
     constexpr h_float pi = h_float(M_PI);
 
-    /** 
-     * converts e E_0 / (hbar omega_L) to 1 / pm
-     * if E_0 is given in MV / cm and (hbar omega_L) in meV
-     */
-    constexpr h_float field_conversion = 1e-1; 
-
     template<class... Args>
     h_float norm(Args... args) {
         return std::sqrt((... + (args * args)));
