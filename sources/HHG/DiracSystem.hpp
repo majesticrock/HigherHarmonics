@@ -20,7 +20,7 @@ namespace HHG {
          * @param _band_width in multiples of the photon energy
          * @param _photon_energy hbar omega_L in meV
          */
-        DiracSystem(h_float _E_F, h_float _v_F, h_float _band_width, h_float _photon_energy);
+        DiracSystem(h_float temperature, h_float _E_F, h_float _v_F, h_float _band_width, h_float _photon_energy);
 
         void time_evolution(std::vector<h_float>& alphas, std::vector<h_float>& betas, Laser const * const laser, 
             h_float k_z, h_float kappa, const TimeIntegrationConfig& time_config) const;
@@ -35,6 +35,7 @@ namespace HHG {
         h_float convert_to_z_integration(h_float abscissa) const;
         h_float convert_to_kappa_integration(h_float abscissa, h_float k_z) const;
     private:
+        const h_float beta{}; ///< in units of the 1 / photon energy
         const h_float E_F{}; ///< in units of the photon energy
         const h_float v_F{}; ///< in units of pm / T_L, where T_L = 1 / omega_L
         const h_float band_width{}; ///< in units of the photon energy

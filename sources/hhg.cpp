@@ -8,13 +8,14 @@
 #include <boost/math/quadrature/gauss.hpp>
 #include <mrock/utility/OutputConvenience.hpp>
 #include <mrock/utility/InputFileReader.hpp>
+#include <mrock/utility/better_to_string.hpp>
 
 #include "HHG/DiracSystem.hpp"
 #include "HHG/ContinuousLaser.hpp"
 #include "HHG/FFT.hpp"
 
-constexpr int n_kappa = 30;
-constexpr int n_z = 30;
+constexpr int n_kappa = 120;
+constexpr int n_z = 120;
 typedef boost::math::quadrature::gauss<HHG::h_float, n_kappa> kappa_integrator;
 typedef boost::math::quadrature::gauss<HHG::h_float, n_z> z_integrator;
 
@@ -33,6 +34,7 @@ int main(int argc, char** argv) {
 	}
     mrock::utility::InputFileReader input(argv[1]);
 
+    h_float temperature = input.getDouble("T");
     h_float E_F = input.getDouble("E_F");
     h_float v_F = input.getDouble("v_F");
     h_float band_width = input.getDouble("band_width");
@@ -44,7 +46,7 @@ int main(int argc, char** argv) {
     constexpr int N = n_laser_cylces * measurements_per_cycle;
 
     TimeIntegrationConfig time_config = {-n_laser_cylces * HHG::pi, n_laser_cylces * HHG::pi, N, 500};
-    DiracSystem system(E_F, v_F, band_width, photon_energy);
+    DiracSystem system(temperature, E_F, v_F, band_width, photon_energy);
     std::unique_ptr<Laser> laser = std::make_unique<ContinuousLaser>(photon_energy, E0);
 
     std::vector<h_float> alpha_buffer(N);
@@ -129,6 +131,7 @@ int main(int argc, char** argv) {
         { "n_measurements",                     time_config.n_measurements },
         { "current_density_frequency_real",     current_density_frequency_real },
         { "current_density_frequency_imag",     current_density_frequency_imag },
+        { "T",                                  temperature },
         { "E_F",                                E_F },
         { "v_F",                                v_F },
         { "band_width",                         band_width },
@@ -136,13 +139,31 @@ int main(int argc, char** argv) {
         { "photon_energy",                      photon_energy }
     };
 
+    auto improved_string = [](h_float number) -> std::string {
+        if (std::floor(number) == number) {
+            // If the number is a whole number, format it with one decimal place
+            std::ostringstream out;
+            out.precision(1);
+            out << std::fixed << number;
+            return out.str();
+        }
+        else {
+            std::string str = mrock::utility::better_to_string(number, std::chars_format::fixed);
+            // Remove trailing zeroes
+            str.erase(str.find_last_not_of('0') + 1, std::string::npos);
+            str.erase(str.find_last_not_of('.') + 1, std::string::npos);
+            return str;
+        }
+    };
+
     const std::string BASE_DATA_DIR = "../../data/HHG/";
     const std::string data_subdir = input.getString("data_dir") 
-        + "/E_F=" + std::to_string(E_F)
-        + "/v_F=" + std::to_string(v_F)
-        + "/band_width=" + std::to_string(band_width)
-        + "/field_amplitude=" + std::to_string(E0)
-        + "/photon_energy=" + std::to_string(photon_energy) 
+        + "/T=" + improved_string(temperature)
+        + "/E_F=" + improved_string(E_F)
+        + "/v_F=" + improved_string(v_F)
+        + "/band_width=" + improved_string(band_width)
+        + "/field_amplitude=" + improved_string(E0)
+        + "/photon_energy=" + improved_string(photon_energy) 
         + "/";
     const std::string output_dir = BASE_DATA_DIR + data_subdir;
 

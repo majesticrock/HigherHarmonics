@@ -19,8 +19,9 @@ constexpr HHG::h_float abs_error = 1.0e-12;
 constexpr HHG::h_float rel_error = 1.0e-8;
 
 namespace HHG {
-    DiracSystem::DiracSystem(h_float _E_F, h_float _v_F, h_float _band_width, h_float _photon_energy)
-        : E_F{ _E_F / _photon_energy }, 
+    DiracSystem::DiracSystem(h_float temperature, h_float _E_F, h_float _v_F, h_float _band_width, h_float _photon_energy)
+        : beta { is_zero(temperature) ? std::numeric_limits<h_float>::infinity() : 1. / (k_B * temperature * _photon_energy) },
+        E_F{ _E_F / _photon_energy }, 
         v_F{ _v_F * ((1e12 * hbar) / _photon_energy) }, // 1e12 for conversion to pm; T_L = hbar / _photon_energy
         band_width{ _band_width },
         max_k { band_width }, // in units of omega_L / v_F
@@ -36,7 +37,7 @@ namespace HHG {
         auto right_side = [this, &laser, &k_z, &kappa](const state_type& alpha_beta, state_type& dxdt, const h_float t) {
             dxdt = this->dynamical_matrix(k_z, kappa, laser->laser_function(t)) * alpha_beta;
         };
-        state_type current_state = { static_cast<h_float>(E_F > -dispersion(k_z, kappa)), static_cast<h_float>(E_F > dispersion(k_z, kappa)) };
+        state_type current_state = { fermi_function(E_F - dispersion(k_z, kappa), beta), fermi_function(E_F + dispersion(k_z, kappa), beta) };
         const h_float inital_norm = current_state.norm();
         const h_float measure_every = time_config.measure_every();
         const h_float dt = time_config.dt();
