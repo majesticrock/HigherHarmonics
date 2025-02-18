@@ -135,8 +135,19 @@ int main(int argc, char** argv) {
         { "field_amplitude",                    E0 },
         { "photon_energy",                      photon_energy }
     };
-    std::filesystem::create_directories("../../data/HHG/test/");
-    mrock::utility::saveString(data_json.dump(4), "../../data/HHG/test/current_density.json.gz");
+
+    const std::string BASE_DATA_DIR = "../../data/HHG/";
+    const std::string data_subdir = input.getString("data_dir") 
+        + "/E_F=" + std::to_string(E_F)
+        + "/v_F=" + std::to_string(v_F)
+        + "/band_width=" + std::to_string(band_width)
+        + "/field_amplitude=" + std::to_string(E0)
+        + "/photon_energy=" + std::to_string(photon_energy) 
+        + "/";
+    const std::string output_dir = BASE_DATA_DIR + data_subdir;
+
+    std::filesystem::create_directories(output_dir);
+    mrock::utility::saveString(data_json.dump(4), output_dir + "current_density.json.gz");
 
     return 0;
 }
