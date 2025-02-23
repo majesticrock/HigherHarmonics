@@ -37,7 +37,7 @@ namespace HHG {
         auto right_side = [this, &laser, &k_z, &kappa](const state_type& alpha_beta, state_type& dxdt, const h_float t) {
             dxdt = this->dynamical_matrix(k_z, kappa, laser->laser_function(t)) * alpha_beta;
         };
-        state_type current_state = { fermi_function(E_F - dispersion(k_z, kappa), beta), fermi_function(E_F + dispersion(k_z, kappa), beta) };
+        state_type current_state = { fermi_function(E_F + dispersion(k_z, kappa), beta), fermi_function(E_F - dispersion(k_z, kappa), beta) };
         const h_float inital_norm = current_state.norm();
         const h_float measure_every = time_config.measure_every();
         const h_float dt = time_config.dt();
@@ -143,26 +143,29 @@ namespace HHG {
 
     DiracSystem::r_matrix DiracSystem::basic_transformation(h_float k_z, h_float kappa) const
     {
-        if ( is_zero(kappa) ) return r_matrix::Zero();
         const h_float magnitude_k = norm(k_z, kappa);
-        
-        const h_float N_plus  = norm(kappa, k_z - magnitude_k);
-        const h_float N_minus = norm(kappa, k_z + magnitude_k);
+        if ( is_zero(magnitude_k) ) return r_matrix::Zero();
+        const h_float N = 1. / sqrt(2 * magnitude_k * (k_z + magnitude_k));
 
-        r_matrix V;
-        V << -kappa / N_minus,             -kappa / N_plus,
-            (k_z + magnitude_k) / N_minus, (k_z - magnitude_k) / N_plus;
+        const r_matrix V{ {N * (k_z + magnitude_k), -N * kappa},
+                          {N * kappa, N * (k_z + magnitude_k)} };
         return V;
     }
 
     DiracSystem::c_matrix DiracSystem::dynamical_matrix(h_float k_z, h_float kappa, h_float vector_potential) const
     {
-        c_matrix h; // v_F is already contained within the k values
-        h << k_z - v_F * vector_potential, kappa,
-            kappa, -k_z + v_F * vector_potential;
-        h *= imaginary_unit;
+        const h_float magnitude_k = norm(k_z, kappa);
+        const h_float factor = v_F * vector_potential / magnitude_k;
+        const c_matrix A{ {-factor * k_z + magnitude_k, -factor * kappa},
+                          {-factor * kappa, factor * k_z - magnitude_k} };
+        return imaginary_unit * A;
+    }
 
-        const r_matrix V = basic_transformation(k_z, kappa);
-        return V.adjoint() * h * V;
+    DiracSystem::r_matrix DiracSystem::real_dynamical_matrix(h_float k_z, h_float kappa, h_float vector_potential) const
+    {
+        const h_float magnitude_k = norm(k_z, kappa);
+        const h_float factor = v_F * vector_potential / magnitude_k;
+        return r_matrix{ {-factor * k_z + magnitude_k, -factor * kappa},
+                         {-factor * kappa,              factor * k_z - magnitude_k} };
     }
 }

@@ -13,9 +13,10 @@
 #include "HHG/DiracSystem.hpp"
 #include "HHG/ContinuousLaser.hpp"
 #include "HHG/FFT.hpp"
+#include "HHG/WelchWindow.hpp"
 
 constexpr int n_kappa = 120;
-constexpr int n_z = 120;
+constexpr int n_z = 240;
 typedef boost::math::quadrature::gauss<HHG::h_float, n_kappa> kappa_integrator;
 typedef boost::math::quadrature::gauss<HHG::h_float, n_z> z_integrator;
 
@@ -23,6 +24,10 @@ typedef boost::math::quadrature::gauss<HHG::h_float, n_z> z_integrator;
 inline HHG::h_float integration_weight(HHG::h_float k_z, HHG::h_float kappa) {
     return k_z * kappa / HHG::norm(k_z, kappa);
 }
+
+#pragma omp declare reduction(vec_plus : std::vector<HHG::h_float> : \
+    std::transform(omp_out.begin(), omp_out.end(), omp_in.begin(), omp_out.begin(), std::plus<HHG::h_float>())) \
+    initializer(omp_priv = decltype(omp_orig)(omp_orig.size()))
 
 int main(int argc, char** argv) {
     using namespace HHG;
@@ -55,9 +60,19 @@ int main(int argc, char** argv) {
     std::vector<h_float> alphas(N, h_float{});
     std::vector<h_float> betas(N, h_float{});
 
+    std::vector<h_float> picky_z_alpha(n_z, h_float{});
+    std::vector<h_float> picky_z_beta(n_z, h_float{});
+
+    std::vector<h_float> picky_kappa_alpha(n_kappa, h_float{});
+    std::vector<h_float> picky_kappa_beta(n_kappa, h_float{});
+
+    const int pick_z = 1;
+    const int pick_time = N / 2;
 
     high_resolution_clock::time_point begin = high_resolution_clock::now();
     std::cout << "Computing the k integrals..." << std::endl;
+
+    #pragma omp parallel for firstprivate(alpha_buffer, beta_buffer) reduction(vec_plus:alphas, betas)
     for (int z = 0; z < n_z / 2; ++z) {
         const auto k_z = system.convert_to_z_integration(z_integrator::abscissa()[z]);
         const auto weight_z = z_integrator::weights()[z];
@@ -72,11 +87,20 @@ int main(int argc, char** argv) {
                 alphas[i] += weight * alpha_buffer[i];
                 betas[i]  += weight * beta_buffer[i];
             }
+            if (z == pick_z) {
+                picky_kappa_alpha[n_kappa / 2 + r] = kappa * alpha_buffer[pick_time];
+                picky_kappa_beta[ n_kappa / 2 + r] = kappa * beta_buffer[pick_time];
+            }
+            picky_z_alpha[n_z / 2 + z] += kappa_integrator::weights()[r] * integration_weight(k_z, kappa) * alpha_buffer[pick_time];
+            picky_z_beta[n_z / 2 + z]  += kappa_integrator::weights()[r] * integration_weight(k_z, kappa) * beta_buffer[pick_time];
+
             system.time_evolution(alpha_buffer, beta_buffer, laser.get(), -k_z, kappa, time_config);
             for (int i = 0; i < N; ++i) { // The weight has the opposite sign for -k_z
                 alphas[i] -= weight * alpha_buffer[i];
                 betas[i]  -= weight * beta_buffer[i];
             }
+            picky_z_alpha[n_z / 2 - 1 - z] -= kappa_integrator::weights()[r] * integration_weight(k_z, kappa) * alpha_buffer[pick_time];
+            picky_z_beta[n_z / 2 - 1 - z]  -= kappa_integrator::weights()[r] * integration_weight(k_z, kappa) * beta_buffer[pick_time];
             
             // negative abcissae for kappa
             kappa = system.convert_to_kappa_integration(-kappa_integrator::abscissa()[r], k_z);
@@ -87,11 +111,20 @@ int main(int argc, char** argv) {
                 alphas[i] += weight * alpha_buffer[i];
                 betas[i]  += weight * beta_buffer[i];
             }
+            if (z == pick_z) {
+                picky_kappa_alpha[n_kappa / 2 - 1 - r] = kappa * alpha_buffer[pick_time];
+                picky_kappa_beta[n_kappa / 2 - 1 - r]  = kappa * beta_buffer[pick_time];
+            }
+            picky_z_alpha[n_z / 2 + z] += kappa_integrator::weights()[r] * integration_weight(k_z, kappa) * alpha_buffer[pick_time];
+            picky_z_beta[ n_z / 2 + z] += kappa_integrator::weights()[r] * integration_weight(k_z, kappa) * beta_buffer[pick_time];
+
             system.time_evolution(alpha_buffer, beta_buffer, laser.get(), -k_z, kappa, time_config);
             for (int i = 0; i < N; ++i) { // The weight has the opposite sign for -k_z
                 alphas[i] -= weight * alpha_buffer[i];
                 betas[i]  -= weight * beta_buffer[i];
             }
+            picky_z_alpha[n_z / 2 - 1 - z] -= kappa_integrator::weights()[r] * integration_weight(k_z, kappa) * alpha_buffer[pick_time];
+            picky_z_beta[n_z / 2 - 1 - z]  -= kappa_integrator::weights()[r] * integration_weight(k_z, kappa) * beta_buffer[pick_time];
         }
     }
     high_resolution_clock::time_point end = high_resolution_clock::now();
@@ -102,8 +135,11 @@ int main(int argc, char** argv) {
 
     FFT fft(N);
     std::vector<h_float> current_density_time = alphas;
+
+    WelchWindow window(N);
     for (int i = 0; i < N; ++i) {
         current_density_time[i] -= betas[i];
+        current_density_time[i] *= window[i];
     }
     std::vector<h_float> current_density_frequency_real(N);
     std::vector<h_float> current_density_frequency_imag(N);
@@ -117,6 +153,18 @@ int main(int argc, char** argv) {
     for (int i = 0; i < N; i++)
     {
         laser_function[i] = laser->laser_function(time_config.t_begin + i * time_config.measure_every());
+    }
+
+    std::vector<h_float> kappas(n_kappa);
+    for (int i = 0; i < n_kappa / 2; ++i) {
+        const auto z = system.convert_to_z_integration(z_integrator::abscissa()[pick_z]);
+        kappas[i] = system.convert_to_kappa_integration(-kappa_integrator::abscissa()[n_kappa / 2 - 1 - i], z);
+        kappas[i + n_kappa / 2] = system.convert_to_kappa_integration(kappa_integrator::abscissa()[i], z);
+    }
+    std::vector<h_float> k_zs(n_z);
+    for (int i = 0; i < n_z / 2; ++i) {
+        k_zs[i] = system.convert_to_z_integration(-z_integrator::abscissa()[n_z / 2 - 1 - i]);
+        k_zs[i + n_z / 2] = system.convert_to_z_integration(z_integrator::abscissa()[i]);
     }
 
     nlohmann::json data_json {
@@ -136,7 +184,13 @@ int main(int argc, char** argv) {
         { "v_F",                                v_F },
         { "band_width",                         band_width },
         { "field_amplitude",                    E0 },
-        { "photon_energy",                      photon_energy }
+        { "photon_energy",                      photon_energy },
+        { "picky_z_alpha",                      picky_z_alpha },
+        { "picky_z_beta",                       picky_z_beta },
+        { "picky_kappa_alpha",                  picky_kappa_alpha },
+        { "picky_kappa_beta",                   picky_kappa_beta },
+        { "kappas",                             kappas },
+        { "k_zs",                               k_zs }
     };
 
     auto improved_string = [](h_float number) -> std::string {

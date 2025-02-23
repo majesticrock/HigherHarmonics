@@ -12,6 +12,7 @@ namespace HHG {
         using c_vector = complex_vector<2>;
         using c_matrix = complex_matrix<2, 2>;
         using r_matrix = real_matrix<2, 2>;
+        using diagonal_matrix = Eigen::DiagonalMatrix<h_float, 2>;
 
         DiracSystem() = delete;
         /**
@@ -50,5 +51,10 @@ namespace HHG {
         // M = i v_F * V * h * V^+
         // d/dt (alpha, beta)^T = M * (alpha, beta)^T
         c_matrix dynamical_matrix(h_float k_z, h_float kappa, h_float vector_potential) const;
+
+        // M = i v_F * V * h * V^+
+        // d/dt (alpha, beta)^T = M * (alpha, beta)^T
+        // this function omits the factor of i - causing the matrix to be real
+        r_matrix real_dynamical_matrix(h_float k_z, h_float kappa, h_float vector_potential) const;
     };
 }
