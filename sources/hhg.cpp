@@ -15,8 +15,8 @@
 #include "HHG/FFT.hpp"
 #include "HHG/WelchWindow.hpp"
 
-constexpr int n_kappa = 120;
-constexpr int n_z = 240;
+constexpr int n_kappa = 600;
+constexpr int n_z = 120;
 typedef boost::math::quadrature::gauss<HHG::h_float, n_kappa> kappa_integrator;
 typedef boost::math::quadrature::gauss<HHG::h_float, n_z> z_integrator;
 
@@ -66,7 +66,7 @@ int main(int argc, char** argv) {
     std::vector<h_float> picky_kappa_alpha(n_kappa, h_float{});
     std::vector<h_float> picky_kappa_beta(n_kappa, h_float{});
 
-    const int pick_z = 1;
+    const int pick_z = 55;
     const int pick_time = N / 2;
 
     high_resolution_clock::time_point begin = high_resolution_clock::now();
@@ -88,8 +88,8 @@ int main(int argc, char** argv) {
                 betas[i]  += weight * beta_buffer[i];
             }
             if (z == pick_z) {
-                picky_kappa_alpha[n_kappa / 2 + r] = kappa * alpha_buffer[pick_time];
-                picky_kappa_beta[ n_kappa / 2 + r] = kappa * beta_buffer[pick_time];
+                picky_kappa_alpha[n_kappa / 2 + r] = alpha_buffer[pick_time];
+                picky_kappa_beta[ n_kappa / 2 + r] = beta_buffer[pick_time];
             }
             picky_z_alpha[n_z / 2 + z] += kappa_integrator::weights()[r] * integration_weight(k_z, kappa) * alpha_buffer[pick_time];
             picky_z_beta[n_z / 2 + z]  += kappa_integrator::weights()[r] * integration_weight(k_z, kappa) * beta_buffer[pick_time];
@@ -112,8 +112,8 @@ int main(int argc, char** argv) {
                 betas[i]  += weight * beta_buffer[i];
             }
             if (z == pick_z) {
-                picky_kappa_alpha[n_kappa / 2 - 1 - r] = kappa * alpha_buffer[pick_time];
-                picky_kappa_beta[n_kappa / 2 - 1 - r]  = kappa * beta_buffer[pick_time];
+                picky_kappa_alpha[n_kappa / 2 - 1 - r] = alpha_buffer[pick_time];
+                picky_kappa_beta[n_kappa / 2 - 1 - r]  = beta_buffer[pick_time];
             }
             picky_z_alpha[n_z / 2 + z] += kappa_integrator::weights()[r] * integration_weight(k_z, kappa) * alpha_buffer[pick_time];
             picky_z_beta[ n_z / 2 + z] += kappa_integrator::weights()[r] * integration_weight(k_z, kappa) * beta_buffer[pick_time];
