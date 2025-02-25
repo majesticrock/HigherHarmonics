@@ -4,19 +4,24 @@
 
 #include <boost/numeric/odeint.hpp>
 
-
 typedef HHG::DiracSystem::c_vector state_type;
+typedef HHG::DiracSystem::sigma_vector sigma_state_type;
 using namespace boost::numeric::odeint;
 
 #define adaptive_stepper
 #ifdef adaptive_stepper
 typedef runge_kutta_fehlberg78<state_type> error_stepper_type;
+typedef runge_kutta_fehlberg78<sigma_state_type> sigma_error_stepper_type;
 #else
 typedef runge_kutta4<state_type> stepper_type;
+typedef runge_kutta4<sigma_state_type> sigma_stepper_type;
 #endif
 
 constexpr HHG::h_float abs_error = 1.0e-12;
 constexpr HHG::h_float rel_error = 1.0e-8;
+
+#define SIGMA_Q kappa / magnitude_k
+#define SIGMA_R ((k_z + magnitude_k) * (k_z + magnitude_k) - kappa * kappa) / (2 * magnitude_k * (k_z + magnitude_k))
 
 namespace HHG {
     DiracSystem::DiracSystem(h_float temperature, h_float _E_F, h_float _v_F, h_float _band_width, h_float _photon_energy)
@@ -108,6 +113,51 @@ namespace HHG {
             t_end += measure_every;
         }
     }
+
+    void DiracSystem::time_evolution_sigma(std::vector<h_float>& rhos, Laser const * const laser, 
+        h_float k_z, h_float kappa, const TimeIntegrationConfig& time_config) const
+    {
+#ifndef adaptive_stepper
+        sigma_stepper_type stepper;
+#endif
+        auto right_side = [this, &laser, &k_z, &kappa](const sigma_state_type& state, sigma_state_type& dxdt, const h_float t) {
+            const h_float vector_potential = laser->laser_function(t);
+            const h_float magnitude_k = norm(k_z, kappa);
+            const h_float m_x = 2 * v_F * vector_potential * SIGMA_Q;
+            const h_float m_z = 2 * (magnitude_k - v_F * vector_potential * SIGMA_R);
+
+            dxdt[0] = m_z * state[1];
+            dxdt[1] = m_x * state[2] - state[0] * m_z;
+            dxdt[2] = -m_x * state[1];
+        };
+
+        const h_float alpha_0 = fermi_function(E_F + dispersion(k_z, kappa), beta);
+        const h_float beta_0 = fermi_function(E_F - dispersion(k_z, kappa), beta);
+
+        const h_float rho_x = alpha_0 * beta_0;
+        const h_float rho_z = alpha_0 * alpha_0 - beta_0 * beta_0;
+
+        sigma_state_type current_state = { h_float{0}, h_float{0}, h_float{1} };
+        const h_float measure_every = time_config.measure_every();
+        const h_float dt = time_config.dt();
+
+        h_float t_begin = time_config.t_begin;
+        h_float t_end = t_begin + measure_every;
+
+        rhos.resize(time_config.n_measurements);
+        rhos[0] = rho_z;
+        for (int i = 1; i < time_config.n_measurements; ++i) {
+#ifdef adaptive_stepper
+            integrate_adaptive(make_controlled<sigma_error_stepper_type>(abs_error, rel_error), right_side, current_state, t_begin, t_end, dt);
+#else
+            integrate_const(stepper, right_side, current_state, t_begin, t_end, dt);
+#endif
+            rhos[i] = current_state[0] * rho_x + current_state[2] * rho_z; // factor of 2 does not matter
+            t_begin = t_end;
+            t_end += measure_every;
+        }
+    }
+
 
     h_float DiracSystem::dispersion(h_float k_z, h_float kappa) const
     {

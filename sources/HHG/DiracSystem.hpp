@@ -2,6 +2,7 @@
 
 #include <mrock/utility/InputFileReader.hpp>
 #include <string>
+#include <array>
 #include "GlobalDefinitions.hpp"
 #include "Laser.hpp"
 #include "TimeIntegrationConfig.hpp"
@@ -13,6 +14,8 @@ namespace HHG {
         using c_matrix = complex_matrix<2, 2>;
         using r_matrix = real_matrix<2, 2>;
         using diagonal_matrix = Eigen::DiagonalMatrix<h_float, 2>;
+
+        using sigma_vector = std::array<h_float, 3>;
 
         DiracSystem() = delete;
         /**
@@ -27,6 +30,9 @@ namespace HHG {
             h_float k_z, h_float kappa, const TimeIntegrationConfig& time_config) const;
 
         void time_evolution_complex(std::vector<h_complex>& alphas, std::vector<h_complex>& betas, Laser const * const laser, 
+            h_float k_z, h_float kappa, const TimeIntegrationConfig& time_config) const;
+
+        void time_evolution_sigma(std::vector<h_float>& rhos, Laser const * const laser, 
             h_float k_z, h_float kappa, const TimeIntegrationConfig& time_config) const;
 
         std::string info() const;
