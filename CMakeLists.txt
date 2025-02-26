@@ -31,7 +31,11 @@ else()
 endif()
 include(${CMAKE_CURRENT_SOURCE_DIR}/../../PhdUtility/cmake/mrock-information.cmake)
 
-SET_COMPILER_FLAGS(hhg)
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    SET_DEBUG_FLAGS(hhg)
+else()
+    SET_COMPILER_FLAGS(hhg)
+endif()
 
 find_package(OpenMP REQUIRED)
 find_package(mrock REQUIRED)

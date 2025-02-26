@@ -164,17 +164,21 @@ namespace HHG {
         return norm(kappa, k_z); // v_F is already contained within the k values
     }
 
-    h_float DiracSystem::convert_to_z_integration(h_float abscissa) const
+    h_float DiracSystem::kappa_integration_upper_limit(h_float k_z) const
+    {
+        const h_float k_z_squared = k_z * k_z;
+        assert(max_kappa_compare >= k_z_squared);
+        return sqrt(max_kappa_compare - k_z_squared);
+    }
+
+    h_float DiracSystem::convert_to_z_integration(h_float abscissa) const noexcept
     {
         return max_k * abscissa;
     }
     
     h_float DiracSystem::convert_to_kappa_integration(h_float abscissa, h_float k_z) const
     {
-        const h_float k_z_squared = k_z * k_z;
-        assert(max_kappa_compare >= k_z_squared);
-        const h_float up = sqrt(max_kappa_compare - k_z_squared);
-        return 0.5 * up * (abscissa + h_float{1});
+        return 0.5 * kappa_integration_upper_limit(k_z) * (abscissa + h_float{1});
     }
 
     std::string DiracSystem::info() const

@@ -39,7 +39,9 @@ namespace HHG {
 
         h_float dispersion(h_float k_z, h_float kappa) const;
 
-        h_float convert_to_z_integration(h_float abscissa) const;
+        h_float kappa_integration_upper_limit(h_float k_z) const;
+        inline h_float z_integration_upper_limit() const noexcept { return max_k; }
+        h_float convert_to_z_integration(h_float abscissa) const noexcept;
         h_float convert_to_kappa_integration(h_float abscissa, h_float k_z) const;
     private:
         const h_float beta{}; ///< in units of the 1 / photon energy

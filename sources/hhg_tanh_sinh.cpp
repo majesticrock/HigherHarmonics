@@ -3,31 +3,82 @@
 #include <memory>
 #include <algorithm>
 #include <chrono>
+#include <numeric>
 
 #include <nlohmann/json.hpp>
+#include <boost/math/quadrature/tanh_sinh.hpp>
 #include <mrock/utility/OutputConvenience.hpp>
 #include <mrock/utility/InputFileReader.hpp>
 #include <mrock/utility/better_to_string.hpp>
+#include <mrock/utility/ElementwiseVector.hpp>
 
 #include "HHG/DiracSystem.hpp"
 #include "HHG/ContinuousLaser.hpp"
 #include "HHG/FFT.hpp"
 #include "HHG/WelchWindow.hpp"
 
-constexpr int n_kappa = 400;
-constexpr int n_z = 400;
+using namespace HHG;
+
+typedef boost::math::quadrature::tanh_sinh<HHG::h_float> integrator;
 
 // k_z * kappa / |k| is found analytically (compare the HHG document)
 inline HHG::h_float integration_weight(HHG::h_float k_z, HHG::h_float kappa) {
     return k_z * kappa / HHG::norm(k_z, kappa);
 }
 
+struct kappa_integrand {
+    const h_float k_z{};
+    const DiracSystem& system;
+    const std::unique_ptr<Laser>& laser;
+    const TimeIntegrationConfig& time_config;
+
+    typedef mrock::utility::ElementwiseVector<std::vector<h_float>> result_type;
+
+    kappa_integrand(h_float _k_z, const DiracSystem& _system, const std::unique_ptr<Laser>& _laser, const TimeIntegrationConfig& _time_config)
+        : k_z(_k_z), system(_system), laser(_laser), time_config(_time_config) {}
+
+    result_type operator()(h_float kappa) const {
+        result_type rhos_buffer(time_config.n_measurements, h_float{}, result_type::allocator_type(), mrock::utility::L2SquaredNorm());
+        
+        system.time_evolution_sigma(rhos_buffer.elements, laser.get(), k_z, kappa, time_config);
+        rhos_buffer *= integration_weight(k_z, kappa);
+        return rhos_buffer;
+    }
+};
+
+struct k_z_integrand {
+    const DiracSystem& system;
+    const std::unique_ptr<Laser>& laser;
+    const TimeIntegrationConfig& time_config;
+
+    using result_type = kappa_integrand::result_type;
+    
+    k_z_integrand(const DiracSystem& _system, const std::unique_ptr<Laser>& _laser, const TimeIntegrationConfig& _time_config)
+        : system(_system), laser(_laser), time_config(_time_config) {}
+
+    result_type operator()(h_float k_z) const {
+        integrator kappa_integrator;
+        kappa_integrand m_kappa_integrand(k_z, system, laser, time_config);
+        const auto up = system.kappa_integration_upper_limit(k_z);
+        if (is_zero(up) ) return result_type(time_config.n_measurements, h_float{});
+
+        double termination = 4000 * std::sqrt(std::numeric_limits<double>::epsilon());
+        double error;
+        double L1;
+        size_t levels;
+        auto Q = kappa_integrator.integrate(m_kappa_integrand, h_float{0}, system.kappa_integration_upper_limit(k_z), 
+                    termination, &error, &L1, &levels);
+        double condition_number = L1/abs(Q);
+        std::cout << "Inner condition_number " << condition_number << std::endl;
+        return Q;
+    }
+};
+
 #pragma omp declare reduction(vec_plus : std::vector<HHG::h_float> : \
     std::transform(omp_out.begin(), omp_out.end(), omp_in.begin(), omp_out.begin(), std::plus<HHG::h_float>())) \
     initializer(omp_priv = decltype(omp_orig)(omp_orig.size()))
 
 int main(int argc, char** argv) {
-    using namespace HHG;
     using std::chrono::high_resolution_clock;
 
     if (argc < 2) {
@@ -51,47 +102,13 @@ int main(int argc, char** argv) {
     DiracSystem system(temperature, E_F, v_F, band_width, photon_energy);
     std::unique_ptr<Laser> laser = std::make_unique<ContinuousLaser>(photon_energy, E0);
 
-    std::vector<h_float> rhos_buffer(N);
-    std::vector<h_float> current_density_time(N, h_float{});
-
-    constexpr int pick_z = n_z / 5;
-    const int pick_time = 987;
-
-    std::vector<h_float> pick_current_density_z(n_z + 1, h_float{});
-    std::vector<h_float> pick_current_density_kappa(n_kappa + 1, h_float{});
-    std::vector<h_float> pick_current_density_kappa_minus(n_kappa + 1, h_float{});
-
     high_resolution_clock::time_point begin = high_resolution_clock::now();
     std::cout << "Computing the k integrals..." << std::endl;
 
-    const auto delta_z = 2 * system.z_integration_upper_limit() / n_z;
+    integrator z_integrator;
+    k_z_integrand m_k_z_integrand(system, laser, time_config);
+    auto current_density_time = z_integrator.integrate(m_k_z_integrand, -system.convert_to_z_integration(1), system.convert_to_z_integration(1));
 
-    #pragma omp parallel for firstprivate(rhos_buffer) reduction(vec_plus:current_density_time)
-    for (int z = 1; z < n_z; ++z) { // f(|z| = z_max) = 0
-        const auto k_z = (z - n_z / 2) * delta_z;
-        const auto delta_kappa = system.kappa_integration_upper_limit(k_z) / n_kappa;
-
-        // f(kappa = 0) = 0
-        for (int r = 1; r <= n_kappa; ++r) {
-            // positive abcissae for kappa
-            const auto kappa = r * delta_kappa;
-            const auto weight = (r == n_kappa ? 0.5 : 1.0) * delta_kappa * delta_z * integration_weight(k_z, kappa);
-            
-            system.time_evolution_sigma(rhos_buffer, laser.get(), k_z, kappa, time_config);
-            for (int i = 0; i < N; ++i) {
-                current_density_time[i] += weight * rhos_buffer[i];
-            }
-            /////////////////////////// Debug ///////////////////////////
-            if (z == pick_z + n_z / 2) {
-                pick_current_density_kappa[r] = current_density_time[pick_time];
-            }
-            if (z == pick_z) {
-                pick_current_density_kappa_minus[r] = current_density_time[pick_time];
-            }
-            pick_current_density_z[z] += delta_kappa * integration_weight(k_z, kappa) * current_density_time[pick_time];
-            /////////////////////////// Debug ///////////////////////////
-        }
-    }
     high_resolution_clock::time_point end = high_resolution_clock::now();
 	std::cout << "Runtime = " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "[ms]" << std::endl;
 
@@ -106,7 +123,7 @@ int main(int argc, char** argv) {
     }
     std::vector<h_float> current_density_frequency_real(N);
     std::vector<h_float> current_density_frequency_imag(N);
-    fft.compute(current_density_time, current_density_frequency_real, current_density_frequency_imag);
+    fft.compute(current_density_time.elements, current_density_frequency_real, current_density_frequency_imag);
 
     end = high_resolution_clock::now();
 	std::cout << "Runtime = " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "[ms]" << std::endl;
@@ -118,17 +135,6 @@ int main(int argc, char** argv) {
         laser_function[i] = laser->laser_function(time_config.t_begin + i * time_config.measure_every());
     }
 
-    std::vector<h_float> kappas(n_kappa + 1);
-    for (int i = 0; i <= n_kappa; ++i) {
-        const auto k_z = (pick_z - n_z / 2) * delta_z;
-        const auto delta_kappa = system.kappa_integration_upper_limit(k_z) / n_kappa;
-        kappas[i] = i * delta_kappa;
-    }
-    std::vector<h_float> k_zs(n_z + 1);
-    for (int i = 0; i <= n_z; ++i) {
-        k_zs[i] = (i - n_z / 2) * delta_z;
-    }
-
     nlohmann::json data_json {
         { "time", 				                mrock::utility::time_stamp() },
         { "laser_function",                     laser_function },
@@ -137,7 +143,7 @@ int main(int argc, char** argv) {
         { "t_end",                              time_config.t_end },
         { "n_laser_cycles",                     n_laser_cylces },
         { "n_measurements",                     time_config.n_measurements },
-        { "current_density_time",               current_density_time },
+        { "current_density_time",               current_density_time.elements },
         { "current_density_frequency_real",     current_density_frequency_real },
         { "current_density_frequency_imag",     current_density_frequency_imag },
         { "T",                                  temperature },
@@ -146,11 +152,6 @@ int main(int argc, char** argv) {
         { "band_width",                         band_width },
         { "field_amplitude",                    E0 },
         { "photon_energy",                      photon_energy },
-        { "kappas",                             kappas },
-        { "k_zs",                               k_zs },
-        { "pick_current_density_z",             pick_current_density_z },
-        { "pick_current_density_kappa",         pick_current_density_kappa },
-        { "pick_current_density_kappa_minus",   pick_current_density_kappa_minus },
     };
 
     auto improved_string = [](h_float number) -> std::string {

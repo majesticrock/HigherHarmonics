@@ -5,6 +5,7 @@
 #include <chrono>
 
 #include <nlohmann/json.hpp>
+#include <boost/math/quadrature/gauss.hpp>
 #include <mrock/utility/OutputConvenience.hpp>
 #include <mrock/utility/InputFileReader.hpp>
 #include <mrock/utility/better_to_string.hpp>
@@ -14,8 +15,10 @@
 #include "HHG/FFT.hpp"
 #include "HHG/WelchWindow.hpp"
 
-constexpr int n_kappa = 400;
-constexpr int n_z = 400;
+constexpr int n_kappa = 1000;
+constexpr int n_z = 250;
+typedef boost::math::quadrature::gauss<HHG::h_float, n_kappa> kappa_integrator;
+typedef boost::math::quadrature::gauss<HHG::h_float, n_z> z_integrator;
 
 // k_z * kappa / |k| is found analytically (compare the HHG document)
 inline HHG::h_float integration_weight(HHG::h_float k_z, HHG::h_float kappa) {
@@ -57,38 +60,69 @@ int main(int argc, char** argv) {
     constexpr int pick_z = n_z / 5;
     const int pick_time = 987;
 
-    std::vector<h_float> pick_current_density_z(n_z + 1, h_float{});
-    std::vector<h_float> pick_current_density_kappa(n_kappa + 1, h_float{});
-    std::vector<h_float> pick_current_density_kappa_minus(n_kappa + 1, h_float{});
+    std::vector<h_float> pick_current_density_z(n_z, h_float{});
+    std::vector<h_float> pick_current_density_kappa(n_kappa, h_float{});
+    std::vector<h_float> pick_current_density_kappa_minus(n_kappa, h_float{});
 
     high_resolution_clock::time_point begin = high_resolution_clock::now();
     std::cout << "Computing the k integrals..." << std::endl;
 
-    const auto delta_z = 2 * system.z_integration_upper_limit() / n_z;
-
     #pragma omp parallel for firstprivate(rhos_buffer) reduction(vec_plus:current_density_time)
-    for (int z = 1; z < n_z; ++z) { // f(|z| = z_max) = 0
-        const auto k_z = (z - n_z / 2) * delta_z;
-        const auto delta_kappa = system.kappa_integration_upper_limit(k_z) / n_kappa;
+    for (int z = 0; z < n_z / 2; ++z) {
+        const auto k_z = system.convert_to_z_integration(z_integrator::abscissa()[z]);
+        const auto weight_z = z_integrator::weights()[z];
 
-        // f(kappa = 0) = 0
-        for (int r = 1; r <= n_kappa; ++r) {
+        for (int r = 0; r < n_kappa / 2; ++r) {
             // positive abcissae for kappa
-            const auto kappa = r * delta_kappa;
-            const auto weight = (r == n_kappa ? 0.5 : 1.0) * delta_kappa * delta_z * integration_weight(k_z, kappa);
+            auto kappa = system.convert_to_kappa_integration(kappa_integrator::abscissa()[r], k_z);
+            auto weight = kappa_integrator::weights()[r] * weight_z * integration_weight(k_z, kappa);
             
             system.time_evolution_sigma(rhos_buffer, laser.get(), k_z, kappa, time_config);
             for (int i = 0; i < N; ++i) {
                 current_density_time[i] += weight * rhos_buffer[i];
             }
             /////////////////////////// Debug ///////////////////////////
-            if (z == pick_z + n_z / 2) {
-                pick_current_density_kappa[r] = current_density_time[pick_time];
-            }
             if (z == pick_z) {
-                pick_current_density_kappa_minus[r] = current_density_time[pick_time];
+                pick_current_density_kappa[n_kappa / 2 + r] = current_density_time[pick_time];
             }
-            pick_current_density_z[z] += delta_kappa * integration_weight(k_z, kappa) * current_density_time[pick_time];
+            pick_current_density_z[n_z / 2 + z] += kappa_integrator::weights()[r] * integration_weight(k_z, kappa) * current_density_time[pick_time];
+            /////////////////////////// Debug ///////////////////////////
+
+            system.time_evolution_sigma(rhos_buffer, laser.get(), -k_z, kappa, time_config);
+            for (int i = 0; i < N; ++i) { // The weight has the opposite sign for -k_z
+                current_density_time[i] -= weight * rhos_buffer[i];
+            }
+            /////////////////////////// Debug ///////////////////////////
+            if (z == pick_z) {
+                pick_current_density_kappa_minus[n_kappa / 2 - 1 - r] = current_density_time[pick_time];
+            }
+            pick_current_density_z[n_z / 2 - 1 - z] -= kappa_integrator::weights()[r] * integration_weight(k_z, kappa) * current_density_time[pick_time];
+            /////////////////////////// Debug ///////////////////////////
+
+            // negative abcissae for kappa
+            kappa = system.convert_to_kappa_integration(-kappa_integrator::abscissa()[r], k_z);
+            weight = kappa_integrator::weights()[r] * weight_z * integration_weight(k_z, kappa);
+            
+            system.time_evolution_sigma(rhos_buffer, laser.get(), k_z, kappa, time_config);
+            for (int i = 0; i < N; ++i) {
+                current_density_time[i] += weight * rhos_buffer[i];
+            }
+            /////////////////////////// Debug ///////////////////////////
+            if (z == pick_z) {
+                pick_current_density_kappa[n_kappa / 2 - 1 - r] = current_density_time[pick_time];
+            }
+            pick_current_density_z[n_z / 2 + z] += kappa_integrator::weights()[r] * integration_weight(k_z, kappa) * current_density_time[pick_time];
+            /////////////////////////// Debug ///////////////////////////
+
+            system.time_evolution_sigma(rhos_buffer, laser.get(), -k_z, kappa, time_config);
+            for (int i = 0; i < N; ++i) { // The weight has the opposite sign for -k_z
+                current_density_time[i] -= weight * rhos_buffer[i];
+            }
+            /////////////////////////// Debug ///////////////////////////
+            if (z == pick_z) {
+                pick_current_density_kappa_minus[n_kappa / 2 - 1 - r] = current_density_time[pick_time];
+            }
+            pick_current_density_z[n_z / 2 - 1 - z] -= kappa_integrator::weights()[r] * integration_weight(k_z, kappa) * current_density_time[pick_time];
             /////////////////////////// Debug ///////////////////////////
         }
     }
@@ -118,15 +152,16 @@ int main(int argc, char** argv) {
         laser_function[i] = laser->laser_function(time_config.t_begin + i * time_config.measure_every());
     }
 
-    std::vector<h_float> kappas(n_kappa + 1);
-    for (int i = 0; i <= n_kappa; ++i) {
-        const auto k_z = (pick_z - n_z / 2) * delta_z;
-        const auto delta_kappa = system.kappa_integration_upper_limit(k_z) / n_kappa;
-        kappas[i] = i * delta_kappa;
+    std::vector<h_float> kappas(n_kappa);
+    for (int i = 0; i < n_kappa / 2; ++i) {
+        const auto z = system.convert_to_z_integration(z_integrator::abscissa()[pick_z]);
+        kappas[i] = system.convert_to_kappa_integration(-kappa_integrator::abscissa()[n_kappa / 2 - 1 - i], z);
+        kappas[i + n_kappa / 2] = system.convert_to_kappa_integration(kappa_integrator::abscissa()[i], z);
     }
-    std::vector<h_float> k_zs(n_z + 1);
-    for (int i = 0; i <= n_z; ++i) {
-        k_zs[i] = (i - n_z / 2) * delta_z;
+    std::vector<h_float> k_zs(n_z);
+    for (int i = 0; i < n_z / 2; ++i) {
+        k_zs[i] = system.convert_to_z_integration(-z_integrator::abscissa()[n_z / 2 - 1 - i]);
+        k_zs[i + n_z / 2] = system.convert_to_z_integration(z_integrator::abscissa()[i]);
     }
 
     nlohmann::json data_json {
