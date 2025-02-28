@@ -14,6 +14,8 @@ namespace HHG {
     template<Eigen::Index nrows, Eigen::Index ncols> using real_matrix = Eigen::Matrix<h_float, nrows, ncols>;
     template<Eigen::Index nrows> using real_vector = Eigen::Vector<h_float, nrows>;
     
+    using nd_vector = real_vector<Eigen::Dynamic>;
+
     template<Eigen::Index nrows, Eigen::Index ncols> using complex_matrix = Eigen::Matrix<h_complex, nrows, ncols>;
     template<Eigen::Index nrows> using complex_vector = Eigen::Vector<h_complex, nrows>;
 

@@ -114,7 +114,7 @@ namespace HHG {
         }
     }
 
-    void DiracSystem::time_evolution_sigma(std::vector<h_float>& rhos, Laser const * const laser, 
+    void DiracSystem::time_evolution_sigma(nd_vector& rhos, Laser const * const laser, 
         h_float k_z, h_float kappa, const TimeIntegrationConfig& time_config) const
     {
 #ifndef adaptive_stepper
@@ -144,7 +144,7 @@ namespace HHG {
         h_float t_begin = time_config.t_begin;
         h_float t_end = t_begin + measure_every;
 
-        rhos.resize(time_config.n_measurements);
+        rhos.conservativeResize(time_config.n_measurements);
         rhos[0] = rho_z;
         for (int i = 1; i < time_config.n_measurements; ++i) {
 #ifdef adaptive_stepper
