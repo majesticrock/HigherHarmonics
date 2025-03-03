@@ -1,4 +1,3 @@
-#include "GlobalDefinitions.hpp"
 #include "TimeIntegrationConfig.hpp"
 
 namespace HHG {

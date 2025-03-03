@@ -2,7 +2,7 @@
 
 #include "Laser.hpp"
 
-namespace HHG {
+namespace HHG::Laser {
     struct ContinuousLaser : public Laser {
         ContinuousLaser(h_float photon_energy, h_float E_0);
 

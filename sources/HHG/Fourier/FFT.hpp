@@ -1,9 +1,9 @@
 #pragma once
 
-#include "GlobalDefinitions.hpp"
+#include "../GlobalDefinitions.hpp"
 #include <fftw3.h>
 
-namespace HHG {
+namespace HHG::Fourier {
     struct FFT {
         fftw_plan plan;
         h_float* in;

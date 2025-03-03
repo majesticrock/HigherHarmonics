@@ -1,8 +1,7 @@
 #pragma once
-#include "GlobalDefinitions.hpp"
-#include <mrock/utility/ConstexprPower.hpp>
+#include "../GlobalDefinitions.hpp"
 
-namespace HHG {
+namespace HHG::Fourier {
     struct WelchWindow {
         const int N;
 
@@ -10,7 +9,7 @@ namespace HHG {
         constexpr WelchWindow(int _N) : N(_N) {}
 
         constexpr h_float operator[](int i) const {
-            return 1. - mrock::utility::constexprPower<2, h_float, h_float>((i - 0.5 * N) / (0.5 * N));
+            return 1. - (i - 0.5 * N) * (i - 0.5 * N) / (0.25 * N * N);
         }
     };
 }

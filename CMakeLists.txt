@@ -11,25 +11,24 @@ include_directories(
     $ENV{HOME}/usr/local/include
 )
 
-add_executable(hhg 
-    sources/hhg.cpp
-)
-target_sources(hhg PRIVATE
-    sources/HHG/ContinuousLaser.cpp
-    sources/HHG/DiracSystem.cpp
-    sources/HHG/Laser.cpp
-    sources/HHG/TimeIntegrationConfig.cpp
-    sources/HHG/FFT.cpp
-    sources/HHG/ComplexFFT.cpp
-    sources/HHG/GreensFunction.cpp
-)
-
 if(CLUSTER_BUILD)
     include(${CMAKE_SOURCE_DIR}/cmake/ClusterCompilerFlags.cmake)
 else()
     include(${CMAKE_SOURCE_DIR}/cmake/DefaultCompilerFlags.cmake)
 endif()
 include(${CMAKE_CURRENT_SOURCE_DIR}/../../PhdUtility/cmake/mrock-information.cmake)
+
+add_subdirectory(sources/HHG/Laser)
+add_subdirectory(sources/HHG/Fourier)
+
+add_executable(hhg 
+    sources/hhg.cpp
+)
+target_sources(hhg PRIVATE
+    sources/HHG/DiracSystem.cpp
+    sources/HHG/TimeIntegrationConfig.cpp
+    sources/HHG/GreensFunction.cpp
+)
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     SET_DEBUG_FLAGS(hhg)
@@ -39,9 +38,6 @@ endif()
 
 find_package(OpenMP REQUIRED)
 find_package(mrock REQUIRED)
-find_package(FFTW3 REQUIRED)
 
-find_library(FFTW3_LIB fftw3)
-
-target_link_libraries(hhg PRIVATE OpenMP::OpenMP_CXX ${mrock_LIBRARIES} ${FFTW3_LIB})
-target_include_directories(hhg PRIVATE ${mrock_INCLUDE_DIRS} ${FFTW3_INCLUDE_DIRS})
+target_link_libraries(hhg PRIVATE Laser Fourier OpenMP::OpenMP_CXX ${mrock_LIBRARIES})
+target_include_directories(hhg PRIVATE ${mrock_INCLUDE_DIRS})

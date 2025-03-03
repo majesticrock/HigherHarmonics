@@ -4,9 +4,10 @@
 #include <string>
 #include <array>
 #include <Eigen/Dense>
+
 #include "GlobalDefinitions.hpp"
-#include "Laser.hpp"
 #include "TimeIntegrationConfig.hpp"
+#include "Laser/Laser.hpp"
 
 namespace HHG {
     class DiracSystem {
@@ -27,13 +28,13 @@ namespace HHG {
          */
         DiracSystem(h_float temperature, h_float _E_F, h_float _v_F, h_float _band_width, h_float _photon_energy);
 
-        void time_evolution(std::vector<h_float>& alphas, std::vector<h_float>& betas, Laser const * const laser, 
+        void time_evolution(std::vector<h_float>& alphas, std::vector<h_float>& betas, Laser::Laser const * const laser, 
             h_float k_z, h_float kappa, const TimeIntegrationConfig& time_config) const;
 
-        void time_evolution_complex(std::vector<h_complex>& alphas, std::vector<h_complex>& betas, Laser const * const laser, 
+        void time_evolution_complex(std::vector<h_complex>& alphas, std::vector<h_complex>& betas, Laser::Laser const * const laser, 
             h_float k_z, h_float kappa, const TimeIntegrationConfig& time_config) const;
 
-        void time_evolution_sigma(nd_vector& rhos, Laser const * const laser, 
+        void time_evolution_sigma(nd_vector& rhos, Laser::Laser const * const laser, 
             h_float k_z, h_float kappa, const TimeIntegrationConfig& time_config) const;
 
         std::string info() const;
@@ -44,6 +45,7 @@ namespace HHG {
         inline h_float z_integration_upper_limit() const noexcept { return max_k; }
         h_float convert_to_z_integration(h_float abscissa) const noexcept;
         h_float convert_to_kappa_integration(h_float abscissa, h_float k_z) const;
+
     private:
         const h_float beta{}; ///< in units of the 1 / photon energy
         const h_float E_F{}; ///< in units of the photon energy
@@ -66,4 +68,10 @@ namespace HHG {
         // this function omits the factor of i - causing the matrix to be real
         r_matrix real_dynamical_matrix(h_float k_z, h_float kappa, h_float vector_potential) const;
     };
+
+    namespace Dirac {
+        std::vector<h_float> compute_current_density(DiracSystem const& system, Laser::Laser const * const laser, 
+            TimeIntegrationConfig const& time_config, const int n_z, const int n_kappa = 500, const h_float kappa_threshold = 1e-3,
+            std::string const& debug_dir = "");
+    }
 }

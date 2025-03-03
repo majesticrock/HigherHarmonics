@@ -2,7 +2,7 @@
 #include <cassert>
 #include <mrock/utility/ComplexNumberIterators.hpp>
 
-namespace HHG {
+namespace HHG::Fourier {
     ComplexFFT::ComplexFFT(int _N)
         : N{_N}
     {

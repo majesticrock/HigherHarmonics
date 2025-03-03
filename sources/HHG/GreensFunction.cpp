@@ -1,5 +1,5 @@
 #include "GreensFunction.hpp"
-#include "ComplexFFT.hpp"
+#include "Fourier/ComplexFFT.hpp"
 
 #include <mrock/utility/FunctionTime.hpp>
 #include <mrock/utility/ComplexNumberIterators.hpp>
@@ -18,7 +18,7 @@ namespace HHG {
         return GreensFunction::r_vector(imag_begin, imag_end);
     }
 
-    void GreensFunction::compute_alphas_betas(Laser const * const laser, h_float k_z, h_float kappa, const TimeIntegrationConfig& time_config)
+    void GreensFunction::compute_alphas_betas(Laser::Laser const * const laser, h_float k_z, h_float kappa, const TimeIntegrationConfig& time_config)
     {
         std::cout << "Computing alphas and betas for the Green's function." << std::endl;
         mrock::utility::function_time_ms(time_evolution, alphas, betas, laser, k_z, kappa, time_config);
@@ -53,7 +53,7 @@ namespace HHG {
         std::cout << "Computing F-trafo for the Green's function." << std::endl;
         high_resolution_clock::time_point begin = high_resolution_clock::now();
 
-        ComplexFFT fft(greens_N);
+        Fourier::ComplexFFT fft(greens_N);
         fft.compute(time_domain_greens_function, fourier_greens_function);
 
         high_resolution_clock::time_point end = high_resolution_clock::now();
