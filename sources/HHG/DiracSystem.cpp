@@ -157,9 +157,9 @@ namespace HHG {
         h_float t_begin = time_config.t_begin;
         h_float t_end = t_begin + measure_every;
 
-        rhos.conservativeResize(time_config.n_measurements);
+        rhos.conservativeResize(time_config.n_measurements + 1);
         rhos[0] = rho_z;
-        for (int i = 1; i < time_config.n_measurements; ++i) {
+        for (int i = 1; i <= time_config.n_measurements; ++i) {
 #ifdef adaptive_stepper
             integrate_adaptive(make_controlled<sigma_error_stepper_type>(abs_error, rel_error), right_side, current_state, t_begin, t_end, dt);
 #else
@@ -240,8 +240,8 @@ namespace HHG {
         TimeIntegrationConfig const& time_config, const int n_z, const int n_kappa /* = 500 */, const h_float kappa_threshold /* = 1e-3 */,
         std::string const& debug_dir /* = "" */)
     {
-        nd_vector rhos_buffer = nd_vector::Zero(time_config.n_measurements);
-        std::vector<h_float> current_density_time(time_config.n_measurements, h_float{});
+        nd_vector rhos_buffer = nd_vector::Zero(time_config.n_measurements + 1);
+        std::vector<h_float> current_density_time(time_config.n_measurements + 1, h_float{});
 
         auto integration_weight = [](h_float k_z, h_float kappa) {
             return k_z * kappa / norm(k_z, kappa);
@@ -292,7 +292,7 @@ namespace HHG {
             };
 
             auto kappa_result = integrator.integrate(kappa_integrand, h_float{}, system.kappa_integration_upper_limit(k_z), 
-                n_kappa, kappa_threshold, mrock::utility::Numerics::vector_elementwise_error<nd_vector, h_float, false>(), nd_vector::Zero(time_config.n_measurements));
+                n_kappa, kappa_threshold, mrock::utility::Numerics::vector_elementwise_error<nd_vector, h_float, false>(), nd_vector::Zero(time_config.n_measurements + 1));
 
             std::transform(current_density_time.begin(), current_density_time.end(), kappa_result.begin(), current_density_time.begin(), std::plus<>());
 
@@ -318,7 +318,7 @@ namespace HHG {
         mrock::utility::saveString(debug_json.dump(4), debug_dir + "debug_data.json.gz");
 #endif
         
-        for (int i = 0; i < time_config.n_measurements; ++i) {
+        for (int i = 0; i <= time_config.n_measurements; ++i) {
             current_density_time[i] *= delta_z;
         }
         return current_density_time;

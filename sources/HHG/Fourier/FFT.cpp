@@ -25,7 +25,7 @@ namespace HHG::Fourier {
 
     void FFT::compute(const std::vector<h_float>& input, std::vector<h_float>& real_output, std::vector<h_float>& imag_output)
     {
-        assert(input.size() == N);
+        assert(input.size() >= N);
         std::copy(input.begin(), input.end(), in);
         fftw_execute(plan);
 

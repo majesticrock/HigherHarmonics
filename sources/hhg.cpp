@@ -14,6 +14,7 @@
 #include "HHG/Laser/CosineLaser.hpp"
 #include "HHG/Fourier/FFT.hpp"
 #include "HHG/Fourier/WelchWindow.hpp"
+#include "HHG/Fourier/FourierIntegral.hpp"
 
 constexpr int n_kappa = 500;
 constexpr int n_z = 100;
@@ -31,19 +32,33 @@ int main(int argc, char** argv) {
     /**
      * Loading configurations
      */
-    h_float temperature = input.getDouble("T");
-    h_float E_F = input.getDouble("E_F");
-    h_float v_F = input.getDouble("v_F");
-    h_float band_width = input.getDouble("band_width");
-    h_float E0 = input.getDouble("field_amplitude");
-    h_float photon_energy = input.getDouble("photon_energy");
+    const h_float temperature = input.getDouble("T");
+    const h_float E_F = input.getDouble("E_F");
+    const h_float v_F = input.getDouble("v_F");
+    const h_float band_width = input.getDouble("band_width");
+    const h_float E0 = input.getDouble("field_amplitude");
+    const h_float photon_energy = input.getDouble("photon_energy");
+    const std::string laser_type = input.getString("laser_type");
+    const int n_laser_cylces = input.getInt("n_laser_cycles"); // Increase this to increase frequency resolution Delta omega
 
-    constexpr int n_laser_cylces = 1 << 6; // Increase this to increase frequency resolution Delta omega
-    constexpr int measurements_per_cycle = 1 << 6; // Decrease this to reduce the cost of the FFT
-    constexpr int N = n_laser_cylces * measurements_per_cycle;
+    constexpr int measurements_per_cycle = 1 << 12; // Decrease this to reduce the cost of the FFT
+    const int N = n_laser_cylces * measurements_per_cycle;
 
-    std::unique_ptr<Laser::Laser> laser = std::make_unique<Laser::ContinuousLaser>(photon_energy, E0);
-    TimeIntegrationConfig time_config = {-n_laser_cylces * HHG::pi, n_laser_cylces * HHG::pi, N, 500};
+    std::unique_ptr<Laser::Laser> laser;
+    TimeIntegrationConfig time_config;
+    if (laser_type == "continuous") {
+        laser = std::make_unique<Laser::ContinuousLaser>(photon_energy, E0);
+        time_config = {-n_laser_cylces * HHG::pi, n_laser_cylces * HHG::pi, N, 500};
+    }
+    else if (laser_type == "cosine") {
+        laser = std::make_unique<Laser::CosineLaser>(photon_energy, E0, n_laser_cylces);
+        time_config = {laser->t_begin, laser->t_end, N, 500};
+    }
+    else {
+        std::cerr << "Laser type '" << laser_type << "' is not recognized!" << std::endl;
+        return 1;
+    }
+
     DiracSystem system(temperature, E_F, v_F, band_width, photon_energy);
 
     /**
@@ -67,7 +82,8 @@ int main(int argc, char** argv) {
     };
 
     const std::string BASE_DATA_DIR = "../../data/HHG/";
-    const std::string data_subdir = input.getString("data_dir") 
+    const std::string data_subdir = input.getString("data_dir")
+        + "/" + laser_type + "_laser" +
         + "/T=" + improved_string(temperature)
         + "/E_F=" + improved_string(E_F)
         + "/v_F=" + improved_string(v_F)
@@ -85,8 +101,8 @@ int main(int argc, char** argv) {
     high_resolution_clock::time_point begin = high_resolution_clock::now();
     std::cout << "Computing the k integrals..." << std::endl;
 
-    std::vector<h_float> current_density_time = Dirac::compute_current_density(
-        system, laser.get(), time_config, n_z, n_kappa, 5e-3, output_dir);
+    //std::vector<h_float> current_density_time(N + 1);
+    std::vector<h_float> current_density_time = Dirac::compute_current_density(system, laser.get(), time_config, n_z, n_kappa, 5e-3, output_dir);
 
     high_resolution_clock::time_point end = high_resolution_clock::now();
 	std::cout << "Runtime = " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "[ms]" << std::endl;
@@ -94,25 +110,39 @@ int main(int argc, char** argv) {
     /////////////////////////////////////////////////////////////////////
 
     begin = high_resolution_clock::now();
-    std::cout << "Computing the FFT..." << std::endl;
+    std::cout << "Computing the Fourier transform..." << std::endl;
 
-    std::vector<h_float> current_density_frequency_real(N);
-    std::vector<h_float> current_density_frequency_imag(N);
+    std::vector<h_float> current_density_frequency_real(N + 1);
+    std::vector<h_float> current_density_frequency_imag(N + 1);
 
-    Fourier::WelchWindow window(N);
-    for (int i = 0; i < N; ++i) {
-        current_density_time[i] *= window[i];
+    std::vector<h_float> frequencies;
+    if (laser_type == "continuous") {
+        Fourier::WelchWindow window(N);
+        for (int i = 0; i < N; ++i) {
+            current_density_time[i] *= window[i];
+        }
+        Fourier::FFT fft(N);
+        fft.compute(current_density_time, current_density_frequency_real, current_density_frequency_imag);
+
+        frequencies.resize(N / 2 + 1);
+        for (int i = 0; i < frequencies.size(); ++i) {
+            frequencies[i] = i / time_config.measure_every();
+        }
     }
-    Fourier::FFT fft(N);
-    fft.compute(current_density_time, current_density_frequency_real, current_density_frequency_imag);
+    else {
+        HHG::Fourier::FourierIntegral integrator(time_config);
+        integrator.compute(current_density_time, current_density_frequency_real, current_density_frequency_imag);
+        frequencies = integrator.frequencies;
+    }
+
     end = high_resolution_clock::now();
 	std::cout << "Runtime = " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "[ms]" << std::endl;
 
     /**
      * Saving data
      */
-    std::vector<HHG::h_float> laser_function(N);
-    for (int i = 0; i < N; i++)
+    std::vector<HHG::h_float> laser_function(N + int(laser_type != "continuous"));
+    for (int i = 0; i < laser_function.size(); i++)
     {
         laser_function[i] = laser->laser_function(time_config.t_begin + i * time_config.measure_every());
     }
@@ -124,7 +154,7 @@ int main(int argc, char** argv) {
         { "t_begin",                            time_config.t_begin },
         { "t_end",                              time_config.t_end },
         { "n_laser_cycles",                     n_laser_cylces },
-        { "n_measurements",                     time_config.n_measurements },
+        { "n_measurements",                     time_config.n_measurements + int(laser_type != "continuous") },
         { "current_density_time",               current_density_time },
         { "current_density_frequency_real",     current_density_frequency_real },
         { "current_density_frequency_imag",     current_density_frequency_imag },
@@ -134,6 +164,8 @@ int main(int argc, char** argv) {
         { "band_width",                         band_width },
         { "field_amplitude",                    E0 },
         { "photon_energy",                      photon_energy },
+        { "laser_type",                         laser_type },
+        { "frequencies",                        frequencies }
     };
     mrock::utility::saveString(data_json.dump(4), output_dir + "current_density.json.gz");
 

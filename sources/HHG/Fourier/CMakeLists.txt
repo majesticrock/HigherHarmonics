@@ -1,6 +1,7 @@
 set(FOURIER_SOURCES
     ComplexFFT.cpp
     FFT.cpp
+    FourierIntegral.cpp
 )
 
 add_library(Fourier STATIC ${FOURIER_SOURCES})
