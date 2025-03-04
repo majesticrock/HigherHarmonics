@@ -5,7 +5,6 @@
 #include <numeric>
 
 #include <omp.h>
-#include <boost/numeric/odeint.hpp>
 #include <nlohmann/json.hpp>
 
 #include <mrock/utility/Numerics/Integration/AdaptiveTrapezoidalRule.hpp>
@@ -13,30 +12,10 @@
 #include <mrock/utility/OutputConvenience.hpp>
 #include <mrock/utility/progress_bar.hpp>
 
-#pragma omp declare reduction(vec_plus : std::vector<HHG::h_float> : \
-    std::transform(omp_out.begin(), omp_out.end(), omp_in.begin(), omp_out.begin(), std::plus<HHG::h_float>())) \
-    initializer(omp_priv = decltype(omp_orig)(omp_orig.size()))
-
-typedef HHG::DiracSystem::c_vector state_type;
-typedef HHG::DiracSystem::sigma_vector sigma_state_type;
-using namespace boost::numeric::odeint;
-
-#define adaptive_stepper
-#ifdef adaptive_stepper
-typedef runge_kutta_fehlberg78<state_type> error_stepper_type;
-typedef runge_kutta_fehlberg78<sigma_state_type> sigma_error_stepper_type;
-#else
-typedef runge_kutta4<state_type> stepper_type;
-typedef runge_kutta4<sigma_state_type> sigma_stepper_type;
-#endif
-
 constexpr HHG::h_float abs_error = 1.0e-12;
 constexpr HHG::h_float rel_error = 1.0e-8;
 
-#define SIGMA_Q kappa / magnitude_k
-#define SIGMA_R ((k_z + magnitude_k) * (k_z + magnitude_k) - kappa * kappa) / (2 * magnitude_k * (k_z + magnitude_k))
-
-#define GENERATE_DEBUG_DATA
+#include "preprocessors/_DiracSystem.hpp"
 
 namespace HHG {
     DiracSystem::DiracSystem(h_float temperature, h_float _E_F, h_float _v_F, h_float _band_width, h_float _photon_energy)
@@ -239,8 +218,8 @@ namespace HHG {
     }
 
     std::vector<h_float> Dirac::compute_current_density(DiracSystem const& system, Laser::Laser const * const laser, 
-        TimeIntegrationConfig const& time_config, const int n_z, const int n_kappa /* = 500 */, const h_float kappa_threshold /* = 1e-3 */,
-        std::string const& debug_dir /* = "" */)
+        TimeIntegrationConfig const& time_config, const int rank, const int n_ranks, const int n_z, const int n_kappa /* = 500 */, 
+        const h_float kappa_threshold /* = 1e-3 */, std::string const& debug_dir /* = "" */)
     {
         nd_vector rhos_buffer = nd_vector::Zero(time_config.n_measurements + 1);
         std::vector<h_float> current_density_time(time_config.n_measurements + 1, h_float{});
@@ -249,25 +228,16 @@ namespace HHG {
             return k_z * kappa / norm(k_z, kappa);
         };
 
-#ifdef GENERATE_DEBUG_DATA
+#ifndef DONT_GENERATE_DEBUG_DATA
         assert(!debug_dir.empty());
-        constexpr int num_picked_times = 10;
-        const int pick_time = time_config.n_measurements / 2;
-        const int pick_z = n_z / 5;
-
-        const int measurements_per_cycle = (int) (2 * pi * time_config.n_measurements / (time_config.t_end - time_config.t_begin));
-
-        std::array<nd_vector, num_picked_times> pick_current_density_z;
-        pick_current_density_z.fill(nd_vector::Zero(n_z + 1));
-        std::array<std::map<h_float, h_float>, num_picked_times> pick_current_density_kappa;
-        std::array<std::map<h_float, h_float>, num_picked_times> pick_current_density_kappa_minus;
 #endif
+        _CREATE_DEBUG_CONTAINERS
 
         const auto delta_z = 2 * system.z_integration_upper_limit() / n_z;
         mrock::utility::Numerics::Integration::adapative_trapezoidal_rule<h_float, mrock::utility::Numerics::Integration::adapative_trapezoidal_rule_print_policy{false, false}> integrator;
 
+#ifdef NO_MPI
         std::vector<int> progresses(omp_get_max_threads(), int{});
-
 #pragma omp parallel for firstprivate(rhos_buffer) reduction(vec_plus:current_density_time) schedule(dynamic)
         for (int z = 1; z < n_z; ++z) { // f(|z| = z_max) = 0
             ++(progresses[omp_get_thread_num()]);
@@ -276,8 +246,13 @@ namespace HHG {
                     static_cast<float>(std::reduce(progresses.begin(), progresses.end())) / static_cast<float>(n_z)
                 );
             }
-
-            //std::cout << "z=" << z << std::endl;
+#else
+        int jobs_per_rank = (n_z - 1) / n_ranks;
+        if (jobs_per_rank * n_ranks < n_z - 1) ++jobs_per_rank;
+        const int this_rank_min_z = rank * jobs_per_rank + 1;
+        const int this_rank_max_z = this_rank_min_z + jobs_per_rank > n_z ? n_z : this_rank_min_z + jobs_per_rank;
+        for (int z = this_rank_min_z; z < this_rank_max_z; ++z) { // f(|z| = z_max) = 0
+#endif
             const auto k_z = (z - n_z / 2) * delta_z;
             auto kappa_integrand = [&](h_float kappa) -> const nd_vector& {
                 if (is_zero(kappa)) {
@@ -286,19 +261,10 @@ namespace HHG {
                 else {
                     system.time_evolution_sigma(rhos_buffer, laser, k_z, kappa, time_config);
                     rhos_buffer *= integration_weight(k_z, kappa);
-                } 
-#ifdef GENERATE_DEBUG_DATA
-                if (z == n_z - pick_z) {
-                    for (int t = 0; t < num_picked_times; ++t) {
-                        pick_current_density_kappa[t][kappa] = rhos_buffer[pick_time + t * measurements_per_cycle / (2 * num_picked_times)];
-                    }  
                 }
-                if (z == pick_z) {
-                    for (int t = 0; t < num_picked_times; ++t) {
-                        pick_current_density_kappa_minus[t][kappa] = rhos_buffer[pick_time + t * measurements_per_cycle / (2 * num_picked_times)];
-                    }
-                }
-#endif
+
+                _SAVE_DEBUG_KAPPA
+
                 return rhos_buffer;
             };
 
@@ -307,28 +273,11 @@ namespace HHG {
 
             std::transform(current_density_time.begin(), current_density_time.end(), kappa_result.begin(), current_density_time.begin(), std::plus<>());
 
-#ifdef GENERATE_DEBUG_DATA
-            for (int t = 0; t < num_picked_times; ++t) {
-                pick_current_density_z[t][z] = kappa_result[pick_time + t * measurements_per_cycle / (2 * num_picked_times)];
-            }
-#endif
+            _SAVE_DEBUG_K_Z
         }
         std::cout << std::endl;
 
-#ifdef GENERATE_DEBUG_DATA
-        std::vector<h_float> k_zs(n_z + 1);
-        for (int i = 0; i <= n_z; ++i) {
-            k_zs[i] = (i - n_z / 2) * delta_z;
-        }
-        nlohmann::json debug_json {
-            { "time", 				                mrock::utility::time_stamp() },
-            { "k_zs",                               k_zs },
-            { "pick_current_density_z",             pick_current_density_z },
-            { "pick_current_density_kappa",         pick_current_density_kappa },
-            { "pick_current_density_kappa_minus",   pick_current_density_kappa_minus },
-        };
-        mrock::utility::saveString(debug_json.dump(4), debug_dir + "debug_data.json.gz");
-#endif
+        _SAVE_DEBUG_TO_JSON
         
         for (int i = 0; i <= time_config.n_measurements; ++i) {
             current_density_time[i] *= delta_z;

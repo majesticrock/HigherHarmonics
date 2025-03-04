@@ -4,6 +4,13 @@
 #include <algorithm>
 #include <chrono>
 
+#ifndef _NO_MPI
+#include <mpi.h>
+#define EXIT MPI_Finalize()
+#else
+#define EXIT 0
+#endif
+
 #include <nlohmann/json.hpp>
 #include <mrock/utility/OutputConvenience.hpp>
 #include <mrock/utility/InputFileReader.hpp>
@@ -17,7 +24,7 @@
 #include "HHG/Fourier/FourierIntegral.hpp"
 
 constexpr int n_kappa = 500;
-constexpr int n_z = 2000;
+constexpr int n_z = 1000;
 
 int main(int argc, char** argv) {
     using namespace HHG;
@@ -27,6 +34,17 @@ int main(int argc, char** argv) {
 		std::cerr << "Invalid number of arguments: Use mpirun -n <threads> <path_to_executable> <configfile>" << std::endl;
 		return -1;
 	}
+
+#ifndef _NO_MPI
+	MPI_Init(&argc, &argv);
+	int rank, n_ranks;
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+	MPI_Comm_size(MPI_COMM_WORLD, &n_ranks);
+#else
+	int rank = 0;
+	int n_ranks = 1;
+#endif
+
     mrock::utility::InputFileReader input(argv[1]);
 
     /**
@@ -102,11 +120,14 @@ int main(int argc, char** argv) {
     std::cout << "Computing the k integrals..." << std::endl;
 
     //std::vector<h_float> current_density_time(N + 1);
-    std::vector<h_float> current_density_time = Dirac::compute_current_density(system, laser.get(), time_config, n_z, n_kappa, 5e-3, output_dir);
+    std::vector<h_float> current_density_time_local = Dirac::compute_current_density(system, laser.get(), time_config, rank, n_ranks, n_z, n_kappa, 5e-3, output_dir);
+    std::vector<h_float> current_density_time(current_density_time_local.size());
+    MPI_Reduce(current_density_time_local.data(), current_density_time.data(), current_density_time_local.size(), MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
 
     high_resolution_clock::time_point end = high_resolution_clock::now();
 	std::cout << "Runtime = " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "[ms]" << std::endl;
 
+    if (rank != 0) return EXIT;
     /////////////////////////////////////////////////////////////////////
 
     begin = high_resolution_clock::now();
@@ -169,5 +190,5 @@ int main(int argc, char** argv) {
     };
     mrock::utility::saveString(data_json.dump(4), output_dir + "current_density.json.gz");
 
-    return 0;
+    return EXIT;
 }

@@ -11,6 +11,10 @@ include_directories(
     $ENV{HOME}/usr/local/include
 )
 
+find_package(OpenMP REQUIRED)
+find_package(MPI REQUIRED)
+find_package(mrock REQUIRED)
+
 if(CLUSTER_BUILD)
     include(${CMAKE_SOURCE_DIR}/cmake/ClusterCompilerFlags.cmake)
 else()
@@ -32,8 +36,5 @@ target_sources(hhg PRIVATE
 
 SET_COMPILER_FLAGS(hhg)
 
-find_package(OpenMP REQUIRED)
-find_package(mrock REQUIRED)
-
-target_link_libraries(hhg PRIVATE Laser Fourier OpenMP::OpenMP_CXX ${mrock_LIBRARIES})
+target_link_libraries(hhg PRIVATE MPI::MPI_CXX Laser Fourier OpenMP::OpenMP_CXX ${mrock_LIBRARIES})
 target_include_directories(hhg PRIVATE ${mrock_INCLUDE_DIRS})

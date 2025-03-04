@@ -71,7 +71,7 @@ namespace HHG {
 
     namespace Dirac {
         std::vector<h_float> compute_current_density(DiracSystem const& system, Laser::Laser const * const laser, 
-            TimeIntegrationConfig const& time_config, const int n_z, const int n_kappa = 500, const h_float kappa_threshold = 1e-3,
-            std::string const& debug_dir = "");
+            TimeIntegrationConfig const& time_config, const int rank, const int n_ranks, const int n_z, const int n_kappa = 500, 
+            const h_float kappa_threshold = 1e-3, std::string const& debug_dir = "");
     }
 }
