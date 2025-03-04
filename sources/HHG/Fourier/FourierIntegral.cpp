@@ -6,7 +6,7 @@ namespace HHG::Fourier {
     FourierIntegral::FourierIntegral(TimeIntegrationConfig const& time_config)
         : delta_t{time_config.measure_every()}, frequencies(time_config.n_measurements / 2 + 1), time_samples(time_config.n_measurements + 1)
     {
-        const h_float omega_max = 32;
+        const h_float omega_max = 64;
         const h_float delta_omega = omega_max / frequencies.size();
         for (int i = 0; i < frequencies.size(); ++i) {
             frequencies[i] = i * delta_omega;

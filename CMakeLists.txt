@@ -30,11 +30,7 @@ target_sources(hhg PRIVATE
     sources/HHG/GreensFunction.cpp
 )
 
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    SET_DEBUG_FLAGS(hhg)
-else()
-    SET_COMPILER_FLAGS(hhg)
-endif()
+SET_COMPILER_FLAGS(hhg)
 
 find_package(OpenMP REQUIRED)
 find_package(mrock REQUIRED)

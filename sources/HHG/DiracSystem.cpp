@@ -2,6 +2,7 @@
 #include <cmath>
 #include <cassert>
 #include <map>
+#include <numeric>
 
 #include <omp.h>
 #include <boost/numeric/odeint.hpp>
@@ -10,6 +11,7 @@
 #include <mrock/utility/Numerics/Integration/AdaptiveTrapezoidalRule.hpp>
 #include <mrock/utility/Numerics/ErrorFunctors.hpp>
 #include <mrock/utility/OutputConvenience.hpp>
+#include <mrock/utility/progress_bar.hpp>
 
 #pragma omp declare reduction(vec_plus : std::vector<HHG::h_float> : \
     std::transform(omp_out.begin(), omp_out.end(), omp_in.begin(), omp_out.begin(), std::plus<HHG::h_float>())) \
@@ -264,9 +266,18 @@ namespace HHG {
         const auto delta_z = 2 * system.z_integration_upper_limit() / n_z;
         mrock::utility::Numerics::Integration::adapative_trapezoidal_rule<h_float, mrock::utility::Numerics::Integration::adapative_trapezoidal_rule_print_policy{false, false}> integrator;
 
-#pragma omp parallel for firstprivate(rhos_buffer) reduction(vec_plus:current_density_time)
+        std::vector<int> progresses(omp_get_max_threads(), int{});
+
+#pragma omp parallel for firstprivate(rhos_buffer) reduction(vec_plus:current_density_time) schedule(dynamic)
         for (int z = 1; z < n_z; ++z) { // f(|z| = z_max) = 0
-            std::cout << "z=" << z << std::endl;
+            ++(progresses[omp_get_thread_num()]);
+            if (omp_get_thread_num() == 0) {
+                mrock::utility::progress_bar( 
+                    static_cast<float>(std::reduce(progresses.begin(), progresses.end())) / static_cast<float>(n_z)
+                );
+            }
+
+            //std::cout << "z=" << z << std::endl;
             const auto k_z = (z - n_z / 2) * delta_z;
             auto kappa_integrand = [&](h_float kappa) -> const nd_vector& {
                 if (is_zero(kappa)) {
@@ -302,6 +313,7 @@ namespace HHG {
             }
 #endif
         }
+        std::cout << std::endl;
 
 #ifdef GENERATE_DEBUG_DATA
         std::vector<h_float> k_zs(n_z + 1);

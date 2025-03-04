@@ -17,7 +17,7 @@
 #include "HHG/Fourier/FourierIntegral.hpp"
 
 constexpr int n_kappa = 500;
-constexpr int n_z = 100;
+constexpr int n_z = 2000;
 
 int main(int argc, char** argv) {
     using namespace HHG;
@@ -41,7 +41,7 @@ int main(int argc, char** argv) {
     const std::string laser_type = input.getString("laser_type");
     const int n_laser_cylces = input.getInt("n_laser_cycles"); // Increase this to increase frequency resolution Delta omega
 
-    constexpr int measurements_per_cycle = 1 << 12; // Decrease this to reduce the cost of the FFT
+    constexpr int measurements_per_cycle = 1 << 10; // Decrease this to reduce the cost of the FFT
     const int N = n_laser_cylces * measurements_per_cycle;
 
     std::unique_ptr<Laser::Laser> laser;
