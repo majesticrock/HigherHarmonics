@@ -218,7 +218,7 @@ namespace HHG {
     }
 
     std::vector<h_float> Dirac::compute_current_density(DiracSystem const& system, Laser::Laser const * const laser, 
-        TimeIntegrationConfig const& time_config, const int rank, const int n_ranks, const int n_z, const int n_kappa /* = 500 */, 
+        TimeIntegrationConfig const& time_config, const int rank, const int n_ranks, const int n_z, const int n_kappa /* = 20 */, 
         const h_float kappa_threshold /* = 1e-3 */, std::string const& debug_dir /* = "" */)
     {
         nd_vector rhos_buffer = nd_vector::Zero(time_config.n_measurements + 1);
@@ -234,7 +234,9 @@ namespace HHG {
         _CREATE_DEBUG_CONTAINERS
 
         const auto delta_z = 2 * system.z_integration_upper_limit() / n_z;
-        mrock::utility::Numerics::Integration::adapative_trapezoidal_rule<h_float, mrock::utility::Numerics::Integration::adapative_trapezoidal_rule_print_policy{false, false}> integrator;
+        mrock::utility::Numerics::Integration::adapative_trapezoidal_rule<
+            h_float, mrock::utility::Numerics::Integration::adapative_trapezoidal_rule_print_policy{false, false, false}
+            > integrator;
 
 #ifdef NO_MPI
         std::vector<int> progresses(omp_get_max_threads(), int{});
@@ -268,7 +270,7 @@ namespace HHG {
                 return rhos_buffer;
             };
 
-            auto kappa_result = integrator.integrate(kappa_integrand, h_float{}, system.kappa_integration_upper_limit(k_z), 
+            auto kappa_result = integrator.split_integrate<100>(kappa_integrand, h_float{}, system.kappa_integration_upper_limit(k_z), 
                 n_kappa, kappa_threshold, mrock::utility::Numerics::vector_elementwise_error<nd_vector, h_float, false>(), nd_vector::Zero(time_config.n_measurements + 1));
 
             std::transform(current_density_time.begin(), current_density_time.end(), kappa_result.begin(), current_density_time.begin(), std::plus<>());

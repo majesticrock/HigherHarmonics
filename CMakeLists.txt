@@ -36,5 +36,9 @@ target_sources(hhg PRIVATE
 
 SET_COMPILER_FLAGS(hhg)
 
-target_link_libraries(hhg PRIVATE MPI::MPI_CXX Laser Fourier OpenMP::OpenMP_CXX ${mrock_LIBRARIES})
+if(NOT CMAKE_BUILD_TYPE STREQUAL "NO_MPI")
+    target_link_libraries(hhg PRIVATE MPI::MPI_CXX)
+endif()
+
+target_link_libraries(hhg PRIVATE Laser Fourier OpenMP::OpenMP_CXX ${mrock_LIBRARIES})
 target_include_directories(hhg PRIVATE ${mrock_INCLUDE_DIRS})

@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <chrono>
 
-#ifndef _NO_MPI
+#ifndef NO_MPI
 #include <mpi.h>
 #define EXIT MPI_Finalize()
 #else
@@ -23,8 +23,8 @@
 #include "HHG/Fourier/WelchWindow.hpp"
 #include "HHG/Fourier/FourierIntegral.hpp"
 
-constexpr int n_kappa = 500;
-constexpr int n_z = 1000;
+constexpr double target_kappa_error = 1e-3;
+constexpr int n_kappa = 10;
 
 int main(int argc, char** argv) {
     using namespace HHG;
@@ -35,7 +35,7 @@ int main(int argc, char** argv) {
 		return -1;
 	}
 
-#ifndef _NO_MPI
+#ifndef NO_MPI
 	MPI_Init(&argc, &argv);
 	int rank, n_ranks;
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -58,6 +58,7 @@ int main(int argc, char** argv) {
     const h_float photon_energy = input.getDouble("photon_energy");
     const std::string laser_type = input.getString("laser_type");
     const int n_laser_cylces = input.getInt("n_laser_cycles"); // Increase this to increase frequency resolution Delta omega
+    const int n_z = input.getInt("n_z");
 
     constexpr int measurements_per_cycle = 1 << 10; // Decrease this to reduce the cost of the FFT
     const int N = n_laser_cylces * measurements_per_cycle;
@@ -119,10 +120,13 @@ int main(int argc, char** argv) {
     high_resolution_clock::time_point begin = high_resolution_clock::now();
     std::cout << "Computing the k integrals..." << std::endl;
 
-    //std::vector<h_float> current_density_time(N + 1);
-    std::vector<h_float> current_density_time_local = Dirac::compute_current_density(system, laser.get(), time_config, rank, n_ranks, n_z, n_kappa, 5e-3, output_dir);
+#ifndef NO_MPI
+    std::vector<h_float> current_density_time_local = Dirac::compute_current_density(system, laser.get(), time_config, rank, n_ranks, n_z, n_kappa, target_kappa_error, output_dir);
     std::vector<h_float> current_density_time(current_density_time_local.size());
     MPI_Reduce(current_density_time_local.data(), current_density_time.data(), current_density_time_local.size(), MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+#else
+std::vector<h_float> current_density_time = Dirac::compute_current_density(system, laser.get(), time_config, rank, n_ranks, n_z, n_kappa, target_kappa_error, output_dir);
+#endif
 
     high_resolution_clock::time_point end = high_resolution_clock::now();
 	std::cout << "Runtime = " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "[ms]" << std::endl;
