@@ -5,15 +5,15 @@
 
 ## Mandatory:
 #SBATCH --job-name=modes
-#SBATCH --output=/home/althueser/phd/cpp/ContinuumSystem/modes_output.txt
+#SBATCH --output=/home/althueser/phd/cpp/HigherHarmonics/output.txt
 #SBATCH --time=48:00:00         ## maximum runtime; hours:minutes:seconds
 #SBATCH --partition=long       ## choose queue
 
 #SBATCH --ntasks=1000             ## sets number of total mpi processes
-#SBATCH --tasks-per-node=1    ## mpi processes spawned per node
+#SBATCH --tasks-per-node=40    ## mpi processes spawned per node
 #SBATCH --cpus-per-task=1       ## logical cores used per mpi process: should be 1, except if you want to combine OpenMP with$
 
-##SBATCH --mem=30gb               ## sets maximum allowed memory per node
+##SBATCH --mem=40gb               ## sets maximum allowed memory per node
 #SBATCH --mem-per-cpu=1gb    ## sets maximum allowed memory per mpi process
 
 #SBATCH --mail-user=joshua.althueser@tu-dortmund.de     ## replace mail by personal mail address
