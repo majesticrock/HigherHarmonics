@@ -117,8 +117,8 @@ namespace HHG {
         auto right_side = [this, &laser, &k_z, &kappa](const sigma_state_type& state, sigma_state_type& dxdt, const h_float t) {
             const h_float vector_potential = laser->laser_function(t);
             const h_float magnitude_k = norm(k_z, kappa);
-            const h_float m_x = 2 * v_F * vector_potential * SIGMA_Q;
-            const h_float m_z = 2 * (magnitude_k - v_F * vector_potential * SIGMA_R);
+            const h_float m_x = 2 * v_F * vector_potential * kappa / magnitude_k;
+            const h_float m_z = 2 * (magnitude_k - v_F * vector_potential * k_z / magnitude_k);
 
             dxdt[0] = m_z * state[1];
             dxdt[1] = m_x * state[2] - state[0] * m_z;

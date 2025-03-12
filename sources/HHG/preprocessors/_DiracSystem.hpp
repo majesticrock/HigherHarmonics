@@ -18,9 +18,6 @@ typedef runge_kutta4<state_type> stepper_type;
 typedef runge_kutta4<sigma_state_type> sigma_stepper_type;
 #endif
 
-#define SIGMA_Q kappa / magnitude_k
-#define SIGMA_R ((k_z + magnitude_k) * (k_z + magnitude_k) - kappa * kappa) / (2 * magnitude_k * (k_z + magnitude_k))
-
 #ifndef NO_MPI
 #define DONT_GENERATE_DEBUG_DATA
 #endif
