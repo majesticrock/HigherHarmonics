@@ -114,11 +114,11 @@ namespace HHG {
 #ifndef adaptive_stepper
         sigma_stepper_type stepper;
 #endif
-        auto right_side = [this, &laser, &k_z, &kappa](const sigma_state_type& state, sigma_state_type& dxdt, const h_float t) {
-            const h_float vector_potential = laser->laser_function(t);
-            const h_float magnitude_k = norm(k_z, kappa);
-            const h_float m_x = 2 * v_F * vector_potential * kappa / magnitude_k;
-            const h_float m_z = 2 * (magnitude_k - v_F * vector_potential * k_z / magnitude_k);
+        const h_float magnitude_k = norm(k_z, kappa);
+        auto right_side = [this, &laser, &k_z, &kappa, &magnitude_k](const sigma_state_type& state, sigma_state_type& dxdt, const h_float t) {
+            const h_float vector_potential = laser->laser_function(t);          
+            const h_float m_x = vector_potential * 2.0 * v_F * kappa / magnitude_k;
+            const h_float m_z = 2.0 * (magnitude_k - vector_potential * v_F * k_z / magnitude_k);
 
             dxdt[0] = m_z * state[1];
             dxdt[1] = m_x * state[2] - state[0] * m_z;
