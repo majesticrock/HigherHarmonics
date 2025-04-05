@@ -7,7 +7,6 @@ namespace HHG::Laser {
         CosineLaser(h_float photon_energy, h_float E_0, h_float n_cycles);
 
         h_float envelope(h_float t) const final;
-    
     private:
         const h_float envelope_omega;
     };

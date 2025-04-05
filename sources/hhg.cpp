@@ -22,8 +22,9 @@
 #include "HHG/Fourier/FFT.hpp"
 #include "HHG/Fourier/WelchWindow.hpp"
 #include "HHG/Fourier/FourierIntegral.hpp"
+#include "HHG/Fourier/TrapezoidalFFT.hpp"
 
-constexpr double target_kappa_error = 1e-3;
+constexpr double target_kappa_error = 5e-3;
 constexpr int n_kappa = 10;
 
 int main(int argc, char** argv) {
@@ -60,7 +61,7 @@ int main(int argc, char** argv) {
     const int n_laser_cylces = input.getInt("n_laser_cycles"); // Increase this to increase frequency resolution Delta omega
     const int n_z = input.getInt("n_z");
 
-    constexpr int measurements_per_cycle = 1 << 10; // Decrease this to reduce the cost of the FFT
+    constexpr int measurements_per_cycle = 1 << 8; // Decrease this to reduce the cost of the FFT
     const int N = n_laser_cylces * measurements_per_cycle;
 
     std::unique_ptr<Laser::Laser> laser;
@@ -125,7 +126,7 @@ int main(int argc, char** argv) {
     std::vector<h_float> current_density_time(current_density_time_local.size());
     MPI_Reduce(current_density_time_local.data(), current_density_time.data(), current_density_time_local.size(), MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
 #else
-std::vector<h_float> current_density_time = Dirac::compute_current_density(system, laser.get(), time_config, rank, n_ranks, n_z, n_kappa, target_kappa_error, output_dir);
+    std::vector<h_float> current_density_time = Dirac::compute_current_density(system, laser.get(), time_config, rank, n_ranks, n_z, n_kappa, target_kappa_error, output_dir);
 #endif
 
     high_resolution_clock::time_point end = high_resolution_clock::now();
@@ -155,7 +156,8 @@ std::vector<h_float> current_density_time = Dirac::compute_current_density(syste
         }
     }
     else {
-        HHG::Fourier::FourierIntegral integrator(time_config);
+        //HHG::Fourier::FourierIntegral integrator(time_config);
+        HHG::Fourier::TrapezoidalFFT integrator(time_config);
         integrator.compute(current_density_time, current_density_frequency_real, current_density_frequency_imag);
         frequencies = integrator.frequencies;
     }

@@ -17,7 +17,7 @@ namespace HHG {
         using r_matrix = real_matrix<2, 2>;
         using diagonal_matrix = Eigen::DiagonalMatrix<h_float, 2>;
 
-        using sigma_vector = std::array<h_float, 3>;
+        using sigma_vector = Eigen::Vector<h_float, 3>;
 
         DiracSystem() = delete;
         /**
@@ -35,6 +35,9 @@ namespace HHG {
             h_float k_z, h_float kappa, const TimeIntegrationConfig& time_config) const;
 
         void time_evolution_sigma(nd_vector& rhos, Laser::Laser const * const laser, 
+            h_float k_z, h_float kappa, const TimeIntegrationConfig& time_config) const;
+
+        void time_evolution_magnus(nd_vector& rhos, Laser::Laser const * const laser, 
             h_float k_z, h_float kappa, const TimeIntegrationConfig& time_config) const;
 
         std::string info() const;

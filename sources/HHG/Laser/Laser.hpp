@@ -21,9 +21,15 @@ namespace HHG::Laser {
         Laser(h_float photon_energy, h_float E_0, h_float t_begin, h_float t_end);
 
         virtual h_float envelope(h_float t) const = 0;
-
         inline h_float laser_function(h_float t) const {
             return momentum_amplitude * envelope(t) * std::sin(t);
         }
+        inline h_float raw_laser_function(h_float t) const {
+            return envelope(t) * std::sin(t);
+        }
+        h_float magnus_1(h_float delta_t, h_float t_0) const;
+        h_float magnus_2(h_float delta_t, h_float t_0) const;
+        h_float magnus_3(h_float delta_t, h_float t_0) const;
+        h_float magnus_4(h_float delta_t, h_float t_0) const;
     };
 }

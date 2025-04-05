@@ -15,7 +15,8 @@
 constexpr HHG::h_float abs_error = 1.0e-12;
 constexpr HHG::h_float rel_error = 1.0e-8;
 
-#include "preprocessors/_DiracSystem.hpp"
+#include "DiracDetail/_DiracSystem.hpp"
+#include "DiracDetail/MagnusMatrix.hpp"
 
 namespace HHG {
     DiracSystem::DiracSystem(h_float temperature, h_float _E_F, h_float _v_F, h_float _band_width, h_float _photon_energy)
@@ -152,6 +153,41 @@ namespace HHG {
         }
     }
 
+    void DiracSystem::time_evolution_magnus(nd_vector &rhos, Laser::Laser const *const laser, h_float k_z, h_float kappa, const TimeIntegrationConfig &time_config) const
+    {
+        const h_float magnitude_k = norm(k_z, kappa);
+        const h_float alpha_0 = fermi_function(E_F + dispersion(k_z, kappa), beta);
+        const h_float beta_0 = fermi_function(E_F - dispersion(k_z, kappa), beta);
+
+        const h_float rho_x = alpha_0 * beta_0;
+        const h_float rho_z = alpha_0 * alpha_0 - beta_0 * beta_0;
+
+        sigma_state_type current_state = { h_float{0}, h_float{0}, h_float{1} };
+        const h_float measure_every = time_config.measure_every();
+
+        h_float t_begin = time_config.t_begin;
+        h_float t_end = t_begin + measure_every;
+
+        rhos.conservativeResize(time_config.n_measurements + 1);
+        rhos[0] = rho_z;
+
+        // Factor 2 due to the prefactor of the M matrix (see onenote)
+        Magnus magnus(2 * magnitude_k, 2 * kappa, 2 * k_z, measure_every);
+
+        h_float alpha, beta, gamma, delta;
+        for (int i = 1; i <= time_config.n_measurements; ++i) {
+            alpha = laser->momentum_amplitude * v_F * laser->magnus_1(measure_every, t_begin) / magnitude_k;
+            beta  = 3 * laser->momentum_amplitude * v_F * laser->magnus_2(measure_every, t_begin) / magnitude_k;
+            gamma = 5 * laser->momentum_amplitude * v_F * laser->magnus_3(measure_every, t_begin) / magnitude_k;
+            delta = 7 * laser->momentum_amplitude * v_F * laser->magnus_4(measure_every, t_begin) / magnitude_k;
+
+            current_state.applyOnTheLeft(magnus.Omega(alpha, beta, gamma, delta));
+
+            rhos[i] = current_state[0] * rho_x + current_state[2] * rho_z; // factor of 2 does not matter
+            t_begin = t_end;
+            t_end += measure_every;
+        }
+    }
 
     h_float DiracSystem::dispersion(h_float k_z, h_float kappa) const
     {
@@ -261,7 +297,8 @@ namespace HHG {
                     rhos_buffer.setZero();
                 }
                 else {
-                    system.time_evolution_sigma(rhos_buffer, laser, k_z, kappa, time_config);
+                    //system.time_evolution_sigma(rhos_buffer, laser, k_z, kappa, time_config);
+                    system.time_evolution_magnus(rhos_buffer, laser, k_z, kappa, time_config);
                     rhos_buffer *= integration_weight(k_z, kappa);
                 }
 
