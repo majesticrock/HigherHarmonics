@@ -67,11 +67,11 @@ int main(int argc, char** argv) {
     std::unique_ptr<Laser::Laser> laser;
     TimeIntegrationConfig time_config;
     if (laser_type == "continuous") {
-        laser = std::make_unique<Laser::ContinuousLaser>(photon_energy, E0);
+        laser = std::make_unique<Laser::ContinuousLaser>(photon_energy, E0, v_F);
         time_config = {-n_laser_cylces * HHG::pi, n_laser_cylces * HHG::pi, N, 500};
     }
     else if (laser_type == "cosine") {
-        laser = std::make_unique<Laser::CosineLaser>(photon_energy, E0, n_laser_cylces);
+        laser = std::make_unique<Laser::CosineLaser>(photon_energy, E0, v_F, n_laser_cylces);
         time_config = {laser->t_begin, laser->t_end, N, 500};
     }
     else {
@@ -80,6 +80,8 @@ int main(int argc, char** argv) {
     }
 
     DiracSystem system(temperature, E_F, v_F, band_width, photon_energy);
+
+    //std::cout << laser->momentum_amplitude / (photon_energy * 1e-3) << std::endl;
 
     /**
      * Creating output dirs

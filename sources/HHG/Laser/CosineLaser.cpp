@@ -1,8 +1,8 @@
 #include "CosineLaser.hpp"
 
 namespace HHG::Laser {
-    CosineLaser::CosineLaser(h_float photon_energy, h_float E_0, h_float n_cycles)
-        : Laser(photon_energy, E_0, 0., 2 * HHG::pi * n_cycles), envelope_omega{1. / n_cycles}
+    CosineLaser::CosineLaser(h_float photon_energy, h_float E_0, h_float v_F, h_float n_cycles)
+        : Laser(photon_energy, E_0, v_F, 0., 2 * HHG::pi * n_cycles), envelope_omega{1. / n_cycles}
     {}
 
     h_float CosineLaser::envelope(h_float t) const {

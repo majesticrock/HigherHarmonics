@@ -17,8 +17,8 @@ namespace HHG::Laser {
          * @param photon_energy \f$ \hbar \omega_L \f$ in meV
          * @param E_0 peak electric field strength in MV / cm
          */
-        Laser(h_float photon_energy, h_float E_0);
-        Laser(h_float photon_energy, h_float E_0, h_float t_begin, h_float t_end);
+        Laser(h_float photon_energy, h_float E_0, h_float v_F);
+        Laser(h_float photon_energy, h_float E_0, h_float v_F, h_float t_begin, h_float t_end);
 
         virtual h_float envelope(h_float t) const = 0;
         inline h_float laser_function(h_float t) const {

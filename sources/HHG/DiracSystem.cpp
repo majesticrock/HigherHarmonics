@@ -22,10 +22,10 @@ namespace HHG {
     DiracSystem::DiracSystem(h_float temperature, h_float _E_F, h_float _v_F, h_float _band_width, h_float _photon_energy)
         : beta { is_zero(temperature) ? std::numeric_limits<h_float>::infinity() : 1. / (k_B * temperature * _photon_energy) },
         E_F{ _E_F / _photon_energy }, 
-        v_F{ _v_F * ((1e12 * hbar) / _photon_energy) }, // 1e12 for conversion to pm; T_L = hbar / _photon_energy
+        v_F{ _v_F }, // 1e12 for conversion to pm; T_L = hbar / _photon_energy
         band_width{ _band_width },
-        max_k { band_width }, // in units of omega_L / v_F
-        max_kappa_compare { band_width * band_width }  // in units of (omega_L / v_F)^2
+        max_k { band_width }, // in units of hbar omega_L
+        max_kappa_compare { band_width * band_width }  // in units of (hbar omega_L)^2
     {  }
 
     void DiracSystem::time_evolution(std::vector<h_float>& alphas, std::vector<h_float>& betas, Laser::Laser const * const laser, 
@@ -118,8 +118,8 @@ namespace HHG {
         const h_float magnitude_k = norm(k_z, kappa);
         auto right_side = [this, &laser, &k_z, &kappa, &magnitude_k](const sigma_state_type& state, sigma_state_type& dxdt, const h_float t) {
             const h_float vector_potential = laser->laser_function(t);          
-            const h_float m_x = vector_potential * 2.0 * v_F * kappa / magnitude_k;
-            const h_float m_z = 2.0 * (magnitude_k - vector_potential * v_F * k_z / magnitude_k);
+            const h_float m_x = vector_potential * 2.0 * kappa / magnitude_k;
+            const h_float m_z = 2.0 * (magnitude_k - vector_potential * k_z / magnitude_k);
 
             dxdt[0] = m_z * state[1];
             dxdt[1] = m_x * state[2] - state[0] * m_z;
@@ -176,10 +176,10 @@ namespace HHG {
 
         h_float alpha, beta, gamma, delta;
         for (int i = 1; i <= time_config.n_measurements; ++i) {
-            alpha = laser->momentum_amplitude * v_F * laser->magnus_1(measure_every, t_begin) / magnitude_k;
-            beta  = 3 * laser->momentum_amplitude * v_F * laser->magnus_2(measure_every, t_begin) / magnitude_k;
-            gamma = 5 * laser->momentum_amplitude * v_F * laser->magnus_3(measure_every, t_begin) / magnitude_k;
-            delta = 7 * laser->momentum_amplitude * v_F * laser->magnus_4(measure_every, t_begin) / magnitude_k;
+            alpha = laser->momentum_amplitude * laser->magnus_1(measure_every, t_begin) / magnitude_k;
+            beta  = 3 * laser->momentum_amplitude * laser->magnus_2(measure_every, t_begin) / magnitude_k;
+            gamma = 5 * laser->momentum_amplitude * laser->magnus_3(measure_every, t_begin) / magnitude_k;
+            delta = 7 * laser->momentum_amplitude * laser->magnus_4(measure_every, t_begin) / magnitude_k;
 
             current_state.applyOnTheLeft(magnus.Omega(alpha, beta, gamma, delta));
 
@@ -239,7 +239,7 @@ namespace HHG {
     DiracSystem::c_matrix DiracSystem::dynamical_matrix(h_float k_z, h_float kappa, h_float vector_potential) const
     {
         const h_float magnitude_k = norm(k_z, kappa);
-        const h_float factor = v_F * vector_potential / magnitude_k;
+        const h_float factor = vector_potential / magnitude_k;
         const c_matrix A{ {-factor * k_z + magnitude_k, -factor * kappa},
                           {-factor * kappa, factor * k_z - magnitude_k} };
         return imaginary_unit * A;
@@ -248,7 +248,7 @@ namespace HHG {
     DiracSystem::r_matrix DiracSystem::real_dynamical_matrix(h_float k_z, h_float kappa, h_float vector_potential) const
     {
         const h_float magnitude_k = norm(k_z, kappa);
-        const h_float factor = v_F * vector_potential / magnitude_k;
+        const h_float factor = vector_potential / magnitude_k;
         return r_matrix{ {-factor * k_z + magnitude_k, -factor * kappa},
                          {-factor * kappa,              factor * k_z - magnitude_k} };
     }

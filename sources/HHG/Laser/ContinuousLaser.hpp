@@ -4,7 +4,7 @@
 
 namespace HHG::Laser {
     struct ContinuousLaser : public Laser {
-        ContinuousLaser(h_float photon_energy, h_float E_0);
+        ContinuousLaser(h_float photon_energy, h_float E_0, h_float v_F);
 
         h_float envelope(h_float t) const final;
     };

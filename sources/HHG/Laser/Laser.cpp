@@ -1,22 +1,27 @@
 #include "ContinuousLaser.hpp"
 #include <boost/math/quadrature/gauss.hpp>
+#include <iostream>
 
 using integrator = boost::math::quadrature::gauss<HHG::h_float, 30>;
 
 namespace HHG::Laser {
      /** 
-     * converts e E_0 / (hbar omega_L) to 1 / pm
-     * if E_0 is given in MV / cm and (hbar omega_L) in meV
+     * We have hbar in meV * s -> so giving photon energy in meV is just fine
+     * E_0 is given in MV/cm, requiring the factor of 10^8 to convert to V/m
+     * v_F is given in m/s -> already fine
+     * 
+     * Then 1e8 hbar v_F E_0 / (photon_energy) is in eV (for the parameters of Wang around 30.09 eV)
      */
-    constexpr h_float field_conversion = 1e-1; 
 
-    Laser::Laser(h_float photon_energy, h_float E_0)
-        : momentum_amplitude{field_conversion * E_0 / (photon_energy)} 
+    Laser::Laser(h_float photon_energy, h_float E_0, h_float v_F)
+        : momentum_amplitude{hbar * 1e8 * v_F * E_0 / (photon_energy * photon_energy * 1e-3)} 
     {}
 
-    Laser::Laser(h_float photon_energy, h_float E_0, h_float t_begin, h_float t_end)
-        : momentum_amplitude{field_conversion * E_0 / (photon_energy)}, t_begin{t_begin}, t_end{t_end} 
-    {}
+    Laser::Laser(h_float photon_energy, h_float E_0, h_float v_F, h_float t_begin, h_float t_end)
+        : momentum_amplitude{hbar * 1e8 * v_F * E_0 / (photon_energy * photon_energy * 1e-3)}, t_begin{t_begin}, t_end{t_end} 
+    {
+        std::cout << momentum_amplitude * photon_energy << std::endl;
+    }
 
     h_float Laser::magnus_1(h_float delta_t, h_float t_0) const
     {
