@@ -28,7 +28,7 @@ namespace HHG {
          */
         DiracSystem(h_float temperature, h_float _E_F, h_float _v_F, h_float _band_width, h_float _photon_energy);
 
-        void time_evolution(std::vector<h_float>& alphas, std::vector<h_float>& betas, Laser::Laser const * const laser, 
+        void time_evolution(nd_vector& rhos, Laser::Laser const * const laser, 
             h_float k_z, h_float kappa, const TimeIntegrationConfig& time_config) const;
 
         void time_evolution_complex(std::vector<h_complex>& alphas, std::vector<h_complex>& betas, Laser::Laser const * const laser, 

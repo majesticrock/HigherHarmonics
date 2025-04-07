@@ -1,5 +1,6 @@
 #pragma once
 #include "../GlobalDefinitions.hpp"
+#include <array>
 
 namespace HHG {
     struct Magnus {
@@ -12,6 +13,6 @@ namespace HHG {
         typedef Eigen::Matrix<h_complex, 3, 3> m_matrix;
         typedef Eigen::Matrix<h_float, 3, 3> u_matrix;
 
-        u_matrix Omega(h_float alpha, h_float beta, h_float gamma, h_float delta) const;
+        u_matrix Omega(std::array<h_float, 4> const& expansion_coefficients) const;
     };
 }

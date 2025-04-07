@@ -2,6 +2,7 @@
 
 #include "../GlobalDefinitions.hpp"
 #include <cmath>
+#include <array>
 
 namespace HHG::Laser {
     /**
@@ -27,9 +28,7 @@ namespace HHG::Laser {
         inline h_float raw_laser_function(h_float t) const {
             return envelope(t) * std::sin(t);
         }
-        h_float magnus_1(h_float delta_t, h_float t_0) const;
-        h_float magnus_2(h_float delta_t, h_float t_0) const;
-        h_float magnus_3(h_float delta_t, h_float t_0) const;
-        h_float magnus_4(h_float delta_t, h_float t_0) const;
+
+        std::array<h_float, 4> magnus_coefficients(h_float delta_t, h_float t_0) const;
     };
 }

@@ -20,15 +20,15 @@ constexpr HHG::h_float rel_error = 1.0e-8;
 
 namespace HHG {
     DiracSystem::DiracSystem(h_float temperature, h_float _E_F, h_float _v_F, h_float _band_width, h_float _photon_energy)
-        : beta { is_zero(temperature) ? std::numeric_limits<h_float>::infinity() : 1. / (k_B * temperature * _photon_energy) },
+        : beta { is_zero(temperature) ? std::numeric_limits<h_float>::infinity() : _photon_energy / (k_B * temperature) },
         E_F{ _E_F / _photon_energy }, 
-        v_F{ _v_F }, // 1e12 for conversion to pm; T_L = hbar / _photon_energy
+        v_F{ _v_F },
         band_width{ _band_width },
         max_k { band_width }, // in units of hbar omega_L
         max_kappa_compare { band_width * band_width }  // in units of (hbar omega_L)^2
     {  }
 
-    void DiracSystem::time_evolution(std::vector<h_float>& alphas, std::vector<h_float>& betas, Laser::Laser const * const laser, 
+    void DiracSystem::time_evolution(nd_vector& rhos, Laser::Laser const * const laser, 
         h_float k_z, h_float kappa, const TimeIntegrationConfig& time_config) const
     {
 #ifndef adaptive_stepper
@@ -45,13 +45,10 @@ namespace HHG {
         h_float t_begin = time_config.t_begin;
         h_float t_end = t_begin + measure_every;
         
-        alphas.resize(time_config.n_measurements);
-        betas.resize(time_config.n_measurements);
-
-        alphas[0] = std::norm(current_state(0));
-        betas[0] = std::norm(current_state(1));
+        rhos.conservativeResize(time_config.n_measurements + 1);
+        rhos(0) = std::norm(current_state(0)) - std::norm(current_state(1));
         
-        for (int i = 1; i < time_config.n_measurements; ++i) {
+        for (int i = 1; i <= time_config.n_measurements; ++i) {
 #ifdef adaptive_stepper
             integrate_adaptive(make_controlled<error_stepper_type>(abs_error, rel_error), right_side, current_state, t_begin, t_end, dt);
 #else
@@ -60,8 +57,7 @@ namespace HHG {
             current_state.normalize();      // We do not have relaxation, thus |alpha|^2 + |beta|^2 is a conserved quantity.
             current_state *= inital_norm;   // We enforce this explicitly
 
-            alphas[i] = std::norm(current_state(0));
-            betas[i] = std::norm(current_state(1));
+            rhos(i) = std::norm(current_state(0)) - std::norm(current_state(1));
 
             t_begin = t_end;
             t_end += measure_every;
@@ -92,7 +88,7 @@ namespace HHG {
         alphas[0] = current_state(0);
         betas[0]  = current_state(1);
         
-        for (int i = 0; i < time_config.n_measurements; ++i) {
+        for (int i = 0; i <= time_config.n_measurements; ++i) {
 #ifdef adaptive_stepper
             integrate_adaptive(make_controlled<error_stepper_type>(abs_error, rel_error), right_side, current_state, t_begin, t_end, dt);
 #else
@@ -129,7 +125,7 @@ namespace HHG {
         const h_float alpha_0 = fermi_function(E_F + dispersion(k_z, kappa), beta);
         const h_float beta_0 = fermi_function(E_F - dispersion(k_z, kappa), beta);
 
-        const h_float rho_x = alpha_0 * beta_0;
+        const h_float rho_x = 2. * alpha_0 * beta_0;
         const h_float rho_z = alpha_0 * alpha_0 - beta_0 * beta_0;
 
         sigma_state_type current_state = { h_float{0}, h_float{0}, h_float{1} };
@@ -147,7 +143,7 @@ namespace HHG {
 #else
             integrate_const(stepper, right_side, current_state, t_begin, t_end, dt);
 #endif
-            rhos[i] = current_state[0] * rho_x + current_state[2] * rho_z; // factor of 2 does not matter
+            rhos[i] = current_state[0] * rho_x + current_state[2] * rho_z;
             t_begin = t_end;
             t_end += measure_every;
         }
@@ -156,10 +152,11 @@ namespace HHG {
     void DiracSystem::time_evolution_magnus(nd_vector &rhos, Laser::Laser const *const laser, h_float k_z, h_float kappa, const TimeIntegrationConfig &time_config) const
     {
         const h_float magnitude_k = norm(k_z, kappa);
+        //std::cout << k_z << "  " << kappa << "  " << dispersion(k_z, kappa) << std::endl;
         const h_float alpha_0 = fermi_function(E_F + dispersion(k_z, kappa), beta);
         const h_float beta_0 = fermi_function(E_F - dispersion(k_z, kappa), beta);
 
-        const h_float rho_x = alpha_0 * beta_0;
+        const h_float rho_x = 2. * alpha_0 * beta_0;
         const h_float rho_z = alpha_0 * alpha_0 - beta_0 * beta_0;
 
         sigma_state_type current_state = { h_float{0}, h_float{0}, h_float{1} };
@@ -174,16 +171,16 @@ namespace HHG {
         // Factor 2 due to the prefactor of the M matrix (see onenote)
         Magnus magnus(2 * magnitude_k, 2 * kappa, 2 * k_z, measure_every);
 
-        h_float alpha, beta, gamma, delta;
+        std::array<h_float, 4> expansion_coefficients;
         for (int i = 1; i <= time_config.n_measurements; ++i) {
-            alpha = laser->momentum_amplitude * laser->magnus_1(measure_every, t_begin) / magnitude_k;
-            beta  = 3 * laser->momentum_amplitude * laser->magnus_2(measure_every, t_begin) / magnitude_k;
-            gamma = 5 * laser->momentum_amplitude * laser->magnus_3(measure_every, t_begin) / magnitude_k;
-            delta = 7 * laser->momentum_amplitude * laser->magnus_4(measure_every, t_begin) / magnitude_k;
+            expansion_coefficients = laser->magnus_coefficients(measure_every, t_begin);
+            for (auto& coeff : expansion_coefficients) {
+                coeff /= magnitude_k;
+            }
 
-            current_state.applyOnTheLeft(magnus.Omega(alpha, beta, gamma, delta));
+            current_state.applyOnTheLeft(magnus.Omega(expansion_coefficients));
 
-            rhos[i] = current_state[0] * rho_x + current_state[2] * rho_z; // factor of 2 does not matter
+            rhos[i] = current_state[0] * rho_x + current_state[2] * rho_z;
             t_begin = t_end;
             t_end += measure_every;
         }
@@ -299,6 +296,7 @@ namespace HHG {
                 else {
                     //system.time_evolution_sigma(rhos_buffer, laser, k_z, kappa, time_config);
                     system.time_evolution_magnus(rhos_buffer, laser, k_z, kappa, time_config);
+                    //system.time_evolution(rhos_buffer, laser, k_z, kappa, time_config);
                     rhos_buffer *= integration_weight(k_z, kappa);
                 }
 
