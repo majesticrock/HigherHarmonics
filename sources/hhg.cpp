@@ -58,10 +58,12 @@ int main(int argc, char** argv) {
     const h_float E0 = input.getDouble("field_amplitude");
     const h_float photon_energy = input.getDouble("photon_energy");
     const std::string laser_type = input.getString("laser_type");
-    const int n_laser_cylces = input.getInt("n_laser_cycles"); // Increase this to increase frequency resolution Delta omega
+    const int n_laser_cylces = input.getInt("n_laser_cycles");
     const int n_z = input.getInt("n_z");
+    const h_float decay_time = input.getDouble("decay_time"); // in fs
+    const std::string debug_data = input.getString("debug_data"); // yes/no/only
 
-    constexpr int measurements_per_cycle = 1 << 8; // Decrease this to reduce the cost of the FFT
+    constexpr int measurements_per_cycle = 1 << 9; // 2^14 is the mininum value to achieve good precision for realistic parameters
     const int N = n_laser_cylces * measurements_per_cycle;
 
     std::unique_ptr<Laser::Laser> laser;
@@ -79,7 +81,7 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    DiracSystem system(temperature, E_F, v_F, band_width, photon_energy);
+    DiracSystem system(temperature, E_F, v_F, band_width, photon_energy, decay_time);
 
     //std::cout << laser->momentum_amplitude / (photon_energy * 1e-3) << std::endl;
 
@@ -112,6 +114,7 @@ int main(int argc, char** argv) {
         + "/band_width=" + improved_string(band_width)
         + "/field_amplitude=" + improved_string(E0)
         + "/photon_energy=" + improved_string(photon_energy) 
+        + "/decay_time=" + improved_string(decay_time)
         + "/";
     const std::string output_dir = BASE_DATA_DIR + data_subdir;
     std::filesystem::create_directories(output_dir);
@@ -123,12 +126,43 @@ int main(int argc, char** argv) {
     high_resolution_clock::time_point begin = high_resolution_clock::now();
     std::cout << "Computing the k integrals..." << std::endl;
 
+    std::array<std::vector<h_float>, DiracSystem::n_debug_points> time_evolutions;
+    std::vector<h_float> current_density_time;
 #ifndef NO_MPI
-    std::vector<h_float> current_density_time_local = Dirac::compute_current_density(system, laser.get(), time_config, rank, n_ranks, n_z, n_kappa, target_kappa_error, output_dir);
-    std::vector<h_float> current_density_time(current_density_time_local.size());
+    std::vector<h_float> current_density_time_local;
+
+    if (decay_time > 0) {
+        if (rank == 0 && debug_data != "no")
+            time_evolutions = system.compute_current_density_decay_debug(laser.get(), time_config, rank, n_ranks, n_z, n_kappa, target_kappa_error);
+        if (debug_data == "only")
+            current_density_time_local.resize(N + 1);
+        else
+            current_density_time_local = system.compute_current_density_decay(laser.get(), time_config, rank, n_ranks, n_z, n_kappa, target_kappa_error);
+    }
+    else {
+        if (rank == 0 && debug_data != "no")
+            time_evolutions = system.compute_current_density_debug(laser.get(), time_config, rank, n_ranks, n_z, n_kappa, target_kappa_error);
+        if (debug_data == "only")
+            current_density_time_local.resize(N + 1);
+        else
+            current_density_time_local = system.compute_current_density(laser.get(), time_config, rank, n_ranks, n_z, n_kappa, target_kappa_error); 
+    }
+
+    current_density_time.resize(current_density_time_local.size());
     MPI_Reduce(current_density_time_local.data(), current_density_time.data(), current_density_time_local.size(), MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
 #else
-    std::vector<h_float> current_density_time = Dirac::compute_current_density(system, laser.get(), time_config, rank, n_ranks, n_z, n_kappa, target_kappa_error, output_dir);
+    if (decay_time > 0) {
+        if (debug_data != "only")
+            current_density_time = system.compute_current_density_decay(laser.get(), time_config, rank, n_ranks, n_z, n_kappa, target_kappa_error);
+        if (debug_data != "no")
+            time_evolutions = system.compute_current_density_decay_debug(laser.get(), time_config, rank, n_ranks, n_z, n_kappa, target_kappa_error);
+    }
+    else {
+        if (debug_data != "only")
+            current_density_time = system.compute_current_density(laser.get(), time_config, rank, n_ranks, n_z, n_kappa, target_kappa_error);
+        if (debug_data != "no")
+            time_evolutions = system.compute_current_density_debug(laser.get(), time_config, rank, n_ranks, n_z, n_kappa, target_kappa_error);
+    }
 #endif
 
     high_resolution_clock::time_point end = high_resolution_clock::now();
@@ -142,6 +176,11 @@ int main(int argc, char** argv) {
 
     std::vector<h_float> current_density_frequency_real(N + 1);
     std::vector<h_float> current_density_frequency_imag(N + 1);
+
+    std::array<std::vector<h_float>, DiracSystem::n_debug_points> debug_fft_real;
+    std::array<std::vector<h_float>, DiracSystem::n_debug_points> debug_fft_imag;
+    debug_fft_real.fill(std::vector<h_float>(N + 1));
+    debug_fft_imag.fill(std::vector<h_float>(N + 1));
 
     std::vector<h_float> frequencies;
     if (laser_type == "continuous") {
@@ -158,10 +197,15 @@ int main(int argc, char** argv) {
         }
     }
     else {
-        //HHG::Fourier::FourierIntegral integrator(time_config);
         HHG::Fourier::TrapezoidalFFT integrator(time_config);
         integrator.compute(current_density_time, current_density_frequency_real, current_density_frequency_imag);
         frequencies = integrator.frequencies;
+
+        if (debug_data != "no") {
+            for(int i = 0; i < DiracSystem::n_debug_points; ++i) {
+                integrator.compute(time_evolutions[i], debug_fft_real[i], debug_fft_imag[i]);
+            }
+        }
     }
 
     end = high_resolution_clock::now();
@@ -194,9 +238,21 @@ int main(int argc, char** argv) {
         { "field_amplitude",                    E0 },
         { "photon_energy",                      photon_energy },
         { "laser_type",                         laser_type },
+        { "decay_time",                         decay_time },
         { "frequencies",                        frequencies }
     };
     mrock::utility::saveString(data_json.dump(4), output_dir + "current_density.json.gz");
+    if (debug_data == "no") return EXIT;
+
+    // Debug output
+    nlohmann::json debug_json = {
+        {"time", mrock::utility::time_stamp()},
+        {"frequencies", frequencies},
+        {"time_evolutions", time_evolutions},
+        {"debug_fft_real", debug_fft_real},
+        {"debug_fft_imag", debug_fft_imag}
+    };
+    mrock::utility::saveString(debug_json.dump(4), output_dir + "time_evolution.json.gz");
 
     return EXIT;
 }
