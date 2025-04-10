@@ -26,6 +26,7 @@
 
 constexpr double target_kappa_error = 5e-4;
 constexpr int n_kappa = 10;
+constexpr int zero_padding = 8;
 
 int main(int argc, char** argv) {
     using namespace HHG;
@@ -82,9 +83,6 @@ int main(int argc, char** argv) {
     }
 
     DiracSystem system(temperature, E_F, v_F, band_width, photon_energy, decay_time);
-
-    //std::cout << laser->momentum_amplitude / (photon_energy * 1e-3) << std::endl;
-
     /**
      * Creating output dirs
      */
@@ -114,7 +112,7 @@ int main(int argc, char** argv) {
         + "/band_width=" + improved_string(band_width)
         + "/field_amplitude=" + improved_string(E0)
         + "/photon_energy=" + improved_string(photon_energy) 
-        + "/decay_time=" + improved_string(decay_time)
+        + "/decay_time=" + improved_string(decay_time > 0 ? decay_time : -1)
         + "/";
     const std::string output_dir = BASE_DATA_DIR + data_subdir;
     std::filesystem::create_directories(output_dir);
@@ -200,9 +198,9 @@ int main(int argc, char** argv) {
         HHG::Fourier::TrapezoidalFFT integrator(time_config);
 
         // 0 padding to increase frequency resolution. Factor >= 4 is recommended by numerical recipes
-        current_density_time.resize(4 * (N + 1));
-        current_density_frequency_real.resize(8 * (N + 1));
-        current_density_frequency_imag.resize(8 * (N + 1));
+        current_density_time.resize(zero_padding * (N + 1));
+        current_density_frequency_real.resize(zero_padding * (N + 1));
+        current_density_frequency_imag.resize(zero_padding * (N + 1));
 
         integrator.compute(current_density_time, current_density_frequency_real, current_density_frequency_imag);
         frequencies = integrator.frequencies;
@@ -226,6 +224,8 @@ int main(int argc, char** argv) {
         laser_function[i] = laser->laser_function(time_config.t_begin + i * time_config.measure_every());
     }
 
+    // We do not need to output the zero padding
+    std::vector<h_float> current_density_time_output(current_density_time.begin(), current_density_time.begin() + N + 1);
     nlohmann::json data_json {
         { "time", 				                mrock::utility::time_stamp() },
         { "laser_function",                     laser_function },
@@ -234,7 +234,7 @@ int main(int argc, char** argv) {
         { "t_end",                              time_config.t_end },
         { "n_laser_cycles",                     n_laser_cylces },
         { "n_measurements",                     time_config.n_measurements + int(laser_type != "continuous") },
-        { "current_density_time",               current_density_time },
+        { "current_density_time",               current_density_time_output },
         { "current_density_frequency_real",     current_density_frequency_real },
         { "current_density_frequency_imag",     current_density_frequency_imag },
         { "T",                                  temperature },
@@ -245,8 +245,10 @@ int main(int argc, char** argv) {
         { "photon_energy",                      photon_energy },
         { "laser_type",                         laser_type },
         { "decay_time",                         decay_time },
-        { "frequencies",                        frequencies }
+        { "frequencies",                        frequencies },
+        { "zero_padding",                       zero_padding }
     };
+    std::cout << "Saving data to " << output_dir << "/current_density.json.gz" << std::endl;
     mrock::utility::saveString(data_json.dump(4), output_dir + "current_density.json.gz");
     if (debug_data == "no") return EXIT;
 
