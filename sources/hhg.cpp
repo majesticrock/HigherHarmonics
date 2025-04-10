@@ -24,7 +24,7 @@
 #include "HHG/Fourier/FourierIntegral.hpp"
 #include "HHG/Fourier/TrapezoidalFFT.hpp"
 
-constexpr double target_kappa_error = 5e-3;
+constexpr double target_kappa_error = 5e-4;
 constexpr int n_kappa = 10;
 
 int main(int argc, char** argv) {
@@ -198,6 +198,12 @@ int main(int argc, char** argv) {
     }
     else {
         HHG::Fourier::TrapezoidalFFT integrator(time_config);
+
+        // 0 padding to increase frequency resolution. Factor >= 4 is recommended by numerical recipes
+        current_density_time.resize(4 * (N + 1));
+        current_density_frequency_real.resize(8 * (N + 1));
+        current_density_frequency_imag.resize(8 * (N + 1));
+
         integrator.compute(current_density_time, current_density_frequency_real, current_density_frequency_imag);
         frequencies = integrator.frequencies;
 
