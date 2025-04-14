@@ -64,7 +64,7 @@ int main(int argc, char** argv) {
     const h_float decay_time = input.getDouble("decay_time"); // in fs
     const std::string debug_data = input.getString("debug_data"); // yes/no/only
 
-    constexpr int measurements_per_cycle = 1 << 9; // 2^14 is the mininum value to achieve good precision for realistic parameters
+    constexpr int measurements_per_cycle = 1 << 14; // 2^14 is the mininum value to achieve good precision for realistic parameters
     const int N = n_laser_cylces * measurements_per_cycle;
 
     std::unique_ptr<Laser::Laser> laser;
