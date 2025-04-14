@@ -43,7 +43,7 @@ $(DEBUG_BUILD_DIR)/Makefile: CMakeLists.txt
 	@cd $(DEBUG_BUILD_DIR) && cmake -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=Debug ..
 
 clean:
-	@rm -rf $(BUILD_DIR) $(CLUSTER_BUILD_DIR) $(DEBUG_BUILD_DIR) $(NDEBUG_BUILD_DIR) $(NO_MPI_BUILD_DIR)
+	@rm -rf $(BUILD_DIR) $(CLUSTER_BUILD_DIR) $(DEBUG_BUILD_DIR) $(NDEBUG_BUILD_DIR) $(NO_MPI_BUILD_DIR) build_header
 	@rm -rf auto_generated*
 
 .PHONY: all clean cluster debug

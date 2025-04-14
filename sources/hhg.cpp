@@ -24,6 +24,10 @@
 #include "HHG/Fourier/FourierIntegral.hpp"
 #include "HHG/Fourier/TrapezoidalFFT.hpp"
 
+#include <mrock/utility/info_to_json.hpp>
+#include <mrock/info.h>
+#include "../build_header/info.h"
+
 constexpr double target_kappa_error = 5e-4;
 constexpr int n_kappa = 10;
 constexpr int zero_padding = 8;
@@ -250,6 +254,12 @@ int main(int argc, char** argv) {
     };
     std::cout << "Saving data to " << output_dir << "/current_density.json.gz" << std::endl;
     mrock::utility::saveString(data_json.dump(4), output_dir + "current_density.json.gz");
+
+    // Generate metadata
+	nlohmann::json info_json = mrock::utility::generate_json<HigherHarmonics::info>("hhg_");
+	info_json.update(mrock::utility::generate_json<mrock::info>("mrock_"));
+	mrock::utility::saveString(info_json.dump(4), output_dir + "metadata.json.gz");
+
     if (debug_data == "no") return EXIT;
 
     // Debug output
