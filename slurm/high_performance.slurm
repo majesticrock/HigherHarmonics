@@ -4,7 +4,7 @@
 ## or look up the slurm documentation under https://slurm.schedmed.com/sbatch.html
 
 ## Mandatory:
-#SBATCH --job-name=modes
+#SBATCH --job-name=hhg
 #SBATCH --output=/home/althueser/phd/cpp/HigherHarmonics/output.txt
 #SBATCH --time=48:00:00         ## maximum runtime; hours:minutes:seconds
 #SBATCH --partition=long       ## choose queue
