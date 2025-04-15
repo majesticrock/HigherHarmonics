@@ -16,9 +16,9 @@
 #include <mrock/utility/InputFileReader.hpp>
 #include <mrock/utility/better_to_string.hpp>
 
-#include "HHG/DiracSystem.hpp"
-#include "HHG/Laser/ContinuousLaser.hpp"
-#include "HHG/Laser/CosineLaser.hpp"
+#include "HHG/DiracDispatcher.hpp"
+#include "HHG/PiFluxDispatcher.hpp"
+
 #include "HHG/Fourier/FFT.hpp"
 #include "HHG/Fourier/WelchWindow.hpp"
 #include "HHG/Fourier/FourierIntegral.hpp"
@@ -28,8 +28,6 @@
 #include <mrock/info.h>
 #include "../build_header/info.h"
 
-constexpr double target_kappa_error = 5e-4;
-constexpr int n_kappa = 10;
 constexpr int zero_padding = 8;
 
 int main(int argc, char** argv) {
@@ -63,7 +61,7 @@ int main(int argc, char** argv) {
     const h_float E0 = input.getDouble("field_amplitude");
     const h_float photon_energy = input.getDouble("photon_energy");
     const h_float decay_time = input.getDouble("decay_time"); // in fs
-    
+
     const std::string laser_type = input.getString("laser_type");
     const int n_laser_cylces = input.getInt("n_laser_cycles");
     const int n_z = input.getInt("n_z");
@@ -73,23 +71,6 @@ int main(int argc, char** argv) {
 
     constexpr int measurements_per_cycle = 1 << 14; // 2^14 is the mininum value to achieve good precision for realistic parameters
     const int N = n_laser_cylces * measurements_per_cycle;
-
-    DiracSystem system(temperature, E_F, v_F, band_width, photon_energy, decay_time);
-    std::unique_ptr<Laser::Laser> laser;
-    TimeIntegrationConfig time_config;
-
-    if (laser_type == "continuous") {
-        laser = std::make_unique<Laser::ContinuousLaser>(photon_energy, E0, system.laser_model_ratio(photon_energy));
-        time_config = {-n_laser_cylces * HHG::pi, n_laser_cylces * HHG::pi, N, 500};
-    }
-    else if (laser_type == "cosine") {
-        laser = std::make_unique<Laser::CosineLaser>(photon_energy, E0, system.laser_model_ratio(photon_energy), n_laser_cylces);
-        time_config = {laser->t_begin, laser->t_end, N, 500};
-    }
-    else {
-        std::cerr << "Laser type '" << laser_type << "' is not recognized!" << std::endl;
-        return 1;
-    }
 
     /**
      * Creating output dirs
@@ -128,56 +109,24 @@ int main(int argc, char** argv) {
     /**
      * Starting calculations
      */
-
-    high_resolution_clock::time_point begin = high_resolution_clock::now();
-    std::cout << "Computing the k integrals..." << std::endl;
-
-    std::array<std::vector<h_float>, n_debug_points> time_evolutions;
-    std::vector<h_float> current_density_time;
-#ifndef NO_MPI
-    std::vector<h_float> current_density_time_local;
-
-    if (decay_time > 0) {
-        if (rank == 0 && debug_data != "no")
-            time_evolutions = system.compute_current_density_decay_debug(laser.get(), time_config, rank, n_ranks, n_z, n_kappa, target_kappa_error);
-        if (debug_data == "only")
-            current_density_time_local.resize(N + 1);
-        else
-            current_density_time_local = system.compute_current_density_decay(laser.get(), time_config, rank, n_ranks, n_z, n_kappa, target_kappa_error);
+    std::unique_ptr<Dispatcher> dispatcher;
+    if (system_type == "Dirac") {
+        dispatcher = std::make_unique<DiracDispatcher>(input, N + 1);
+    }
+    else if (system_type == "PiFlux") {
+        dispatcher = std::make_unique<PiFluxDispatcher>(input, N + 1);
     }
     else {
-        if (rank == 0 && debug_data != "no")
-            time_evolutions = system.compute_current_density_debug(laser.get(), time_config, rank, n_ranks, n_z, n_kappa, target_kappa_error);
-        if (debug_data == "only")
-            current_density_time_local.resize(N + 1);
-        else
-            current_density_time_local = system.compute_current_density(laser.get(), time_config, rank, n_ranks, n_z, n_kappa, target_kappa_error); 
+        throw std::invalid_argument("System type '" + system_type + "' not recognized!");
     }
 
-    current_density_time.resize(current_density_time_local.size());
-    MPI_Reduce(current_density_time_local.data(), current_density_time.data(), current_density_time_local.size(), MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-#else
-    if (decay_time > 0) {
-        if (debug_data != "only")
-            current_density_time = system.compute_current_density_decay(laser.get(), time_config, rank, n_ranks, n_z, n_kappa, target_kappa_error);
-        if (debug_data != "no")
-            time_evolutions = system.compute_current_density_decay_debug(laser.get(), time_config, rank, n_ranks, n_z, n_kappa, target_kappa_error);
-    }
-    else {
-        if (debug_data != "only")
-            current_density_time = system.compute_current_density(laser.get(), time_config, rank, n_ranks, n_z, n_kappa, target_kappa_error);
-        if (debug_data != "no")
-            time_evolutions = system.compute_current_density_debug(laser.get(), time_config, rank, n_ranks, n_z, n_kappa, target_kappa_error);
-    }
-#endif
-
-    high_resolution_clock::time_point end = high_resolution_clock::now();
-	std::cout << "Runtime = " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "[ms]" << std::endl;
+    if (debug_data != "only") dispatcher->compute(rank, n_ranks, n_z);
+    if (debug_data != "no") dispatcher->debug(n_z);
 
     if (rank != 0) return EXIT;
     /////////////////////////////////////////////////////////////////////
 
-    begin = high_resolution_clock::now();
+    high_resolution_clock::time_point begin = high_resolution_clock::now();
     std::cout << "Computing the Fourier transform..." << std::endl;
 
     std::vector<h_float> current_density_frequency_real(N + 1);
@@ -192,35 +141,35 @@ int main(int argc, char** argv) {
     if (laser_type == "continuous") {
         Fourier::WelchWindow window(N);
         for (int i = 0; i < N; ++i) {
-            current_density_time[i] *= window[i];
+            dispatcher->current_density_time[i] *= window[i];
         }
         Fourier::FFT fft(N);
-        fft.compute(current_density_time, current_density_frequency_real, current_density_frequency_imag);
+        fft.compute(dispatcher->current_density_time, current_density_frequency_real, current_density_frequency_imag);
 
         frequencies.resize(N / 2 + 1);
         for (int i = 0; i < frequencies.size(); ++i) {
-            frequencies[i] = i / time_config.measure_every();
+            frequencies[i] = i / dispatcher->time_config.measure_every();
         }
     }
     else {
-        HHG::Fourier::TrapezoidalFFT integrator(time_config);
+        HHG::Fourier::TrapezoidalFFT integrator(dispatcher->time_config);
 
         // 0 padding to increase frequency resolution. Factor >= 4 is recommended by numerical recipes
-        current_density_time.resize(zero_padding * (N + 1));
+        dispatcher->current_density_time.resize(zero_padding * (N + 1));
         current_density_frequency_real.resize(zero_padding * (N + 1));
         current_density_frequency_imag.resize(zero_padding * (N + 1));
 
-        integrator.compute(current_density_time, current_density_frequency_real, current_density_frequency_imag);
+        integrator.compute(dispatcher->current_density_time, current_density_frequency_real, current_density_frequency_imag);
         frequencies = integrator.frequencies;
 
         if (debug_data != "no") {
             for(int i = 0; i < n_debug_points; ++i) {
-                integrator.compute(time_evolutions[i], debug_fft_real[i], debug_fft_imag[i]);
+                integrator.compute(dispatcher->time_evolutions[i], debug_fft_real[i], debug_fft_imag[i]);
             }
         }
     }
 
-    end = high_resolution_clock::now();
+    high_resolution_clock::time_point end = high_resolution_clock::now();
 	std::cout << "Runtime = " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "[ms]" << std::endl;
 
     /**
@@ -229,19 +178,19 @@ int main(int argc, char** argv) {
     std::vector<HHG::h_float> laser_function(N + int(laser_type != "continuous"));
     for (int i = 0; i < laser_function.size(); i++)
     {
-        laser_function[i] = laser->laser_function(time_config.t_begin + i * time_config.measure_every());
+        laser_function[i] = dispatcher->laser->laser_function(dispatcher->time_config.t_begin + i * dispatcher->time_config.measure_every());
     }
 
     // We do not need to output the zero padding
-    std::vector<h_float> current_density_time_output(current_density_time.begin(), current_density_time.begin() + N + 1);
+    std::vector<h_float> current_density_time_output(dispatcher->current_density_time.begin(), dispatcher->current_density_time.begin() + N + 1);
     nlohmann::json data_json {
         { "time", 				                mrock::utility::time_stamp() },
         { "laser_function",                     laser_function },
         { "N",                                  N },
-        { "t_begin",                            time_config.t_begin },
-        { "t_end",                              time_config.t_end },
+        { "t_begin",                            dispatcher->time_config.t_begin },
+        { "t_end",                              dispatcher->time_config.t_end },
         { "n_laser_cycles",                     n_laser_cylces },
-        { "n_measurements",                     time_config.n_measurements + int(laser_type != "continuous") },
+        { "n_measurements",                     dispatcher->time_config.n_measurements + int(laser_type != "continuous") },
         { "current_density_time",               current_density_time_output },
         { "current_density_frequency_real",     current_density_frequency_real },
         { "current_density_frequency_imag",     current_density_frequency_imag },
@@ -270,7 +219,7 @@ int main(int argc, char** argv) {
     nlohmann::json debug_json = {
         {"time", mrock::utility::time_stamp()},
         {"frequencies", frequencies},
-        {"time_evolutions", time_evolutions},
+        {"time_evolutions", dispatcher->time_evolutions},
         {"debug_fft_real", debug_fft_real},
         {"debug_fft_imag", debug_fft_imag}
     };

@@ -32,7 +32,7 @@ namespace HHG {
         };
 
         PiFlux() = delete;
-        PiFlux(h_float temperature, h_float _E_F, h_float _v_F, h_float _band_width, h_float _photon_energy);
+        PiFlux(h_float temperature, h_float _E_F, h_float _v_F, h_float _band_width, h_float _photon_energy, h_float _decay_time);
 
         inline h_float laser_model_ratio() const {
             return lattice_constant;

@@ -60,13 +60,13 @@ namespace HHG {
             const int rank, const int n_ranks, const int n_z, const int n_kappa = 20, const h_float kappa_threshold = 1e-3) const;
 
         std::array<std::vector<h_float>, n_debug_points> compute_current_density_debug(Laser::Laser const * const laser, TimeIntegrationConfig const& time_config,
-            const int rank, const int n_ranks, const int n_z, const int n_kappa = 20, const h_float kappa_threshold = 1e-3) const;
+            const int n_z, const int n_kappa = 20, const h_float kappa_threshold = 1e-3) const;
 
         std::vector<h_float> compute_current_density_decay(Laser::Laser const * const laser, TimeIntegrationConfig const& time_config,
             const int rank, const int n_ranks, const int n_z, const int n_kappa = 20, const h_float kappa_threshold = 1e-3) const;
 
         std::array<std::vector<h_float>, n_debug_points> compute_current_density_decay_debug(Laser::Laser const * const laser, TimeIntegrationConfig const& time_config,
-            const int rank, const int n_ranks, const int n_z, const int n_kappa = 20, const h_float kappa_threshold = 1e-3) const;
+            const int n_z, const int n_kappa = 20, const h_float kappa_threshold = 1e-3) const;
     private:
         const h_float beta{}; ///< in units of the 1 / photon energy
         const h_float E_F{}; ///< in units of the photon energy

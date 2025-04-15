@@ -337,8 +337,8 @@ namespace HHG {
         return current_density_time;
     }
 
-    std::array<std::vector<h_float>, DiracSystem::n_debug_points> DiracSystem::compute_current_density_debug(Laser::Laser const *const laser, TimeIntegrationConfig const &time_config, 
-        const int rank, const int n_ranks, const int n_z, const int n_kappa, const h_float kappa_threshold) const
+    std::array<std::vector<h_float>, n_debug_points> DiracSystem::compute_current_density_debug(Laser::Laser const *const laser, TimeIntegrationConfig const &time_config, 
+        const int n_z, const int n_kappa, const h_float kappa_threshold) const
     {
         auto integration_weight = [](h_float k_z, h_float kappa) {
             return k_z * kappa / norm(k_z, kappa);
@@ -361,7 +361,7 @@ namespace HHG {
         // end debug setup
 
         std::array<std::vector<h_float>, n_debug_points> time_evolutions_std;
-        for(int i = 0; i < DiracSystem::n_debug_points; ++i) {
+        for(int i = 0; i < n_debug_points; ++i) {
             time_evolutions_std[i].resize(time_config.n_measurements + 1);
             std::copy(time_evolutions[i].begin(), time_evolutions[i].end(), time_evolutions_std[i].begin());
         }
@@ -424,8 +424,8 @@ namespace HHG {
         return current_density_time;
     }
 
-    std::array<std::vector<h_float>, DiracSystem::n_debug_points> DiracSystem::compute_current_density_decay_debug(Laser::Laser const * const laser, TimeIntegrationConfig const& time_config,
-        const int rank, const int n_ranks, const int n_z, const int n_kappa/*  = 20 */, const h_float kappa_threshold/*  = 1e-3 */) const 
+    std::array<std::vector<h_float>, n_debug_points> DiracSystem::compute_current_density_decay_debug(Laser::Laser const * const laser, TimeIntegrationConfig const& time_config,
+        const int n_z, const int n_kappa/*  = 20 */, const h_float kappa_threshold/*  = 1e-3 */) const 
     {
         auto integration_weight = [](h_float k_z, h_float kappa) {
             return k_z * kappa / norm(k_z, kappa);
@@ -448,7 +448,7 @@ namespace HHG {
         // end debug setup
 
         std::array<std::vector<h_float>, n_debug_points> time_evolutions_std;
-        for(int i = 0; i < DiracSystem::n_debug_points; ++i) {
+        for(int i = 0; i < n_debug_points; ++i) {
             time_evolutions_std[i].resize(time_config.n_measurements + 1);
             std::copy(time_evolutions[i].begin(), time_evolutions[i].end(), time_evolutions_std[i].begin());
         }

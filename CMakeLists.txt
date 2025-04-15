@@ -29,6 +29,8 @@ add_executable(hhg
     sources/hhg.cpp
 )
 target_sources(hhg PRIVATE
+    sources/HHG/DiracDispatcher.cpp
+    sources/HHG/PiFluxDispatcher.cpp
     sources/HHG/DiracSystem.cpp
     sources/HHG/DiracDetail/MagnusMatrix.cpp
     sources/HHG/PiFlux.cpp
