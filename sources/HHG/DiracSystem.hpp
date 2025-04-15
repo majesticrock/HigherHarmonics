@@ -1,6 +1,5 @@
 #pragma once
 
-#include <mrock/utility/InputFileReader.hpp>
 #include <string>
 #include <array>
 #include <Eigen/Dense>
@@ -12,8 +11,6 @@
 namespace HHG {
     class DiracSystem {
     public:
-        constexpr static int n_debug_points = 25;
-
         using c_vector = complex_vector<2>;
         using c_matrix = complex_matrix<2, 2>;
         using r_matrix = real_matrix<2, 2>;
@@ -30,6 +27,10 @@ namespace HHG {
          */
         DiracSystem(h_float temperature, h_float _E_F, h_float _v_F, h_float _band_width, h_float _photon_energy);
         DiracSystem(h_float temperature, h_float _E_F, h_float _v_F, h_float _band_width, h_float _photon_energy, h_float _decay_time);
+
+        inline h_float laser_model_ratio(h_float photon_energy) const {
+            return hbar * v_F / photon_energy;
+        }
 
         void time_evolution(nd_vector& rhos, Laser::Laser const * const laser, 
             h_float k_z, h_float kappa, const TimeIntegrationConfig& time_config) const;

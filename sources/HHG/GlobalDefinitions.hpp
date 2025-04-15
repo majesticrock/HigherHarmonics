@@ -22,7 +22,11 @@ namespace HHG {
     constexpr h_complex imaginary_unit{0., 1.};
     constexpr h_float hbar = h_float(6.582119569509065698e-13); // meV s
     constexpr h_float k_B  = h_float(0.08617333262145177434);   // meV / K
-    constexpr h_float pi   = h_float(M_PI);
+    constexpr h_float pi   = h_float(M_PI); // pi
+    constexpr h_float sqrt_3  = h_float(1.732050807568877293527446341); // sqrt(3)
+    constexpr h_float sqrt_12 = h_float(3.464101615137754587054892683); // sqrt(12)
+
+    constexpr int n_debug_points = 25;
 
     constexpr h_float fermi_function(h_float energy, h_float beta) {
         if (beta == std::numeric_limits<h_float>::infinity()) {

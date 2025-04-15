@@ -4,7 +4,8 @@
 #include "gauss.hpp"
 
 namespace HHG::Laser {
-     /** 
+     /** A_0 = 1e11 * E_0 / photon_energy
+     * For the Dirac system:
      * We have hbar in meV * s -> so giving photon energy (gamma = hbar omega) in meV is just fine
      * E_0 is given in MV/cm, requiring the factor of 10^8 to convert to V/m
      * v_F is given in m/s -> already fine
@@ -13,17 +14,16 @@ namespace HHG::Laser {
      * [v_F]*[E_0]/[gamma] = 10^11 / [gamma] (1/s) = 10^11 * [hbar] / [gamma^2] (gamma/hbar)
      * 
      * Then 1e8 hbar v_F E_0 / (photon_energy) is in eV (for the parameters of Wang around 30.09 eV)
+     * 
+     * => model_ratio = hbar v_F / photon_energy
      */
+    Laser::Laser(h_float photon_energy, h_float E_0, h_float model_ratio)
+        : momentum_amplitude{model_ratio * 1e11 * E_0 / photon_energy} 
+    { }
 
-    Laser::Laser(h_float photon_energy, h_float E_0, h_float v_F)
-        : momentum_amplitude{hbar * 1e11 * v_F * E_0 / (photon_energy * photon_energy)} 
-    {}
-
-    Laser::Laser(h_float photon_energy, h_float E_0, h_float v_F, h_float t_begin, h_float t_end)
-        : momentum_amplitude{hbar * 1e11 * v_F * E_0 / (photon_energy * photon_energy)}, t_begin{t_begin}, t_end{t_end} 
-    {
-        //std::cout << momentum_amplitude * photon_energy << std::endl;
-    }
+    Laser::Laser(h_float photon_energy, h_float E_0, h_float model_ratio, h_float t_begin, h_float t_end)
+        : momentum_amplitude{model_ratio * 1e11 * E_0 / photon_energy}, t_begin{t_begin}, t_end{t_end} 
+    { }
 
     std::array<h_float, 4> Laser::magnus_coefficients(h_float delta_t, h_float t_0) const
     {

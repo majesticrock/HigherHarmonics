@@ -62,23 +62,28 @@ int main(int argc, char** argv) {
     const h_float band_width = input.getDouble("band_width");
     const h_float E0 = input.getDouble("field_amplitude");
     const h_float photon_energy = input.getDouble("photon_energy");
+    const h_float decay_time = input.getDouble("decay_time"); // in fs
+    
     const std::string laser_type = input.getString("laser_type");
     const int n_laser_cylces = input.getInt("n_laser_cycles");
     const int n_z = input.getInt("n_z");
-    const h_float decay_time = input.getDouble("decay_time"); // in fs
+    
+    const std::string system_type = input.getString("system_type");
     const std::string debug_data = input.getString("debug_data"); // yes/no/only
 
     constexpr int measurements_per_cycle = 1 << 14; // 2^14 is the mininum value to achieve good precision for realistic parameters
     const int N = n_laser_cylces * measurements_per_cycle;
 
+    DiracSystem system(temperature, E_F, v_F, band_width, photon_energy, decay_time);
     std::unique_ptr<Laser::Laser> laser;
     TimeIntegrationConfig time_config;
+
     if (laser_type == "continuous") {
-        laser = std::make_unique<Laser::ContinuousLaser>(photon_energy, E0, v_F);
+        laser = std::make_unique<Laser::ContinuousLaser>(photon_energy, E0, system.laser_model_ratio(photon_energy));
         time_config = {-n_laser_cylces * HHG::pi, n_laser_cylces * HHG::pi, N, 500};
     }
     else if (laser_type == "cosine") {
-        laser = std::make_unique<Laser::CosineLaser>(photon_energy, E0, v_F, n_laser_cylces);
+        laser = std::make_unique<Laser::CosineLaser>(photon_energy, E0, system.laser_model_ratio(photon_energy), n_laser_cylces);
         time_config = {laser->t_begin, laser->t_end, N, 500};
     }
     else {
@@ -86,7 +91,6 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    DiracSystem system(temperature, E_F, v_F, band_width, photon_energy, decay_time);
     /**
      * Creating output dirs
      */
@@ -128,7 +132,7 @@ int main(int argc, char** argv) {
     high_resolution_clock::time_point begin = high_resolution_clock::now();
     std::cout << "Computing the k integrals..." << std::endl;
 
-    std::array<std::vector<h_float>, DiracSystem::n_debug_points> time_evolutions;
+    std::array<std::vector<h_float>, n_debug_points> time_evolutions;
     std::vector<h_float> current_density_time;
 #ifndef NO_MPI
     std::vector<h_float> current_density_time_local;
@@ -179,8 +183,8 @@ int main(int argc, char** argv) {
     std::vector<h_float> current_density_frequency_real(N + 1);
     std::vector<h_float> current_density_frequency_imag(N + 1);
 
-    std::array<std::vector<h_float>, DiracSystem::n_debug_points> debug_fft_real;
-    std::array<std::vector<h_float>, DiracSystem::n_debug_points> debug_fft_imag;
+    std::array<std::vector<h_float>, n_debug_points> debug_fft_real;
+    std::array<std::vector<h_float>, n_debug_points> debug_fft_imag;
     debug_fft_real.fill(std::vector<h_float>(N + 1));
     debug_fft_imag.fill(std::vector<h_float>(N + 1));
 
@@ -210,7 +214,7 @@ int main(int argc, char** argv) {
         frequencies = integrator.frequencies;
 
         if (debug_data != "no") {
-            for(int i = 0; i < DiracSystem::n_debug_points; ++i) {
+            for(int i = 0; i < n_debug_points; ++i) {
                 integrator.compute(time_evolutions[i], debug_fft_real[i], debug_fft_imag[i]);
             }
         }

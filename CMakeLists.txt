@@ -31,6 +31,8 @@ add_executable(hhg
 target_sources(hhg PRIVATE
     sources/HHG/DiracSystem.cpp
     sources/HHG/DiracDetail/MagnusMatrix.cpp
+    sources/HHG/PiFlux.cpp
+    sources/HHG/GeneralMagnus.cpp
     sources/HHG/TimeIntegrationConfig.cpp
     sources/HHG/GreensFunction.cpp
 )

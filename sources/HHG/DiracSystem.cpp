@@ -1,7 +1,6 @@
 #include "DiracSystem.hpp"
 #include <cmath>
 #include <cassert>
-#include <map>
 #include <numeric>
 
 #include <omp.h>
@@ -192,8 +191,8 @@ namespace HHG {
         const h_float beta_0 = fermi_function(E_F - dispersion(k_z, kappa), beta);
 
         sigma_state_type current_state = { 2. * alpha_0 * beta_0, h_float{0}, alpha_0 * alpha_0 - beta_0 * beta_0 };
+        
         const h_float measure_every = time_config.measure_every();
-
         h_float t_begin = time_config.t_begin;
         h_float t_end = t_begin + measure_every;
 
@@ -220,7 +219,7 @@ namespace HHG {
 
     void DiracSystem::time_evolution_decay(nd_vector &rhos, Laser::Laser const *const laser, h_float k_z, h_float kappa, const TimeIntegrationConfig &time_config) const
     {
-        #ifndef adaptive_stepper
+#ifndef adaptive_stepper
         sigma_stepper_type stepper;
 #endif
         const h_float magnitude_k = norm(k_z, kappa);
