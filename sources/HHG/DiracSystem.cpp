@@ -25,14 +25,8 @@ using namespace boost::numeric::odeint;
     std::transform(omp_out.begin(), omp_out.end(), omp_in.begin(), omp_out.begin(), std::plus<HHG::h_float>())) \
     initializer(omp_priv = decltype(omp_orig)(omp_orig.size()))
 
-#define adaptive_stepper
-#ifdef adaptive_stepper
 typedef runge_kutta_fehlberg78<state_type> error_stepper_type;
 typedef runge_kutta_fehlberg78<sigma_state_type> sigma_error_stepper_type;
-#else
-typedef runge_kutta4<state_type> stepper_type;
-typedef runge_kutta4<sigma_state_type> sigma_stepper_type;
-#endif
 
 #ifdef NO_MPI
 #define PROGRESS_BAR_UPDATE ++(progresses[omp_get_thread_num()]); \
@@ -68,9 +62,6 @@ namespace HHG {
     void DiracSystem::time_evolution(nd_vector& rhos, Laser::Laser const * const laser, 
         h_float k_z, h_float kappa, const TimeIntegrationConfig& time_config) const
     {
-#ifndef adaptive_stepper
-        stepper_type stepper;
-#endif
         auto right_side = [this, &laser, &k_z, &kappa](const state_type& alpha_beta, state_type& dxdt, const h_float t) {
             dxdt = this->dynamical_matrix(k_z, kappa, laser->laser_function(t)) * alpha_beta;
         };
@@ -86,11 +77,7 @@ namespace HHG {
         rhos(0) = std::norm(current_state(0)) - std::norm(current_state(1));
         
         for (int i = 1; i <= time_config.n_measurements; ++i) {
-#ifdef adaptive_stepper
             integrate_adaptive(make_controlled<error_stepper_type>(abs_error, rel_error), right_side, current_state, t_begin, t_end, dt);
-#else
-            integrate_const(stepper, right_side, current_state, t_begin, t_end, dt);
-#endif
             current_state.normalize();      // We do not have relaxation, thus |alpha|^2 + |beta|^2 is a conserved quantity.
             current_state *= inital_norm;   // We enforce this explicitly
 
@@ -104,10 +91,6 @@ namespace HHG {
     void DiracSystem::time_evolution_complex(std::vector<h_complex>& alphas, std::vector<h_complex>& betas, Laser::Laser const * const laser, 
         h_float k_z, h_float kappa, const TimeIntegrationConfig& time_config) const
     {
-#ifndef adaptive_stepper
-        stepper_type stepper;
-#endif
-
         auto right_side = [this, &laser, &k_z, &kappa](const state_type& alpha_beta, state_type& dxdt, const h_float t) {
             dxdt = this->dynamical_matrix(k_z, kappa, laser->laser_function(t)) * alpha_beta;
         };
@@ -126,11 +109,8 @@ namespace HHG {
         betas[0]  = current_state(1);
         
         for (int i = 0; i <= time_config.n_measurements; ++i) {
-#ifdef adaptive_stepper
             integrate_adaptive(make_controlled<error_stepper_type>(abs_error, rel_error), right_side, current_state, t_begin, t_end, dt);
-#else
-            integrate_const(stepper, right_side, current_state, t_begin, t_end, dt);
-#endif
+
             current_state.normalize();      // We do not have relaxation, thus |alpha|^2 + |beta|^2 is a conserved quantity.
             current_state *= inital_norm;   // We enforce this explicitly
 
@@ -145,9 +125,6 @@ namespace HHG {
     void DiracSystem::time_evolution_sigma(nd_vector& rhos, Laser::Laser const * const laser, 
         h_float k_z, h_float kappa, const TimeIntegrationConfig& time_config) const
     {
-#ifndef adaptive_stepper
-        sigma_stepper_type stepper;
-#endif
         const h_float magnitude_k = norm(k_z, kappa);
         auto right_side = [this, &laser, &k_z, &kappa, &magnitude_k](const sigma_state_type& state, sigma_state_type& dxdt, const h_float t) {
             const h_float vector_potential = laser->laser_function(t);          
@@ -172,11 +149,7 @@ namespace HHG {
         rhos.conservativeResize(time_config.n_measurements + 1);
         rhos[0] = current_state(2);
         for (int i = 1; i <= time_config.n_measurements; ++i) {
-#ifdef adaptive_stepper
             integrate_adaptive(make_controlled<sigma_error_stepper_type>(abs_error, rel_error), right_side, current_state, t_begin, t_end, dt);
-#else
-            integrate_const(stepper, right_side, current_state, t_begin, t_end, dt);
-#endif
             rhos[i] = current_state(2);
             t_begin = t_end;
             t_end += measure_every;
@@ -219,9 +192,6 @@ namespace HHG {
 
     void DiracSystem::time_evolution_decay(nd_vector &rhos, Laser::Laser const *const laser, h_float k_z, h_float kappa, const TimeIntegrationConfig &time_config) const
     {
-#ifndef adaptive_stepper
-        sigma_stepper_type stepper;
-#endif
         const h_float magnitude_k = norm(k_z, kappa);
         const h_float alpha_0 = fermi_function(E_F + dispersion(k_z, kappa), beta);
         const h_float beta_0 = fermi_function(E_F - dispersion(k_z, kappa), beta);
@@ -248,11 +218,7 @@ namespace HHG {
         rhos.conservativeResize(time_config.n_measurements + 1);
         rhos[0] = current_state(2);
         for (int i = 1; i <= time_config.n_measurements; ++i) {
-#ifdef adaptive_stepper
             integrate_adaptive(make_controlled<sigma_error_stepper_type>(abs_error, rel_error), right_side, current_state, t_begin, t_end, dt);
-#else
-            integrate_const(stepper, right_side, current_state, t_begin, t_end, dt);
-#endif
             rhos[i] = current_state(2);
             t_begin = t_end;
             t_end += measure_every;

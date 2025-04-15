@@ -69,7 +69,11 @@ int main(int argc, char** argv) {
     const std::string system_type = input.getString("system_type");
     const std::string debug_data = input.getString("debug_data"); // yes/no/only
 
-    constexpr int measurements_per_cycle = 1 << 14; // 2^14 is the mininum value to achieve good precision for realistic parameters
+    /** 
+     *  DiracSystem: 2^14 is the mininum value to achieve good precision for realistic parameters
+     *  PiFlux: 2^10 is the minimum for v_F = 1.5e3 m/s - but the band width is also very imporant; large band width is apparently good
+     */
+    constexpr int measurements_per_cycle = 1 << 14; 
     const int N = n_laser_cylces * measurements_per_cycle;
 
     /**
@@ -95,6 +99,7 @@ int main(int argc, char** argv) {
     const std::string BASE_DATA_DIR = "../../data/HHG/";
     const std::string data_subdir = input.getString("data_dir")
         + "/" + laser_type + "_laser" +
+        + "/" + system_type +
         + "/T=" + improved_string(temperature)
         + "/E_F=" + improved_string(E_F)
         + "/v_F=" + improved_string(v_F)
@@ -111,10 +116,10 @@ int main(int argc, char** argv) {
      */
     std::unique_ptr<Dispatcher> dispatcher;
     if (system_type == "Dirac") {
-        dispatcher = std::make_unique<DiracDispatcher>(input, N + 1);
+        dispatcher = std::make_unique<DiracDispatcher>(input, N);
     }
     else if (system_type == "PiFlux") {
-        dispatcher = std::make_unique<PiFluxDispatcher>(input, N + 1);
+        dispatcher = std::make_unique<PiFluxDispatcher>(input, N);
     }
     else {
         throw std::invalid_argument("System type '" + system_type + "' not recognized!");

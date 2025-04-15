@@ -7,13 +7,13 @@ class CustomStrPrinter(StrPrinter):
         base, exp = expr.args
         # Check for integer exponents
         if exp.is_Integer and exp > 0:
-            return f"pow_{self._print(base)}[{exp - 2}]" # -2 because arrays begin a 0 and we do not need to save ^1
+            return f"pow_{self._print(base)}[{exp - 2}]" # -2 because arrays begin at 0 and we do not need to save ^1
         return super()._print_Pow(expr)
 
-alpha1, beta1, gamma1, delta1 = symbols("coeffs_1[0] coeffs_1[1] coeffs_1[2] coeffs_1[3]")
-alpha2, beta2, gamma2, delta2 = symbols("coeffs_2[0] coeffs_2[1] coeffs_2[2] coeffs_2[3]")
-alpha3, beta3, gamma3, delta3 = symbols("coeffs_3[0] coeffs_3[1] coeffs_3[2] coeffs_3[3]")
-alpha4, beta4, gamma4, delta4 = symbols("coeffs_4[0] coeffs_4[1] coeffs_4[2] coeffs_4[3]")
+alpha1, beta1, gamma1 = symbols("coeffs_1[0] coeffs_1[1] coeffs_1[2]")
+alpha2, beta2, gamma2 = symbols("coeffs_2[0] coeffs_2[1] coeffs_2[2]")
+alpha3, beta3, gamma3 = symbols("coeffs_3[0] coeffs_3[1] coeffs_3[2]")
+alpha4, beta4, gamma4 = symbols("coeffs_4[0] coeffs_4[1] coeffs_4[2]")
 
 
 M1 = Matrix([[0, -gamma1, beta1], [gamma1, 0, -alpha1], [-beta1, alpha1, 0]])

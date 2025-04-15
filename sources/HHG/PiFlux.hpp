@@ -38,16 +38,21 @@ namespace HHG {
             return lattice_constant;
         }
 
+        void time_evolution_sigma(nd_vector& rhos, Laser::Laser const * const laser, 
+            const momentum_type& k, const TimeIntegrationConfig& time_config) const;
+
         void time_evolution_magnus(nd_vector& rhos, Laser::Laser const * const laser, 
             const momentum_type& k, const TimeIntegrationConfig& time_config) const;
 
-        std::string info() const;
-
-        h_float dispersion(const momentum_type& k) const;
+        std::array<std::vector<h_float>, n_debug_points> compute_current_density_debug(Laser::Laser const * const laser, 
+            TimeIntegrationConfig const& time_config, const int n_z) const;
 
         std::vector<h_float> compute_current_density(Laser::Laser const * const laser, TimeIntegrationConfig const& time_config, 
             const int rank, const int n_ranks, const int n_z) const;
+        
+        std::string info() const;
 
+        h_float dispersion(const momentum_type& k) const;
     private:
         const h_float beta{}; ///< in units of the 1 / photon energy
         const h_float E_F{}; ///< in units of the photon energy

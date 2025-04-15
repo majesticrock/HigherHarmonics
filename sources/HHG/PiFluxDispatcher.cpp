@@ -64,5 +64,17 @@ void HHG::PiFluxDispatcher::compute(int rank, int n_ranks, int n_z)
 
 void HHG::PiFluxDispatcher::debug(int n_z)
 {
-    std::cerr << "DEBUG PI FLUX NOT YET IMPLEMENTED!" << std::endl;
+    std::chrono::high_resolution_clock::time_point begin = std::chrono::high_resolution_clock::now();
+    std::cout << "Computing the debug data sets..." << std::endl;
+
+    if (decay_time > 0) {
+        std::cerr << "DECAY NOT YET IMPLEMENTED!" << std::endl;
+        //time_evolutions = system.compute_current_density_decay_debug(laser.get(), time_config, n_z);
+    }
+    else {
+        time_evolutions = system.compute_current_density_debug(laser.get(), time_config, n_z);
+    }
+
+    std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
+	std::cout << "Runtime = " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "[ms]" << std::endl;
 }

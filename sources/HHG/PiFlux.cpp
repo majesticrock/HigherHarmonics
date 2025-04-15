@@ -11,7 +11,14 @@
 #include <mrock/utility/OutputConvenience.hpp>
 #include <mrock/utility/progress_bar.hpp>
 
+#include <boost/numeric/odeint.hpp>
+using namespace boost::numeric::odeint;
+
 typedef Eigen::Vector<HHG::h_float, 3> sigma_state_type;
+typedef runge_kutta_fehlberg78<sigma_state_type> sigma_error_stepper_type;
+
+constexpr HHG::h_float abs_error = 1.0e-12;
+constexpr HHG::h_float rel_error = 1.0e-8;
 
 #pragma omp declare reduction(vec_plus : std::vector<HHG::h_float> : \
     std::transform(omp_out.begin(), omp_out.end(), omp_in.begin(), omp_out.begin(), std::plus<HHG::h_float>())) \
@@ -37,7 +44,36 @@ namespace HHG {
             inverse_decay_time((1e15 * hbar) / (_decay_time * _photon_energy))
     { }
 
-    void PiFlux::time_evolution_magnus(nd_vector &rhos, Laser::Laser const *const laser, const momentum_type& k, const TimeIntegrationConfig &time_config) const
+    void PiFlux::time_evolution_sigma(nd_vector &rhos, Laser::Laser const *const laser, const momentum_type &k, const TimeIntegrationConfig &time_config) const
+    {
+        const h_float alpha_0 = fermi_function(E_F + dispersion(k), beta);
+        const h_float beta_0 = fermi_function(E_F - dispersion(k), beta);
+        const h_float prefactor = 4 * hopping_element / (dispersion(k));
+
+        sigma_state_type current_state = { 2. * alpha_0 * beta_0, h_float{0}, alpha_0 * alpha_0 - beta_0 * beta_0 };
+
+        auto right_side = [this, &k, &laser, &prefactor](const sigma_state_type& state, sigma_state_type& dxdt, const h_float t) {
+            const sigma_state_type m = {alpha(k, t, laser) * k.cos_x, alpha(k, t, laser) * k.cos_y, xi(k, t, laser)};
+            dxdt = prefactor * m.cross(state);
+        };
+
+        const h_float measure_every = time_config.measure_every();
+        const h_float dt = time_config.dt();
+        h_float t_begin = time_config.t_begin;
+        h_float t_end = t_begin + measure_every;
+
+        rhos.conservativeResize(time_config.n_measurements + 1);
+        rhos[0] = current_state(2);
+
+        for (int i = 1; i <= time_config.n_measurements; ++i) {
+            integrate_adaptive(make_controlled<sigma_error_stepper_type>(abs_error, rel_error), right_side, current_state, t_begin, t_end, dt);
+            rhos[i] = current_state(2);
+            t_begin = t_end;
+            t_end += measure_every;
+        }
+    }
+
+    void PiFlux::time_evolution_magnus(nd_vector &rhos, Laser::Laser const *const laser, const momentum_type &k, const TimeIntegrationConfig &time_config) const
     {
         const h_float alpha_0 = fermi_function(E_F + dispersion(k), beta);
         const h_float beta_0 = fermi_function(E_F - dispersion(k), beta);
@@ -55,7 +91,6 @@ namespace HHG {
         std::array<std::array<h_float, 3>, 4> expansion_coefficients;
         for (int i = 1; i <= time_config.n_measurements; ++i) {
             expansion_coefficients = this->magnus_coefficients(k, measure_every, t_begin, laser);
-
             current_state.applyOnTheLeft(magnus.Omega(expansion_coefficients[0], expansion_coefficients[1], expansion_coefficients[2], expansion_coefficients[3]));
 
             rhos[i] = current_state(2);
@@ -64,17 +99,31 @@ namespace HHG {
         }
     }
 
-    std::string PiFlux::info() const
+    std::array<std::vector<h_float>, n_debug_points> PiFlux::compute_current_density_debug(Laser::Laser const * const laser, 
+        TimeIntegrationConfig const& time_config, const int n_z) const
     {
-        return  "PiFlux\nT=" + std::to_string(1.0 / beta) + "\n" 
-                + "E_F=" + std::to_string(E_F) + "\n" 
-                + "t=" + std::to_string(hopping_element) + "\n" 
-                + "d=" + std::to_string(lattice_constant) + "\n";
-    }
+        // Debug setup
+        std::array<nd_vector, n_debug_points> time_evolutions{};
+        time_evolutions.fill(nd_vector::Zero(time_config.n_measurements + 1));
 
-    h_float PiFlux::dispersion(const momentum_type& k) const
-    {
-        return sqrt(k.cos_x*k.cos_x + k.cos_y*k.cos_y + k.cos_z*k.cos_z);
+        const int picked_z = 0.3 * pi;
+        const int picked_x = 0;
+        std::array<h_float, n_debug_points> picked{};
+
+        for (int i = 0; i < n_debug_points; ++i) {
+            picked[i] = (i + 1) * n_z * pi / (n_debug_points + 1);
+            momentum_type k(picked_x, picked[i], picked_z);
+
+            time_evolution_magnus(time_evolutions[i], laser, k, time_config);
+        }
+        // end debug setup
+
+        std::array<std::vector<h_float>, n_debug_points> time_evolutions_std;
+        for(int i = 0; i < n_debug_points; ++i) {
+            time_evolutions_std[i].resize(time_config.n_measurements + 1);
+            std::copy(time_evolutions[i].begin(), time_evolutions[i].end(), time_evolutions_std[i].begin());
+        }
+        return time_evolutions_std;
     }
 
     std::vector<h_float> PiFlux::compute_current_density(Laser::Laser const *const laser, TimeIntegrationConfig const &time_config, const int rank, const int n_ranks, const int n_z) const
@@ -189,6 +238,19 @@ namespace HHG {
         }
 
         return current_density_time;
+    }
+
+    std::string PiFlux::info() const
+    {
+        return  "PiFlux\nT=" + std::to_string(1.0 / beta) + "\n" 
+                + "E_F=" + std::to_string(E_F) + "\n" 
+                + "t=" + std::to_string(hopping_element) + "\n" 
+                + "d=" + std::to_string(lattice_constant) + "\n";
+    }
+
+    h_float PiFlux::dispersion(const momentum_type& k) const
+    {
+        return sqrt(k.cos_x*k.cos_x + k.cos_y*k.cos_y + k.cos_z*k.cos_z);
     }
 
     h_float PiFlux::alpha(const momentum_type &k, h_float t, Laser::Laser const *const laser) const
