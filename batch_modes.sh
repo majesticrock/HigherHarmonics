@@ -59,7 +59,7 @@ for NEW_VALUE in "${NEW_VALUES[@]}"; do
   cp slurm/hhg.slurm auto_generated_${CURRENT_TIME}/$NEW_NAME.slurm
   sed -i "s|#SBATCH --job-name=hhg|#SBATCH --job-name=${CURRENT_TIME}_$NEW_NAME|" auto_generated_${CURRENT_TIME}/$NEW_NAME.slurm
   sed -i "s|#SBATCH --output=/home/althueser/phd/cpp/HigherHarmonics/output.txt|#SBATCH --output=/home/althueser/phd/cpp/HigherHarmonics/${CURRENT_TIME}_output_$NEW_NAME.txt|" auto_generated_${CURRENT_TIME}/$NEW_NAME.slurm
-  sed -i "s|mpirun ./build_cluster/HigherHarmonics params/cluster.config|mpirun ./build_cluster/HigherHarmonics auto_generated_${CURRENT_TIME}/$NEW_NAME.config|" auto_generated_${CURRENT_TIME}/$NEW_NAME.slurm
+  sed -i "s|mpirun ./build_cluster/hhg params/cluster.config|mpirun ./build_cluster/hhg auto_generated_${CURRENT_TIME}/$NEW_NAME.config|" auto_generated_${CURRENT_TIME}/$NEW_NAME.slurm
 
   # Execute the program
   sbatch auto_generated_${CURRENT_TIME}/$NEW_NAME.slurm
