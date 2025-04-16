@@ -20,6 +20,7 @@ typedef runge_kutta_fehlberg78<sigma_state_type> sigma_error_stepper_type;
 constexpr HHG::h_float abs_error = 1.0e-12;
 constexpr HHG::h_float rel_error = 1.0e-8;
 
+
 #pragma omp declare reduction(vec_plus : std::vector<HHG::h_float> : \
     std::transform(omp_out.begin(), omp_out.end(), omp_in.begin(), omp_out.begin(), std::plus<HHG::h_float>())) \
     initializer(omp_priv = decltype(omp_orig)(omp_orig.size()))
@@ -114,7 +115,7 @@ namespace HHG {
             picked[i] = (i + 1) * n_z * pi / (n_debug_points + 1);
             momentum_type k(picked_x, picked[i], picked_z);
 
-            time_evolution_magnus(time_evolutions[i], laser, k, time_config);
+            __time_evolution__(time_evolutions[i], laser, k, time_config);
         }
         // end debug setup
 
@@ -131,7 +132,8 @@ namespace HHG {
         nd_vector rhos_buffer = nd_vector::Zero(time_config.n_measurements + 1);
         std::vector<h_float> current_density_time(time_config.n_measurements + 1, h_float{});
 
-        const h_float momentum_ratio = pi / n_z;
+        const h_float momentum_ratio = 2.0 * pi / n_z;
+        const int n_xy = n_z / 2;
 
 #ifdef NO_MPI
         std::vector<int> progresses(omp_get_max_threads(), int{});
@@ -158,25 +160,25 @@ namespace HHG {
             // therefore sigma_z = const.
             // We also have the symmetry that rho(k_x) = rho(-k_x) as everything depends merely on cos(k_x).
             // The same applies to k_y, but not to k_z.
-            for (int x = 1; x < n_z / 2; ++x) {
-                k.update_x(x * 0.5 * momentum_ratio);
+            for (int x = 1; x < n_xy / 2; ++x) {
+                k.update_x(x * momentum_ratio);
 
                 nd_vector y_buffer = nd_vector::Zero(time_config.n_measurements + 1);
-                for (int y = 1; y < n_z / 2; ++y) {
+                for (int y = 1; y < n_xy / 2; ++y) {
                     k.update_y(y * 0.5 * momentum_ratio);
-                    time_evolution_magnus(rhos_buffer, laser, k, time_config);
+                    __time_evolution__(rhos_buffer, laser, k, time_config);
                     rhos_buffer /= dispersion(k);
                     y_buffer += rhos_buffer;
                 }
                 y_buffer *= 2.0;
 
                 k.update_y(0.0);
-                time_evolution_magnus(rhos_buffer, laser, k, time_config);
+                __time_evolution__(rhos_buffer, laser, k, time_config);
                 rhos_buffer /= dispersion(k);
                 y_buffer += rhos_buffer;
 
-                k.update_y(pi / 2);
-                time_evolution_magnus(rhos_buffer, laser, k, time_config);
+                k.update_y(pi / 2.0);
+                __time_evolution__(rhos_buffer, laser, k, time_config);
                 rhos_buffer /= dispersion(k);
                 y_buffer += rhos_buffer;
 
@@ -188,40 +190,40 @@ namespace HHG {
                 k.update_x(0.0);
 
                 nd_vector y_buffer = nd_vector::Zero(time_config.n_measurements + 1);
-                for (int y = 1; y < n_z / 2; ++y) {
+                for (int y = 1; y < n_xy / 2; ++y) {
                     k.update_y(y * 0.5 * momentum_ratio);
-                    time_evolution_magnus(rhos_buffer, laser, k, time_config);
+                    __time_evolution__(rhos_buffer, laser, k, time_config);
                     rhos_buffer /= dispersion(k);
                     y_buffer += rhos_buffer;
                 }
                 y_buffer *= 2.0;
 
                 k.update_y(0.0);
-                time_evolution_magnus(rhos_buffer, laser, k, time_config);
+                __time_evolution__(rhos_buffer, laser, k, time_config);
                 rhos_buffer /= dispersion(k);
                 y_buffer += rhos_buffer;
 
-                k.update_y(pi / 2);
-                time_evolution_magnus(rhos_buffer, laser, k, time_config);
+                k.update_y(pi / 2.0);
+                __time_evolution__(rhos_buffer, laser, k, time_config);
                 rhos_buffer /= dispersion(k);
                 y_buffer += rhos_buffer;
 
                 x_buffer += y_buffer;
             }
             {
-                k.update_x(pi / 2);
+                k.update_x(pi / 2.0);
 
                 nd_vector y_buffer = nd_vector::Zero(time_config.n_measurements + 1);
-                for (int y = 1; y < n_z / 2; ++y) {
+                for (int y = 1; y < n_xy / 2; ++y) {
                     k.update_y(y * 0.5 * momentum_ratio);
-                    time_evolution_magnus(rhos_buffer, laser, k, time_config);
+                    __time_evolution__(rhos_buffer, laser, k, time_config);
                     rhos_buffer /= dispersion(k);
                     y_buffer += rhos_buffer;
                 }
                 y_buffer *= 2.0;
 
                 k.update_y(0.0);
-                time_evolution_magnus(rhos_buffer, laser, k, time_config);
+                __time_evolution__(rhos_buffer, laser, k, time_config);
                 rhos_buffer /= dispersion(k);
                 y_buffer += rhos_buffer;
 
@@ -326,5 +328,11 @@ namespace HHG {
     {
         this->cos_z = std::cos(val);
         this->z = val;
+    }
+
+    void PiFlux::__time_evolution__(nd_vector& rhos, Laser::Laser const * const laser, 
+        const momentum_type& k, const TimeIntegrationConfig& time_config) const
+    {
+        return time_evolution_sigma(rhos, laser, k, time_config);
     }
 }

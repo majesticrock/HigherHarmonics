@@ -64,5 +64,8 @@ namespace HHG {
         h_float xi(const momentum_type& k, h_float t, Laser::Laser const * const laser) const;
 
         std::array<std::array<h_float, 3>, 4> magnus_coefficients(const momentum_type& k, h_float delta_t, h_float t_0, Laser::Laser const * const laser) const;
+    
+        void __time_evolution__(nd_vector& rhos, Laser::Laser const * const laser, 
+            const momentum_type& k, const TimeIntegrationConfig& time_config) const;
     };
 }
