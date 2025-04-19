@@ -44,6 +44,9 @@ namespace HHG {
         void time_evolution_magnus(nd_vector& rhos, Laser::Laser const * const laser, 
             const momentum_type& k, const TimeIntegrationConfig& time_config) const;
 
+        void alternative_formulation(nd_vector& rhos, Laser::Laser const * const laser, 
+            const momentum_type& k, const TimeIntegrationConfig& time_config) const;
+
         std::array<std::vector<h_float>, n_debug_points> compute_current_density_debug(Laser::Laser const * const laser, 
             TimeIntegrationConfig const& time_config, const int n_z) const;
 

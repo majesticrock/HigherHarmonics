@@ -100,6 +100,56 @@ namespace HHG {
         }
     }
 
+    void PiFlux::alternative_formulation(nd_vector &rhos, Laser::Laser const *const laser, const momentum_type &k, const TimeIntegrationConfig &time_config) const
+    {
+        const h_float prefactor = 2 * hopping_element;
+
+        const h_float alpha_0 = fermi_function(E_F + dispersion(k), beta);
+        const h_float beta_0 = fermi_function(E_F - dispersion(k), beta);
+
+        typedef Eigen::Matrix<h_complex, 2, 2> pauli_t;
+        pauli_t V;
+        V << k.cos_z + dispersion(k), imaginary_unit * k.cos_y - k.cos_x,
+            k.cos_x + imaginary_unit * k.cos_y, k.cos_z + dispersion(k);
+        V /= sqrt(2. * dispersion(k) * (k.cos_z + dispersion(k)));
+        Eigen::Vector<h_complex, 2> phi(alpha_0, beta_0);
+        phi.applyOnTheLeft(V.adjoint());
+
+        pauli_t sx;
+        sx << 0., 1., 1., 0.;
+        pauli_t sy;
+        sy << 0., -imaginary_unit, imaginary_unit, 0.;
+        pauli_t sz;
+        sz << 1., 0., 0., -1.;
+
+        Eigen::Vector<h_complex, 3> cc_state = {phi.dot(sx * phi), phi.dot(sy * phi), phi.dot(sy * phi) };
+        assert(is_zero(cc_state(0).imag()));
+        assert(is_zero(cc_state(1).imag()));
+        assert(is_zero(cc_state(2).imag()));
+
+        sigma_state_type current_state = { cc_state(0).real() , cc_state(1).real(), cc_state(2).real() };
+
+        auto right_side = [this, &k, &laser, &prefactor](const sigma_state_type& state, sigma_state_type& dxdt, const h_float t) {
+            const sigma_state_type m = {k.cos_x, k.cos_y, std::cos(k.z - laser->laser_function(t))};
+            dxdt = prefactor * m.cross(state);
+        };
+
+        const h_float measure_every = time_config.measure_every();
+        const h_float dt = time_config.dt();
+        h_float t_begin = time_config.t_begin;
+        h_float t_end = t_begin + measure_every;
+
+        rhos.conservativeResize(time_config.n_measurements + 1);
+        rhos[0] = current_state(2) * std::sin(k.z - laser->laser_function(t_begin));
+
+        for (int i = 1; i <= time_config.n_measurements; ++i) {
+            integrate_adaptive(make_controlled<sigma_error_stepper_type>(abs_error, rel_error), right_side, current_state, t_begin, t_end, dt);
+            rhos[i] = current_state(2) * std::sin(k.z - laser->laser_function(t_end));
+            t_begin = t_end;
+            t_end += measure_every;
+        }
+    }
+
     std::array<std::vector<h_float>, n_debug_points> PiFlux::compute_current_density_debug(Laser::Laser const * const laser, 
         TimeIntegrationConfig const& time_config, const int n_z) const
     {
@@ -333,6 +383,7 @@ namespace HHG {
     void PiFlux::__time_evolution__(nd_vector& rhos, Laser::Laser const * const laser, 
         const momentum_type& k, const TimeIntegrationConfig& time_config) const
     {
+        //return alternative_formulation(rhos, laser, k, time_config);
         return time_evolution_sigma(rhos, laser, k, time_config);
     }
 }
