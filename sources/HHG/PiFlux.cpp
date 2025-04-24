@@ -102,32 +102,17 @@ namespace HHG {
 
     void PiFlux::alternative_formulation(nd_vector &rhos, Laser::Laser const *const laser, const momentum_type &k, const TimeIntegrationConfig &time_config) const
     {
-        const h_float prefactor = 2 * hopping_element;
+        const h_float prefactor = 2 * hopping_element; // Maybe a factor of 2 is missing here (might be a 4 in front)
 
-        const h_float alpha_0 = fermi_function(E_F + dispersion(k), beta);
-        const h_float beta_0 = fermi_function(E_F - dispersion(k), beta);
+        const h_float alpha2 = fermi_function(E_F + dispersion(k), beta);
+        const h_float beta2 = fermi_function(E_F - dispersion(k), beta);
+        const h_float alpha_beta_diff = alpha2 - beta2;
+        const h_float alpha_beta_prod = 2 * sqrt(alpha2 * beta2);
+        const h_float z_epsilon = k.cos_z + dispersion(k);
 
-        typedef Eigen::Matrix<h_complex, 2, 2> pauli_t;
-        pauli_t V;
-        V << k.cos_z + dispersion(k), imaginary_unit * k.cos_y - k.cos_x,
-            k.cos_x + imaginary_unit * k.cos_y, k.cos_z + dispersion(k);
-        V /= sqrt(2. * dispersion(k) * (k.cos_z + dispersion(k)));
-        Eigen::Vector<h_complex, 2> phi(alpha_0, beta_0);
-        phi.applyOnTheLeft(V.adjoint());
-
-        pauli_t sx;
-        sx << 0., 1., 1., 0.;
-        pauli_t sy;
-        sy << 0., -imaginary_unit, imaginary_unit, 0.;
-        pauli_t sz;
-        sz << 1., 0., 0., -1.;
-
-        Eigen::Vector<h_complex, 3> cc_state = {phi.dot(sx * phi), phi.dot(sy * phi), phi.dot(sy * phi) };
-        assert(is_zero(cc_state(0).imag()));
-        assert(is_zero(cc_state(1).imag()));
-        assert(is_zero(cc_state(2).imag()));
-
-        sigma_state_type current_state = { cc_state(0).real() , cc_state(1).real(), cc_state(2).real() };
+        sigma_state_type current_state = { ic_sigma_x(k, alpha_beta_diff, alpha_beta_prod, z_epsilon), 
+            ic_sigma_y(k, alpha_beta_diff, alpha_beta_prod, z_epsilon), 
+            ic_sigma_z(k, alpha_beta_diff, alpha_beta_prod, z_epsilon) };
 
         auto right_side = [this, &k, &laser, &prefactor](const sigma_state_type& state, sigma_state_type& dxdt, const h_float t) {
             const sigma_state_type m = {k.cos_x, k.cos_y, std::cos(k.z - laser->laser_function(t))};
@@ -385,5 +370,20 @@ namespace HHG {
     {
         //return alternative_formulation(rhos, laser, k, time_config);
         return time_evolution_sigma(rhos, laser, k, time_config);
+    }
+
+    h_float PiFlux::ic_sigma_x(const momentum_type &k, h_float alpha_beta_diff, h_float alpha_beta_prod, h_float z_epsilon) const noexcept
+    {
+        return (alpha_beta_diff * k.cos_x * z_epsilon + alpha_beta_prod * (k.cos_y * k.cos_y + k.cos_z * z_epsilon)) / (dispersion(k) * z_epsilon);
+    }
+
+    h_float PiFlux::ic_sigma_y(const momentum_type &k, h_float alpha_beta_diff, h_float alpha_beta_prod, h_float z_epsilon) const noexcept
+    {
+        return (alpha_beta_diff * k.cos_y * z_epsilon - alpha_beta_prod * k.cos_x * k.cos_y) / (dispersion(k) * z_epsilon);
+    }
+
+    h_float PiFlux::ic_sigma_z(const momentum_type &k, h_float alpha_beta_diff, h_float alpha_beta_prod, h_float z_epsilon) const noexcept
+    {
+        return (alpha_beta_diff * k.cos_z * z_epsilon - alpha_beta_prod * k.cos_x * z_epsilon) / (dispersion(k) * z_epsilon);
     }
 }

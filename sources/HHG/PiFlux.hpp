@@ -70,5 +70,9 @@ namespace HHG {
     
         void __time_evolution__(nd_vector& rhos, Laser::Laser const * const laser, 
             const momentum_type& k, const TimeIntegrationConfig& time_config) const;
+
+        h_float ic_sigma_x(const momentum_type& k, h_float alpha_beta_diff, h_float alpha_beta_prod, h_float z_epsilon) const noexcept;
+        h_float ic_sigma_y(const momentum_type& k, h_float alpha_beta_diff, h_float alpha_beta_prod, h_float z_epsilon) const noexcept;
+        h_float ic_sigma_z(const momentum_type& k, h_float alpha_beta_diff, h_float alpha_beta_prod, h_float z_epsilon) const noexcept;
     };
 }
