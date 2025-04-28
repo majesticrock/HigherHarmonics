@@ -21,6 +21,9 @@ namespace HHG {
             momentum_type() = default;
             momentum_type(h_float x, h_float y, h_float z) noexcept;
 
+            // Abused the symmetry; x -> -x and y -> -y yields the same result because everything depends only on cos x and cos y
+            static momentum_type SymmetrizedRandom();
+
             void update(h_float x, h_float y, h_float z) noexcept;
             void update_x(h_float val) noexcept;
             void update_y(h_float val) noexcept;
@@ -28,6 +31,9 @@ namespace HHG {
 
             inline bool is_dirac_point() const noexcept {
                 return (is_zero(cos_x) && is_zero(cos_y) && is_zero(cos_z));
+            }
+            inline void invert() noexcept {
+                this->z = -this->z;
             }
         };
 
@@ -44,9 +50,6 @@ namespace HHG {
         void time_evolution_magnus(nd_vector& rhos, Laser::Laser const * const laser, 
             const momentum_type& k, const TimeIntegrationConfig& time_config) const;
 
-        void alternative_formulation(nd_vector& rhos, Laser::Laser const * const laser, 
-            const momentum_type& k, const TimeIntegrationConfig& time_config) const;
-
         std::array<std::vector<h_float>, n_debug_points> compute_current_density_debug(Laser::Laser const * const laser, 
             TimeIntegrationConfig const& time_config, const int n_z) const;
 
@@ -56,12 +59,16 @@ namespace HHG {
         std::string info() const;
 
         h_float dispersion(const momentum_type& k) const;
+
     private:
         const h_float beta{}; ///< in units of the 1 / photon energy
         const h_float E_F{}; ///< in units of the photon energy
         const h_float hopping_element{}; ///< in units of the photon energy
         const h_float lattice_constant{}; ///< in 1/m
         const h_float inverse_decay_time{}; ///< in units of omega_L
+
+        h_float occupation_a(const momentum_type& k) const;
+        h_float occupation_b(const momentum_type& k) const;
 
         h_float alpha(const momentum_type &k, h_float t, Laser::Laser const * const laser) const;
         h_float xi(const momentum_type& k, h_float t, Laser::Laser const * const laser) const;
@@ -74,5 +81,13 @@ namespace HHG {
         h_float ic_sigma_x(const momentum_type& k, h_float alpha_beta_diff, h_float alpha_beta_prod, h_float z_epsilon) const noexcept;
         h_float ic_sigma_y(const momentum_type& k, h_float alpha_beta_diff, h_float alpha_beta_prod, h_float z_epsilon) const noexcept;
         h_float ic_sigma_z(const momentum_type& k, h_float alpha_beta_diff, h_float alpha_beta_prod, h_float z_epsilon) const noexcept;
+
+        std::vector<h_float> current_density_lattice_sum(Laser::Laser const * const laser, TimeIntegrationConfig const& time_config, 
+            const int rank, const int n_ranks, const int n_z) const;
+        std::vector<h_float> current_density_continuum_limit(Laser::Laser const * const laser, TimeIntegrationConfig const& time_config, 
+            const int rank, const int n_ranks, const int n_z) const;
+
+        std::vector<h_float> current_density_monte_carlo(Laser::Laser const * const laser, TimeIntegrationConfig const& time_config, 
+            const int rank, const int n_ranks, const int n_z) const;
     };
 }

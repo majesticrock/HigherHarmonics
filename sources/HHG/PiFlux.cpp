@@ -5,12 +5,14 @@
 #include <cmath>
 #include <cassert>
 #include <numeric>
+#include <random>
 #include <omp.h>
 #include <nlohmann/json.hpp>
 
 #include <mrock/utility/OutputConvenience.hpp>
 #include <mrock/utility/progress_bar.hpp>
 
+#include <boost/math/quadrature/gauss.hpp>
 #include <boost/numeric/odeint.hpp>
 using namespace boost::numeric::odeint;
 
@@ -20,20 +22,19 @@ typedef runge_kutta_fehlberg78<sigma_state_type> sigma_error_stepper_type;
 constexpr HHG::h_float abs_error = 1.0e-12;
 constexpr HHG::h_float rel_error = 1.0e-8;
 
-
 #pragma omp declare reduction(vec_plus : std::vector<HHG::h_float> : \
     std::transform(omp_out.begin(), omp_out.end(), omp_in.begin(), omp_out.begin(), std::plus<HHG::h_float>())) \
     initializer(omp_priv = decltype(omp_orig)(omp_orig.size()))
 
 #ifdef NO_MPI
-#define PROGRESS_BAR_UPDATE ++(progresses[omp_get_thread_num()]); \
+#define PROGRESS_BAR_UPDATE(z_max) ++(progresses[omp_get_thread_num()]); \
             if (omp_get_thread_num() == 0) { \
                 mrock::utility::progress_bar( \
-                    static_cast<float>(std::reduce(progresses.begin(), progresses.end())) / static_cast<float>(n_z) \
+                    static_cast<float>(std::reduce(progresses.begin(), progresses.end())) / static_cast<float>((z_max)) \
                 ); \
             }
 #else
-#define PROGRESS_BAR_UPDATE
+#define PROGRESS_BAR_UPDATE(z_max)
 #endif
 
 namespace HHG {
@@ -44,35 +45,6 @@ namespace HHG {
             lattice_constant(sqrt_3 * hbar * _v_F / (_photon_energy * _band_width)),
             inverse_decay_time((1e15 * hbar) / (_decay_time * _photon_energy))
     { }
-
-    void PiFlux::time_evolution_sigma(nd_vector &rhos, Laser::Laser const *const laser, const momentum_type &k, const TimeIntegrationConfig &time_config) const
-    {
-        const h_float alpha_0 = fermi_function(E_F + dispersion(k), beta);
-        const h_float beta_0 = fermi_function(E_F - dispersion(k), beta);
-        const h_float prefactor = 4 * hopping_element / (dispersion(k));
-
-        sigma_state_type current_state = { 2. * alpha_0 * beta_0, h_float{0}, alpha_0 * alpha_0 - beta_0 * beta_0 };
-
-        auto right_side = [this, &k, &laser, &prefactor](const sigma_state_type& state, sigma_state_type& dxdt, const h_float t) {
-            const sigma_state_type m = {alpha(k, t, laser) * k.cos_x, alpha(k, t, laser) * k.cos_y, xi(k, t, laser)};
-            dxdt = prefactor * m.cross(state);
-        };
-
-        const h_float measure_every = time_config.measure_every();
-        const h_float dt = time_config.dt();
-        h_float t_begin = time_config.t_begin;
-        h_float t_end = t_begin + measure_every;
-
-        rhos.conservativeResize(time_config.n_measurements + 1);
-        rhos[0] = current_state(2);
-
-        for (int i = 1; i <= time_config.n_measurements; ++i) {
-            integrate_adaptive(make_controlled<sigma_error_stepper_type>(abs_error, rel_error), right_side, current_state, t_begin, t_end, dt);
-            rhos[i] = current_state(2);
-            t_begin = t_end;
-            t_end += measure_every;
-        }
-    }
 
     void PiFlux::time_evolution_magnus(nd_vector &rhos, Laser::Laser const *const laser, const momentum_type &k, const TimeIntegrationConfig &time_config) const
     {
@@ -100,12 +72,12 @@ namespace HHG {
         }
     }
 
-    void PiFlux::alternative_formulation(nd_vector &rhos, Laser::Laser const *const laser, const momentum_type &k, const TimeIntegrationConfig &time_config) const
+    void PiFlux::time_evolution_sigma(nd_vector &rhos, Laser::Laser const *const laser, const momentum_type &k, const TimeIntegrationConfig &time_config) const
     {
-        const h_float prefactor = 2 * hopping_element; // Maybe a factor of 2 is missing here (might be a 4 in front)
+        const h_float prefactor = 4 * hopping_element; // Maybe a factor of 2 is missing here (might be a 4 in front)
 
-        const h_float alpha2 = fermi_function(E_F + dispersion(k), beta);
-        const h_float beta2 = fermi_function(E_F - dispersion(k), beta);
+        const h_float alpha2 = occupation_a(k);
+        const h_float beta2 = occupation_b(k);
         const h_float alpha_beta_diff = alpha2 - beta2;
         const h_float alpha_beta_prod = 2 * sqrt(alpha2 * beta2);
         const h_float z_epsilon = k.cos_z + dispersion(k);
@@ -125,11 +97,11 @@ namespace HHG {
         h_float t_end = t_begin + measure_every;
 
         rhos.conservativeResize(time_config.n_measurements + 1);
-        rhos[0] = current_state(2) * std::sin(k.z - laser->laser_function(t_begin));
+        rhos[0] = current_state(2);// * std::sin(k.z - laser->laser_function(t_begin));
 
         for (int i = 1; i <= time_config.n_measurements; ++i) {
             integrate_adaptive(make_controlled<sigma_error_stepper_type>(abs_error, rel_error), right_side, current_state, t_begin, t_end, dt);
-            rhos[i] = current_state(2) * std::sin(k.z - laser->laser_function(t_end));
+            rhos[i] = current_state(2);// * std::sin(k.z - laser->laser_function(t_end));
             t_begin = t_end;
             t_end += measure_every;
         }
@@ -143,11 +115,11 @@ namespace HHG {
         time_evolutions.fill(nd_vector::Zero(time_config.n_measurements + 1));
 
         const int picked_z = 0.3 * pi;
-        const int picked_x = 0;
+        const int picked_x = 0.1 * pi;
         std::array<h_float, n_debug_points> picked{};
 
         for (int i = 0; i < n_debug_points; ++i) {
-            picked[i] = (i + 1) * n_z * pi / (n_debug_points + 1);
+            picked[i] = (i + 1) * 0.5 * pi / (n_debug_points + 1);
             momentum_type k(picked_x, picked[i], picked_z);
 
             __time_evolution__(time_evolutions[i], laser, k, time_config);
@@ -164,117 +136,9 @@ namespace HHG {
 
     std::vector<h_float> PiFlux::compute_current_density(Laser::Laser const *const laser, TimeIntegrationConfig const &time_config, const int rank, const int n_ranks, const int n_z) const
     {
-        nd_vector rhos_buffer = nd_vector::Zero(time_config.n_measurements + 1);
-        std::vector<h_float> current_density_time(time_config.n_measurements + 1, h_float{});
-
-        const h_float momentum_ratio = 2.0 * pi / n_z;
-        const int n_xy = n_z / 2;
-
-#ifdef NO_MPI
-        std::vector<int> progresses(omp_get_max_threads(), int{});
-#pragma omp parallel for firstprivate(rhos_buffer) reduction(vec_plus:current_density_time) schedule(dynamic)
-        for (int z = 1; z < n_z; ++z)
-#else
-        int jobs_per_rank = (n_z - 1) / n_ranks;
-        if (jobs_per_rank * n_ranks < n_z - 1) ++jobs_per_rank;
-        const int this_rank_min_z = rank * jobs_per_rank + 1;
-        const int this_rank_max_z = this_rank_min_z + jobs_per_rank > n_z ? n_z : this_rank_min_z + jobs_per_rank;
-        for (int z = this_rank_min_z; z < this_rank_max_z; ++z)
-#endif
-        {
-            PROGRESS_BAR_UPDATE;
-
-            // k_z = 0 and k_z = \pm pi do not matter due to the sin(k_z) factor in the current density
-            if (z == n_z/2) continue;
-
-            momentum_type k;
-            k.update_z(z * momentum_ratio - pi);
-
-            nd_vector x_buffer = nd_vector::Zero(time_config.n_measurements + 1); 
-            // At k_x = k_y = \pm pi (that would be x=y=\pm n_z / 2), we have nothing but a rotation around the z-axis, 
-            // therefore sigma_z = const.
-            // We also have the symmetry that rho(k_x) = rho(-k_x) as everything depends merely on cos(k_x).
-            // The same applies to k_y, but not to k_z.
-            for (int x = 1; x < n_xy / 2; ++x) {
-                k.update_x(x * momentum_ratio);
-
-                nd_vector y_buffer = nd_vector::Zero(time_config.n_measurements + 1);
-                for (int y = 1; y < n_xy / 2; ++y) {
-                    k.update_y(y * 0.5 * momentum_ratio);
-                    __time_evolution__(rhos_buffer, laser, k, time_config);
-                    rhos_buffer /= dispersion(k);
-                    y_buffer += rhos_buffer;
-                }
-                y_buffer *= 2.0;
-
-                k.update_y(0.0);
-                __time_evolution__(rhos_buffer, laser, k, time_config);
-                rhos_buffer /= dispersion(k);
-                y_buffer += rhos_buffer;
-
-                k.update_y(pi / 2.0);
-                __time_evolution__(rhos_buffer, laser, k, time_config);
-                rhos_buffer /= dispersion(k);
-                y_buffer += rhos_buffer;
-
-                x_buffer += y_buffer;
-            }
-            x_buffer *= 2.0;
-
-            {
-                k.update_x(0.0);
-
-                nd_vector y_buffer = nd_vector::Zero(time_config.n_measurements + 1);
-                for (int y = 1; y < n_xy / 2; ++y) {
-                    k.update_y(y * 0.5 * momentum_ratio);
-                    __time_evolution__(rhos_buffer, laser, k, time_config);
-                    rhos_buffer /= dispersion(k);
-                    y_buffer += rhos_buffer;
-                }
-                y_buffer *= 2.0;
-
-                k.update_y(0.0);
-                __time_evolution__(rhos_buffer, laser, k, time_config);
-                rhos_buffer /= dispersion(k);
-                y_buffer += rhos_buffer;
-
-                k.update_y(pi / 2.0);
-                __time_evolution__(rhos_buffer, laser, k, time_config);
-                rhos_buffer /= dispersion(k);
-                y_buffer += rhos_buffer;
-
-                x_buffer += y_buffer;
-            }
-            {
-                k.update_x(pi / 2.0);
-
-                nd_vector y_buffer = nd_vector::Zero(time_config.n_measurements + 1);
-                for (int y = 1; y < n_xy / 2; ++y) {
-                    k.update_y(y * 0.5 * momentum_ratio);
-                    __time_evolution__(rhos_buffer, laser, k, time_config);
-                    rhos_buffer /= dispersion(k);
-                    y_buffer += rhos_buffer;
-                }
-                y_buffer *= 2.0;
-
-                k.update_y(0.0);
-                __time_evolution__(rhos_buffer, laser, k, time_config);
-                rhos_buffer /= dispersion(k);
-                y_buffer += rhos_buffer;
-
-                x_buffer += y_buffer;
-            }
-
-            x_buffer *= k.cos_z * std::sin(k.z);
-            std::transform(current_density_time.begin(), current_density_time.end(), x_buffer.begin(), current_density_time.begin(), std::plus<>());
-        }
-        std::cout << std::endl;
-
-        for (auto& j : current_density_time) {
-            j /= (n_z * n_z * n_z);
-        }
-
-        return current_density_time;
+        //return current_density_lattice_sum(laser, time_config, rank, n_ranks, n_z);
+        //return current_density_continuum_limit(laser, time_config, rank, n_ranks, n_z);
+        return current_density_monte_carlo(laser, time_config, rank, n_ranks, n_z);
     }
 
     std::string PiFlux::info() const
@@ -288,6 +152,16 @@ namespace HHG {
     h_float PiFlux::dispersion(const momentum_type& k) const
     {
         return sqrt(k.cos_x*k.cos_x + k.cos_y*k.cos_y + k.cos_z*k.cos_z);
+    }
+
+    h_float PiFlux::occupation_a(const momentum_type& k) const 
+    {
+        return fermi_function(E_F + dispersion(k), beta);
+    }
+
+    h_float PiFlux::occupation_b(const momentum_type& k) const
+    {
+        return fermi_function(E_F - dispersion(k), beta);
     }
 
     h_float PiFlux::alpha(const momentum_type &k, h_float t, Laser::Laser const *const laser) const
@@ -341,6 +215,18 @@ namespace HHG {
         : cos_x(std::cos(x)), cos_y(std::cos(y)), cos_z(std::cos(z)), z(z)
     { }
 
+    PiFlux::momentum_type PiFlux::momentum_type::SymmetrizedRandom()
+    {
+        thread_local static std::mt19937 gen([] {
+            std::random_device dev;
+            return std::mt19937(dev());
+        }());
+        static std::uniform_real_distribution<h_float> dist_z(0.0, pi);
+        static std::uniform_real_distribution<h_float> dist_xy(0.0, 0.5 * pi);
+
+        return momentum_type(dist_xy(gen), dist_xy(gen), dist_z(gen));
+    }
+
     void PiFlux::momentum_type::update(h_float x, h_float y, h_float z) noexcept
     {
         this->cos_x = std::cos(x);
@@ -368,7 +254,6 @@ namespace HHG {
     void PiFlux::__time_evolution__(nd_vector& rhos, Laser::Laser const * const laser, 
         const momentum_type& k, const TimeIntegrationConfig& time_config) const
     {
-        //return alternative_formulation(rhos, laser, k, time_config);
         return time_evolution_sigma(rhos, laser, k, time_config);
     }
 
@@ -385,5 +270,226 @@ namespace HHG {
     h_float PiFlux::ic_sigma_z(const momentum_type &k, h_float alpha_beta_diff, h_float alpha_beta_prod, h_float z_epsilon) const noexcept
     {
         return (alpha_beta_diff * k.cos_z * z_epsilon - alpha_beta_prod * k.cos_x * z_epsilon) / (dispersion(k) * z_epsilon);
+    }
+
+    std::vector<h_float> PiFlux::current_density_lattice_sum(Laser::Laser const * const laser, TimeIntegrationConfig const& time_config, 
+        const int rank, const int n_ranks, const int n_z) const
+    {
+        nd_vector rhos_buffer = nd_vector::Zero(time_config.n_measurements + 1);
+        std::vector<h_float> current_density_time(time_config.n_measurements + 1, h_float{});
+
+        const h_float momentum_ratio = 2.0 * pi / n_z;
+        const int n_xy = n_z / 2;
+
+        const h_float time_step = time_config.measure_every();
+
+#ifdef NO_MPI
+        std::vector<int> progresses(omp_get_max_threads(), int{});
+#pragma omp parallel for firstprivate(rhos_buffer) reduction(vec_plus:current_density_time) schedule(dynamic)
+        for (int z = 0; z < n_z; ++z)
+#else
+        int jobs_per_rank = (n_z - 1) / n_ranks;
+        if (jobs_per_rank * n_ranks < n_z - 1) ++jobs_per_rank;
+        const int this_rank_min_z = rank * jobs_per_rank + 1;
+        const int this_rank_max_z = this_rank_min_z + jobs_per_rank > n_z ? n_z : this_rank_min_z + jobs_per_rank;
+        for (int z = this_rank_min_z; z < this_rank_max_z; ++z)
+#endif
+        {
+            PROGRESS_BAR_UPDATE(n_z);
+
+            momentum_type k;
+            k.update_z(z * momentum_ratio - pi);
+
+            nd_vector x_buffer = nd_vector::Zero(time_config.n_measurements + 1); 
+            // At k_x = k_y = \pm pi (that would be x=y=\pm n_z / 2), we have nothing but a rotation around the z-axis, 
+            // therefore sigma_z = const.
+            // We also have the symmetry that rho(k_x) = rho(-k_x) as everything depends merely on cos(k_x).
+            // The same applies to k_y, but not to k_z.
+            for (int x = 1; x < n_xy / 2; ++x) {
+                k.update_x(x * momentum_ratio);
+
+                nd_vector y_buffer = nd_vector::Zero(time_config.n_measurements + 1);
+                for (int y = 1; y < n_xy / 2; ++y) {
+                    k.update_y(y * 0.5 * momentum_ratio);
+                    __time_evolution__(rhos_buffer, laser, k, time_config);
+                    y_buffer += rhos_buffer;
+                }
+                y_buffer *= 2.0;
+
+                k.update_y(0.0);
+                __time_evolution__(rhos_buffer, laser, k, time_config);
+                y_buffer += rhos_buffer;
+
+                k.update_y(pi / 2.0);
+                __time_evolution__(rhos_buffer, laser, k, time_config);
+                y_buffer += rhos_buffer;
+
+                x_buffer += y_buffer;
+            }
+            x_buffer *= 2.0;
+
+            {
+                k.update_x(0.0);
+
+                nd_vector y_buffer = nd_vector::Zero(time_config.n_measurements + 1);
+                for (int y = 1; y < n_xy / 2; ++y) {
+                    k.update_y(y * 0.5 * momentum_ratio);
+                    __time_evolution__(rhos_buffer, laser, k, time_config);
+                    y_buffer += rhos_buffer;
+                }
+                y_buffer *= 2.0;
+
+                k.update_y(0.0);
+                __time_evolution__(rhos_buffer, laser, k, time_config);
+                y_buffer += rhos_buffer;
+
+                k.update_y(pi / 2.0);
+                __time_evolution__(rhos_buffer, laser, k, time_config);
+                y_buffer += rhos_buffer;
+
+                x_buffer += y_buffer;
+            }
+            {
+                k.update_x(pi / 2.0);
+
+                nd_vector y_buffer = nd_vector::Zero(time_config.n_measurements + 1);
+                for (int y = 1; y < n_xy / 2; ++y) {
+                    k.update_y(y * 0.5 * momentum_ratio);
+                    __time_evolution__(rhos_buffer, laser, k, time_config);
+                    y_buffer += rhos_buffer;
+                }
+                y_buffer *= 2.0;
+
+                k.update_y(0.0);
+                __time_evolution__(rhos_buffer, laser, k, time_config);
+                y_buffer += rhos_buffer;
+
+                x_buffer += y_buffer;
+            }
+
+            for (int i = 0; i <= time_config.n_measurements; ++i) {
+                x_buffer[i] *= std::sin(k.z - laser->laser_function(i * time_step));
+            }
+
+            std::transform(current_density_time.begin(), current_density_time.end(), x_buffer.begin(), current_density_time.begin(), std::plus<>());
+        }
+        std::cout << std::endl;
+
+        for (auto& j : current_density_time) {
+            j /= (n_z * n_z * n_z);
+        }
+
+        return current_density_time;
+    }
+
+    std::vector<h_float> PiFlux::current_density_continuum_limit(Laser::Laser const * const laser, TimeIntegrationConfig const& time_config, 
+        const int rank, const int n_ranks, const int n_z) const
+    {
+        constexpr int n_xy_gauss = 120;
+        constexpr int z_range = 120;
+        typedef boost::math::quadrature::gauss<h_float, 2 * n_xy_gauss> xy_gauss;
+        typedef boost::math::quadrature::gauss<h_float, 2 * z_range> z_gauss;
+
+        nd_vector rhos_buffer = nd_vector::Zero(time_config.n_measurements + 1);
+        std::vector<h_float> current_density_time(time_config.n_measurements + 1, h_float{});
+
+        //const h_float momentum_ratio = 2.0 * pi / n_z;
+        const h_float time_step = time_config.measure_every();
+
+#ifdef NO_MPI
+        std::vector<int> progresses(omp_get_max_threads(), int{});
+#pragma omp parallel for firstprivate(rhos_buffer) reduction(vec_plus:current_density_time) schedule(dynamic)
+        for (int z = 0; z < z_range; ++z)
+#else
+        int jobs_per_rank = (z_range - 1) / n_ranks;
+        if (jobs_per_rank * n_ranks < z_range - 1) ++jobs_per_rank;
+        const int this_rank_min_z = rank * jobs_per_rank + 1;
+        const int this_rank_max_z = this_rank_min_z + jobs_per_rank > z_range ? z_range : this_rank_min_z + jobs_per_rank;
+        for (int z = this_rank_min_z; z < this_rank_max_z; ++z)
+#endif
+        {
+            PROGRESS_BAR_UPDATE(z_range);
+            momentum_type k;
+            k.update_z(pi * z_gauss::abscissa()[z]);
+
+            nd_vector x_buffer = nd_vector::Zero(time_config.n_measurements + 1);
+            for (int i = 0; i < n_xy_gauss; ++i) {
+                k.update_x(0.5 * pi * xy_gauss::abscissa()[i]);
+                for (int j = 0; j < n_xy_gauss; ++j) {
+                    k.update_y(0.5 * pi * xy_gauss::abscissa()[j]);
+                    __time_evolution__(rhos_buffer, laser, k, time_config);
+
+                    x_buffer += xy_gauss::weights()[i] * xy_gauss::weights()[j] * rhos_buffer;
+                }
+            }
+
+            for (int i = 0; i <= time_config.n_measurements; ++i) {
+                x_buffer[i] *= z_gauss::weights()[z] * std::sin(k.z - laser->laser_function(i * time_step));
+            }
+            std::transform(current_density_time.begin(), current_density_time.end(), x_buffer.begin(), current_density_time.begin(), std::plus<>());
+        
+            /*
+            *  -z
+            */
+            k.update_z(-pi * z_gauss::abscissa()[z]);
+            x_buffer.setZero();
+
+            for (int i = 0; i < n_xy_gauss; ++i) {
+                k.update_x(0.5 * pi * xy_gauss::abscissa()[i]);
+                for (int j = 0; j < n_xy_gauss; ++j) {
+                    k.update_y(0.5 * pi * xy_gauss::abscissa()[j]);
+                    __time_evolution__(rhos_buffer, laser, k, time_config);
+
+                    x_buffer += xy_gauss::weights()[i] * xy_gauss::weights()[j] * rhos_buffer;
+                }
+            }
+
+            for (int i = 0; i <= time_config.n_measurements; ++i) {
+                x_buffer[i] *= z_gauss::weights()[z] * std::sin(k.z - laser->laser_function(i * time_step));
+            }
+            std::transform(current_density_time.begin(), current_density_time.end(), x_buffer.begin(), current_density_time.begin(), std::plus<>());
+        }
+        //for (auto& j : current_density_time) {
+        //    j /= n_z;
+        //}
+
+        return current_density_time;
+    }
+
+    std::vector<h_float> PiFlux::current_density_monte_carlo(Laser::Laser const * const laser, TimeIntegrationConfig const& time_config, 
+        const int rank, const int n_ranks, const int n_z) const
+    {
+        nd_vector rhos_buffer = nd_vector::Zero(time_config.n_measurements + 1);
+        std::vector<h_float> current_density_time(time_config.n_measurements + 1, h_float{});
+
+        const h_float time_step = time_config.measure_every();
+
+//#ifdef NO_MPI
+        std::vector<int> progresses(omp_get_max_threads(), int{});
+#pragma omp parallel for firstprivate(rhos_buffer) reduction(vec_plus:current_density_time) schedule(dynamic)
+        for (int i = 0; i < n_z; ++i) {
+            PROGRESS_BAR_UPDATE(n_z);
+
+            momentum_type k = momentum_type::SymmetrizedRandom();
+            if (k.is_dirac_point()) {
+                continue;
+            }
+
+            __time_evolution__(rhos_buffer, laser, k, time_config);
+            for (int i = 0; i <= time_config.n_measurements; ++i) {
+                current_density_time[i] += rhos_buffer[i] * std::sin(k.z - laser->laser_function(i * time_step));
+            }
+
+            k.invert();
+            __time_evolution__(rhos_buffer, laser, k, time_config);
+            for (int i = 0; i <= time_config.n_measurements; ++i) {
+                current_density_time[i] += rhos_buffer[i] * std::sin(k.z - laser->laser_function(i * time_step));
+            }
+        }
+        for (auto& j : current_density_time) {
+            j *= (pi*pi*pi)/n_z;
+        }
+
+        return current_density_time;
     }
 }
