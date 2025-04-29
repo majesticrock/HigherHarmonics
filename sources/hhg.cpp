@@ -209,7 +209,8 @@ int main(int argc, char** argv) {
         { "decay_time",                         decay_time },
         { "frequencies",                        frequencies },
         { "zero_padding",                       zero_padding },
-        { "system_type",                        system_type }
+        { "system_type",                        system_type },
+        { "n_z",                                n_z }
     };
     std::cout << "Saving data to " << output_dir << "/current_density.json.gz" << std::endl;
     mrock::utility::saveString(data_json.dump(4), output_dir + "current_density.json.gz");

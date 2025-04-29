@@ -3,6 +3,7 @@
 #include <string>
 #include <array>
 #include <Eigen/Dense>
+#include <random>
 
 #include "GlobalDefinitions.hpp"
 #include "TimeIntegrationConfig.hpp"
@@ -23,6 +24,12 @@ namespace HHG {
 
             // Abused the symmetry; x -> -x and y -> -y yields the same result because everything depends only on cos x and cos y
             static momentum_type SymmetrizedRandom();
+            template<typename Generator>
+            static momentum_type SymmetrizedRandom(Generator& gen) {
+                static std::uniform_real_distribution<h_float> dist_z(0.0, pi);
+                static std::uniform_real_distribution<h_float> dist_xy(0.0, 0.5 * pi);
+                return momentum_type(dist_xy(gen), dist_xy(gen), dist_z(gen));
+            };
 
             void update(h_float x, h_float y, h_float z) noexcept;
             void update_x(h_float val) noexcept;
@@ -45,6 +52,9 @@ namespace HHG {
         }
 
         void time_evolution_sigma(nd_vector& rhos, Laser::Laser const * const laser, 
+            const momentum_type& k, const TimeIntegrationConfig& time_config) const;
+
+        void time_evolution_decay(nd_vector& rhos, Laser::Laser const * const laser, 
             const momentum_type& k, const TimeIntegrationConfig& time_config) const;
 
         void time_evolution_magnus(nd_vector& rhos, Laser::Laser const * const laser, 

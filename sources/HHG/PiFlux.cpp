@@ -107,6 +107,42 @@ namespace HHG {
         }
     }
 
+    void PiFlux::time_evolution_decay(nd_vector &rhos, Laser::Laser const *const laser, const momentum_type &k, const TimeIntegrationConfig &time_config) const
+    {
+        const h_float prefactor = 4 * hopping_element; // Maybe a factor of 2 is missing here (might be a 4 in front)
+
+        const h_float alpha2 = occupation_a(k);
+        const h_float beta2 = occupation_b(k);
+        const h_float alpha_beta_diff = alpha2 - beta2;
+        const h_float alpha_beta_prod = 2 * sqrt(alpha2 * beta2);
+        const h_float z_epsilon = k.cos_z + dispersion(k);
+
+        sigma_state_type current_state = { ic_sigma_x(k, alpha_beta_diff, alpha_beta_prod, z_epsilon), 
+            ic_sigma_y(k, alpha_beta_diff, alpha_beta_prod, z_epsilon), 
+            ic_sigma_z(k, alpha_beta_diff, alpha_beta_prod, z_epsilon) };
+        const sigma_state_type initial_state = current_state;
+
+        auto right_side = [this, &k, &laser, &prefactor, &initial_state](const sigma_state_type& state, sigma_state_type& dxdt, const h_float t) {
+            const sigma_state_type m = {k.cos_x, k.cos_y, std::cos(k.z - laser->laser_function(t))};
+            dxdt = prefactor * m.cross(state) - (state - initial_state) * inverse_decay_time;
+        };
+
+        const h_float measure_every = time_config.measure_every();
+        const h_float dt = time_config.dt();
+        h_float t_begin = time_config.t_begin;
+        h_float t_end = t_begin + measure_every;
+
+        rhos.conservativeResize(time_config.n_measurements + 1);
+        rhos[0] = current_state(2);// * std::sin(k.z - laser->laser_function(t_begin));
+
+        for (int i = 1; i <= time_config.n_measurements; ++i) {
+            integrate_adaptive(make_controlled<sigma_error_stepper_type>(abs_error, rel_error), right_side, current_state, t_begin, t_end, dt);
+            rhos[i] = current_state(2);// * std::sin(k.z - laser->laser_function(t_end));
+            t_begin = t_end;
+            t_end += measure_every;
+        }
+    }
+
     std::array<std::vector<h_float>, n_debug_points> PiFlux::compute_current_density_debug(Laser::Laser const * const laser, 
         TimeIntegrationConfig const& time_config, const int n_z) const
     {
@@ -137,8 +173,8 @@ namespace HHG {
     std::vector<h_float> PiFlux::compute_current_density(Laser::Laser const *const laser, TimeIntegrationConfig const &time_config, const int rank, const int n_ranks, const int n_z) const
     {
         //return current_density_lattice_sum(laser, time_config, rank, n_ranks, n_z);
-        //return current_density_continuum_limit(laser, time_config, rank, n_ranks, n_z);
-        return current_density_monte_carlo(laser, time_config, rank, n_ranks, n_z);
+        return current_density_continuum_limit(laser, time_config, rank, n_ranks, n_z);
+        //return current_density_monte_carlo(laser, time_config, rank, n_ranks, n_z);
     }
 
     std::string PiFlux::info() const
@@ -156,12 +192,12 @@ namespace HHG {
 
     h_float PiFlux::occupation_a(const momentum_type& k) const 
     {
-        return fermi_function(E_F + dispersion(k), beta);
+        return fermi_function(E_F + 2 * hopping_element * dispersion(k), beta);
     }
 
     h_float PiFlux::occupation_b(const momentum_type& k) const
     {
-        return fermi_function(E_F - dispersion(k), beta);
+        return fermi_function(E_F - 2 * hopping_element * dispersion(k), beta);
     }
 
     h_float PiFlux::alpha(const momentum_type &k, h_float t, Laser::Laser const *const laser) const
@@ -254,6 +290,9 @@ namespace HHG {
     void PiFlux::__time_evolution__(nd_vector& rhos, Laser::Laser const * const laser, 
         const momentum_type& k, const TimeIntegrationConfig& time_config) const
     {
+        if (inverse_decay_time > h_float{}) {
+            return time_evolution_decay(rhos, laser, k, time_config);
+        }
         return time_evolution_sigma(rhos, laser, k, time_config);
     }
 
@@ -385,8 +424,8 @@ namespace HHG {
     std::vector<h_float> PiFlux::current_density_continuum_limit(Laser::Laser const * const laser, TimeIntegrationConfig const& time_config, 
         const int rank, const int n_ranks, const int n_z) const
     {
-        constexpr int n_xy_gauss = 120;
-        constexpr int z_range = 120;
+        constexpr int n_xy_gauss = 60;
+        constexpr int z_range = 60;
         typedef boost::math::quadrature::gauss<h_float, 2 * n_xy_gauss> xy_gauss;
         typedef boost::math::quadrature::gauss<h_float, 2 * z_range> z_gauss;
 
@@ -449,10 +488,6 @@ namespace HHG {
             }
             std::transform(current_density_time.begin(), current_density_time.end(), x_buffer.begin(), current_density_time.begin(), std::plus<>());
         }
-        //for (auto& j : current_density_time) {
-        //    j /= n_z;
-        //}
-
         return current_density_time;
     }
 
@@ -466,11 +501,17 @@ namespace HHG {
 
 //#ifdef NO_MPI
         std::vector<int> progresses(omp_get_max_threads(), int{});
+        std::vector<std::mt19937> gens;
+        gens.reserve(omp_get_max_threads());
+        for (int i = 0; i < omp_get_max_threads(); ++i) {
+            std::random_device dev;
+            gens.emplace_back(std::mt19937(dev()));
+        }
 #pragma omp parallel for firstprivate(rhos_buffer) reduction(vec_plus:current_density_time) schedule(dynamic)
         for (int i = 0; i < n_z; ++i) {
             PROGRESS_BAR_UPDATE(n_z);
 
-            momentum_type k = momentum_type::SymmetrizedRandom();
+            momentum_type k = momentum_type::SymmetrizedRandom(gens[omp_get_thread_num()]);
             if (k.is_dirac_point()) {
                 continue;
             }

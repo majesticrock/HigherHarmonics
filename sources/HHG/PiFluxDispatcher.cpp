@@ -38,24 +38,11 @@ void HHG::PiFluxDispatcher::compute(int rank, int n_ranks, int n_z)
 #ifndef NO_MPI
     std::vector<h_float> current_density_time_local;
 
-    if (decay_time > 0) {
-        std::cerr << "DECAY NOT YET IMPLEMENTED!" << std::endl;
-        //current_density_time_local = system.compute_current_density_decay(laser.get(), time_config, rank, n_ranks, n_z);
-    }
-    else {
-        current_density_time_local = system.compute_current_density(laser.get(), time_config, rank, n_ranks, n_z); 
-    }
-
+    current_density_time_local = system.compute_current_density(laser.get(), time_config, rank, n_ranks, n_z); 
     current_density_time.resize(current_density_time_local.size());
     MPI_Reduce(current_density_time_local.data(), current_density_time.data(), current_density_time_local.size(), MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
 #else
-    if (decay_time > 0) {
-        std::cerr << "DECAY NOT YET IMPLEMENTED!" << std::endl;
-        //current_density_time = system.compute_current_density_decay(laser.get(), time_config, rank, n_ranks, n_z);
-    }
-    else {
-        current_density_time = system.compute_current_density(laser.get(), time_config, rank, n_ranks, n_z);
-    }
+    current_density_time = system.compute_current_density(laser.get(), time_config, rank, n_ranks, n_z);
 #endif
 
     std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
@@ -67,13 +54,7 @@ void HHG::PiFluxDispatcher::debug(int n_z)
     std::chrono::high_resolution_clock::time_point begin = std::chrono::high_resolution_clock::now();
     std::cout << "Computing the debug data sets..." << std::endl;
 
-    if (decay_time > 0) {
-        std::cerr << "DECAY NOT YET IMPLEMENTED!" << std::endl;
-        //time_evolutions = system.compute_current_density_decay_debug(laser.get(), time_config, n_z);
-    }
-    else {
-        time_evolutions = system.compute_current_density_debug(laser.get(), time_config, n_z);
-    }
+    time_evolutions = system.compute_current_density_debug(laser.get(), time_config, n_z);
 
     std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
 	std::cout << "Runtime = " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "[ms]" << std::endl;
