@@ -37,6 +37,18 @@ constexpr HHG::h_float rel_error = 1.0e-8;
 #define PROGRESS_BAR_UPDATE(z_max)
 #endif
 
+#define INTEGRATION_ERROR
+
+#ifdef INTEGRATION_ERROR
+#define INTEGRATOR_TYPEDEF(N) using __gauss = boost::math::quadrature::gauss<h_float, 2 * (N)>; \
+                          using __error = boost::math::quadrature::gauss<h_float, (N)>;
+#define ERROR_INTEGRATOR_WEIGHT h_float(!(i&1)) * transform_weight * __error::weights()[i / 2]
+#else
+#define INTEGRATOR_TYPEDEF(N) using __gauss = boost::math::quadrature::gauss<h_float, 2 * (N)>;
+#define ERROR_INTEGRATOR_WEIGHT h_float{}
+#endif
+//#define DEBUG_INTEGRATE
+
 namespace HHG {
     PiFlux::PiFlux(h_float temperature, h_float _E_F, h_float _v_F, h_float _band_width, h_float _photon_energy, h_float _decay_time)
         : beta(is_zero(temperature) ? std::numeric_limits<h_float>::infinity() : _photon_energy / (k_B * temperature)), 
@@ -74,7 +86,7 @@ namespace HHG {
 
     void PiFlux::time_evolution_sigma(nd_vector &rhos, Laser::Laser const *const laser, const momentum_type &k, const TimeIntegrationConfig &time_config) const
     {
-        const h_float prefactor = 4 * hopping_element; // Maybe a factor of 2 is missing here (might be a 4 in front)
+        const h_float prefactor = 4 * hopping_element;
 
         const h_float alpha2 = occupation_a(k);
         const h_float beta2 = occupation_b(k);
@@ -109,7 +121,7 @@ namespace HHG {
 
     void PiFlux::time_evolution_decay(nd_vector &rhos, Laser::Laser const *const laser, const momentum_type &k, const TimeIntegrationConfig &time_config) const
     {
-        const h_float prefactor = 4 * hopping_element; // Maybe a factor of 2 is missing here (might be a 4 in front)
+        const h_float prefactor = 4 * hopping_element;
 
         const h_float alpha2 = occupation_a(k);
         const h_float beta2 = occupation_b(k);
@@ -124,7 +136,7 @@ namespace HHG {
 
         auto right_side = [this, &k, &laser, &prefactor, &initial_state](const sigma_state_type& state, sigma_state_type& dxdt, const h_float t) {
             const sigma_state_type m = {k.cos_x, k.cos_y, std::cos(k.z - laser->laser_function(t))};
-            dxdt = prefactor * m.cross(state) - (state - initial_state) * inverse_decay_time;
+            dxdt = prefactor * m.cross(state) - inverse_decay_time * (state - initial_state);
         };
 
         const h_float measure_every = time_config.measure_every();
@@ -150,15 +162,51 @@ namespace HHG {
         std::array<nd_vector, n_debug_points> time_evolutions{};
         time_evolutions.fill(nd_vector::Zero(time_config.n_measurements + 1));
 
-        const int picked_z = 0.3 * pi;
-        const int picked_x = 0.1 * pi;
+        const h_float picked_z = 0.49 * pi;
+        [[maybe_unused]] const h_float picked_x = 0.5 * pi;
         std::array<h_float, n_debug_points> picked{};
 
-        for (int i = 0; i < n_debug_points; ++i) {
-            picked[i] = (i + 1) * 0.5 * pi / (n_debug_points + 1);
-            momentum_type k(picked_x, picked[i], picked_z);
+#ifdef DEBUG_INTEGRATE
+        constexpr int n_gauss = 100;
+        typedef boost::math::quadrature::gauss<h_float, 2 * n_gauss> y_gauss;
+        typedef boost::math::quadrature::gauss<h_float, n_gauss> error_gauss;
+        std::array<nd_vector, n_debug_points> error_evolutions{};
+        error_evolutions.fill(nd_vector::Zero(time_config.n_measurements + 1));
+#endif
 
+#pragma omp parallel for schedule(dynamic)
+        for (int i = 0; i < n_debug_points; ++i) {
+            picked[i] = 0.5 * pi - (i * 0.02 * pi);//(i + 1) * 0.5 * pi / (n_debug_points);
+#ifdef DEBUG_INTEGRATE
+            momentum_type k(picked[i], 0.0, picked_z);
+            nd_vector rho_buffer = nd_vector::Zero(time_config.n_measurements + 1);
+            for (int y = 0; y < n_gauss; ++y) {
+                k.update_y(0.5 * pi * (0.5 + 0.5 * y_gauss::abscissa()[y]));
+                __time_evolution__(rho_buffer, laser, k, time_config);
+                rho_buffer *= y_gauss::weights()[y];
+                time_evolutions[i] += rho_buffer;
+
+                k.update_y(0.5 * pi * (0.5 - 0.5 * y_gauss::abscissa()[y]));
+                __time_evolution__(rho_buffer, laser, k, time_config);
+                rho_buffer *= y_gauss::weights()[y];
+                time_evolutions[i] += rho_buffer;
+            }
+            for (int y = 0; y < n_gauss / 2; ++y) {
+                k.update_y(0.5 * pi * (0.5 + 0.5 * error_gauss::abscissa()[y]));
+                __time_evolution__(rho_buffer, laser, k, time_config);
+                rho_buffer *= error_gauss::weights()[y];
+                error_evolutions[i] += rho_buffer;
+
+                k.update_y(0.5 * pi * (0.5 - 0.5 * error_gauss::abscissa()[y]));
+                __time_evolution__(rho_buffer, laser, k, time_config);
+                rho_buffer *= error_gauss::weights()[y];
+                error_evolutions[i] += rho_buffer;
+            }
+            std::cout << "#" << i << "  k_y=" << picked[i] << ":    " << (error_evolutions[i] - time_evolutions[i]).norm() << std::endl;
+#else
+            momentum_type k(picked_x, picked[i], picked_z);
             __time_evolution__(time_evolutions[i], laser, k, time_config);
+#endif
         }
         // end debug setup
 
@@ -421,12 +469,160 @@ namespace HHG {
         return current_density_time;
     }
 
+    nd_vector PiFlux::xy_integral(momentum_type& k, nd_vector& rhos_buffer, Laser::Laser const * const laser, TimeIntegrationConfig const& time_config) const {
+        constexpr int n_xy_inner = 60;
+        typedef boost::math::quadrature::gauss<h_float, 2 * n_xy_inner> xy_inner;
+
+        nd_vector x_buffer = nd_vector::Zero(time_config.n_measurements + 1);
+
+        for (int i = 0; i < n_xy_inner; ++i) {
+            k.update_x(0.5 * pi * xy_inner::abscissa()[i]);
+
+            for (int j = 0; j < n_xy_inner; ++j) {
+                k.update_y(0.5 * pi * xy_inner::abscissa()[j]);
+                __time_evolution__(rhos_buffer, laser, k, time_config);
+
+                x_buffer += xy_inner::weights()[i] * xy_inner::weights()[j] * rhos_buffer;
+            }
+        }
+        return x_buffer;
+    }
+
+    nd_vector PiFlux::improved_xy_integral(momentum_type& k, nd_vector& rhos_buffer, Laser::Laser const * const laser, TimeIntegrationConfig const& time_config) const {
+        constexpr int N_coarse = 16; // Must be divisible by 2.
+        constexpr int N_fine = 8 * N_coarse; // Must be divisible by 4. Otherwise the error integrator breaks
+        constexpr h_float edge = 0.35 * pi;
+        
+        nd_vector x_buffer = nd_vector::Zero(time_config.n_measurements + 1);
+#ifdef INTEGRATION_ERROR
+        nd_vector error_buffer = nd_vector::Zero(time_config.n_measurements + 1);
+#endif
+        auto transform = [](h_float x, h_float low, h_float high) {
+            return 0.5 * (high - low) * x + 0.5 * (high + low);
+        };
+        auto weight = [](h_float low, h_float high) {
+            return 0.5 * (high - low);
+        };
+
+        auto y_integration = [&]<int __N>(h_float y_low, h_float y_high, h_float main_weight, h_float error_weight) {
+            INTEGRATOR_TYPEDEF(__N);
+
+            for (int j = 0; j < __N; ++j) {
+                k.update_y(transform(__gauss::abscissa()[j], y_low, y_high));
+                __time_evolution__(rhos_buffer, laser, k, time_config);
+                x_buffer += main_weight * __gauss::weights()[j] * rhos_buffer;
+
+#ifdef INTEGRATION_ERROR
+                if (!((j&1) || is_zero(error_weight))) 
+                    error_buffer += error_weight * __error::weights()[j / 2] * rhos_buffer;
+#endif
+
+                k.update_y(transform(__gauss::abscissa()[j], y_low, y_high));
+                __time_evolution__(rhos_buffer, laser, k, time_config);
+                x_buffer += main_weight * __gauss::weights()[j] * rhos_buffer;
+
+#ifdef INTEGRATION_ERROR
+                if (!((j&1) || is_zero(error_weight))) 
+                    error_buffer += error_weight * __error::weights()[j / 2] * rhos_buffer;
+#endif
+            }
+        };
+
+        {
+            constexpr h_float x_low = edge;
+            constexpr h_float x_high = pi - edge;
+            constexpr h_float y_low = edge;
+            constexpr h_float y_high = 0.5 * pi;
+            constexpr h_float transform_weight = weight(x_low, x_high) * weight(y_low, y_high);
+
+            INTEGRATOR_TYPEDEF(N_fine);
+            for (int i = 0; i < N_fine; ++i) {
+                k.update_x(transform(__gauss::abscissa()[i], x_low, x_high));
+                y_integration.template operator()<N_fine / 2>(y_low, y_high, __gauss::weights()[i] * transform_weight, 
+                    ERROR_INTEGRATOR_WEIGHT);
+                k.update_x(transform(-__gauss::abscissa()[i], x_low, x_high));
+                y_integration.template operator()<N_fine / 2>(y_low, y_high, __gauss::weights()[i] * transform_weight, 
+                    ERROR_INTEGRATOR_WEIGHT);
+            }
+
+            //std::cout << "#1 Error = " << (error_buffer - x_buffer).cwiseAbs().maxCoeff() << std::endl;
+            //x_buffer.setZero();
+            //error_buffer.setZero();
+        }
+
+        {
+            constexpr h_float x_low = 0.0;
+            constexpr h_float x_high = pi;
+            constexpr h_float y_low = 0.0;
+            constexpr h_float y_high = edge;
+            constexpr h_float transform_weight = weight(x_low, x_high) * weight(y_low, y_high);
+
+            constexpr int Nx = 3 * N_coarse;
+            INTEGRATOR_TYPEDEF(N_coarse);
+            for (int i = 0; i < Nx; ++i) {
+                k.update_x(transform(__gauss::abscissa()[i], x_low, x_high));
+                y_integration.template operator()<N_coarse>(y_low, y_high, __gauss::weights()[i] * transform_weight, 
+                    ERROR_INTEGRATOR_WEIGHT);
+                k.update_x(transform(-__gauss::abscissa()[i], x_low, x_high));
+                y_integration.template operator()<N_coarse>(y_low, y_high, __gauss::weights()[i] * transform_weight, 
+                    ERROR_INTEGRATOR_WEIGHT);
+            }
+
+            //std::cout << "#2 Error = " << (error_buffer - x_buffer).cwiseAbs().maxCoeff() << std::endl;
+            //x_buffer.setZero();
+            //error_buffer.setZero();
+        }
+
+        {
+            constexpr h_float x_low = 0.0;
+            constexpr h_float x_high = edge;
+            constexpr h_float y_low = edge;
+            constexpr h_float y_high = 0.5 * pi;
+            constexpr h_float transform_weight = weight(x_low, x_high) * weight(y_low, y_high);
+
+            INTEGRATOR_TYPEDEF(N_coarse);
+            for (int i = 0; i < N_coarse; ++i) {
+                k.update_x(transform(__gauss::abscissa()[i], x_low, x_high));
+                y_integration.template operator()<N_coarse>(y_low, y_high, __gauss::weights()[i] * transform_weight, 
+                    ERROR_INTEGRATOR_WEIGHT);
+                k.update_x(transform(-__gauss::abscissa()[i], x_low, x_high));
+                y_integration.template operator()<N_coarse>(y_low, y_high, __gauss::weights()[i] * transform_weight, 
+                    ERROR_INTEGRATOR_WEIGHT);
+            }
+
+            //std::cout << "#3 Error = " << (error_buffer - x_buffer).cwiseAbs().maxCoeff() << std::endl;
+            //x_buffer.setZero();
+            //error_buffer.setZero();
+        }
+
+        {
+            constexpr h_float x_low = pi - edge;
+            constexpr h_float x_high = pi;
+            constexpr h_float y_low = edge;
+            constexpr h_float y_high = 0.5 * pi;
+            constexpr h_float transform_weight = weight(x_low, x_high) * weight(y_low, y_high);
+
+            INTEGRATOR_TYPEDEF(N_coarse);
+            for (int i = 0; i < N_coarse; ++i) {
+                k.update_x(transform(__gauss::abscissa()[i], x_low, x_high));
+                y_integration.template operator()<N_coarse>(y_low, y_high, __gauss::weights()[i] * transform_weight, 
+                    ERROR_INTEGRATOR_WEIGHT);
+                k.update_x(transform(-__gauss::abscissa()[i], x_low, x_high));
+                y_integration.template operator()<N_coarse>(y_low, y_high, __gauss::weights()[i] * transform_weight, 
+                    ERROR_INTEGRATOR_WEIGHT);
+            }
+#ifdef INTEGRATION_ERROR
+            std::cout << "#4 Error = " << (error_buffer - x_buffer).cwiseAbs().maxCoeff() << std::endl;
+#endif
+        }
+
+        return x_buffer;
+    }
+
     std::vector<h_float> PiFlux::current_density_continuum_limit(Laser::Laser const * const laser, TimeIntegrationConfig const& time_config, 
         const int rank, const int n_ranks, const int n_z) const
     {
-        constexpr int n_xy_gauss = 60;
-        constexpr int z_range = 60;
-        typedef boost::math::quadrature::gauss<h_float, 2 * n_xy_gauss> xy_gauss;
+        constexpr int z_range = 120;
         typedef boost::math::quadrature::gauss<h_float, 2 * z_range> z_gauss;
 
         nd_vector rhos_buffer = nd_vector::Zero(time_config.n_measurements + 1);
@@ -451,17 +647,7 @@ namespace HHG {
             momentum_type k;
             k.update_z(pi * z_gauss::abscissa()[z]);
 
-            nd_vector x_buffer = nd_vector::Zero(time_config.n_measurements + 1);
-            for (int i = 0; i < n_xy_gauss; ++i) {
-                k.update_x(0.5 * pi * xy_gauss::abscissa()[i]);
-                for (int j = 0; j < n_xy_gauss; ++j) {
-                    k.update_y(0.5 * pi * xy_gauss::abscissa()[j]);
-                    __time_evolution__(rhos_buffer, laser, k, time_config);
-
-                    x_buffer += xy_gauss::weights()[i] * xy_gauss::weights()[j] * rhos_buffer;
-                }
-            }
-
+            nd_vector x_buffer = improved_xy_integral(k, rhos_buffer, laser, time_config);
             for (int i = 0; i <= time_config.n_measurements; ++i) {
                 x_buffer[i] *= z_gauss::weights()[z] * std::sin(k.z - laser->laser_function(i * time_step));
             }
@@ -471,18 +657,7 @@ namespace HHG {
             *  -z
             */
             k.update_z(-pi * z_gauss::abscissa()[z]);
-            x_buffer.setZero();
-
-            for (int i = 0; i < n_xy_gauss; ++i) {
-                k.update_x(0.5 * pi * xy_gauss::abscissa()[i]);
-                for (int j = 0; j < n_xy_gauss; ++j) {
-                    k.update_y(0.5 * pi * xy_gauss::abscissa()[j]);
-                    __time_evolution__(rhos_buffer, laser, k, time_config);
-
-                    x_buffer += xy_gauss::weights()[i] * xy_gauss::weights()[j] * rhos_buffer;
-                }
-            }
-
+            x_buffer = improved_xy_integral(k, rhos_buffer, laser, time_config);
             for (int i = 0; i <= time_config.n_measurements; ++i) {
                 x_buffer[i] *= z_gauss::weights()[z] * std::sin(k.z - laser->laser_function(i * time_step));
             }
