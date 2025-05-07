@@ -37,8 +37,7 @@ constexpr HHG::h_float rel_error = 1.0e-8;
 #define PROGRESS_BAR_UPDATE(z_max)
 #endif
 
-#define INTEGRATION_ERROR
-
+//#define INTEGRATION_ERROR
 #ifdef INTEGRATION_ERROR
 #define INTEGRATOR_TYPEDEF(N) using __gauss = boost::math::quadrature::gauss<h_float, 2 * (N)>; \
                           using __error = boost::math::quadrature::gauss<h_float, (N)>;
@@ -47,6 +46,7 @@ constexpr HHG::h_float rel_error = 1.0e-8;
 #define INTEGRATOR_TYPEDEF(N) using __gauss = boost::math::quadrature::gauss<h_float, 2 * (N)>;
 #define ERROR_INTEGRATOR_WEIGHT h_float{}
 #endif
+
 //#define DEBUG_INTEGRATE
 
 namespace HHG {
@@ -489,7 +489,7 @@ namespace HHG {
     }
 
     nd_vector PiFlux::improved_xy_integral(momentum_type& k, nd_vector& rhos_buffer, Laser::Laser const * const laser, TimeIntegrationConfig const& time_config) const {
-        constexpr int N_coarse = 16; // Must be divisible by 2.
+        constexpr int N_coarse = 32; // Must be divisible by 2.
         constexpr int N_fine = 8 * N_coarse; // Must be divisible by 4. Otherwise the error integrator breaks
         constexpr h_float edge = 0.35 * pi;
         
