@@ -489,7 +489,7 @@ namespace HHG {
     }
 
     nd_vector PiFlux::improved_xy_integral(momentum_type& k, nd_vector& rhos_buffer, Laser::Laser const * const laser, TimeIntegrationConfig const& time_config) const {
-        constexpr int N_coarse = 32; // Must be divisible by 2.
+        constexpr int N_coarse = 16; // Must be divisible by 2.
         constexpr int N_fine = 8 * N_coarse; // Must be divisible by 4. Otherwise the error integrator breaks
         constexpr h_float edge = 0.35 * pi;
         
@@ -622,7 +622,7 @@ namespace HHG {
     std::vector<h_float> PiFlux::current_density_continuum_limit(Laser::Laser const * const laser, TimeIntegrationConfig const& time_config, 
         const int rank, const int n_ranks, const int n_z) const
     {
-        constexpr int z_range = 120;
+        constexpr int z_range = 240;
         typedef boost::math::quadrature::gauss<h_float, 2 * z_range> z_gauss;
 
         nd_vector rhos_buffer = nd_vector::Zero(time_config.n_measurements + 1);
