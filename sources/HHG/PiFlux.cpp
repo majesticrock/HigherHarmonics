@@ -16,6 +16,8 @@
 #include <boost/numeric/odeint.hpp>
 using namespace boost::numeric::odeint;
 
+#include "thread_gauss.hpp"
+
 typedef Eigen::Vector<HHG::h_float, 3> sigma_state_type;
 typedef runge_kutta_fehlberg78<sigma_state_type> sigma_error_stepper_type;
 
@@ -39,17 +41,15 @@ constexpr HHG::h_float rel_error = 1.0e-8;
 
 //#define INTEGRATION_ERROR
 #ifdef INTEGRATION_ERROR
-#define INTEGRATOR_TYPEDEF(N) using __gauss = boost::math::quadrature::gauss<h_float, 2 * (N)>; \
-                          using __error = boost::math::quadrature::gauss<h_float, (N)>;
-#define ERROR_INTEGRATOR_WEIGHT h_float(!(i&1)) * transform_weight * __error::weights()[i / 2]
+#define INTEGRATOR_TYPEDEF(N) using __gauss = gauss::container<2 * (N)>; \
+                          using __error = gauss::container<(N)>;
+#define ERROR_INTEGRATOR_WEIGHT h_float(!(i&1)) * transform_weight * __error::weights[i / 2]
 #else
-#define INTEGRATOR_TYPEDEF(N) using __gauss = boost::math::quadrature::gauss<h_float, 2 * (N)>;
+#define INTEGRATOR_TYPEDEF(N) using __gauss = gauss::container<2 * (N)>;
 #define ERROR_INTEGRATOR_WEIGHT h_float{}
 #endif
 
 //#define DEBUG_INTEGRATE
-
-#define INIT_INTEGRATOR(N) boost::math::quadrature::gauss<h_float, (N)>::abscissa(); boost::math::quadrature::gauss<h_float, (N)>::weights();
 
 namespace HHG {
     PiFlux::PiFlux(h_float temperature, h_float _E_F, h_float _v_F, h_float _band_width, h_float _photon_energy, h_float _decay_time)
@@ -59,16 +59,15 @@ namespace HHG {
             lattice_constant(sqrt_3 * hbar * _v_F / (_photon_energy * _band_width)),
             inverse_decay_time((1e15 * hbar) / (_decay_time * _photon_energy))
     {
-        // Base z
-        INIT_INTEGRATOR(2 * z_range);
-        // improved integration main
-        INIT_INTEGRATOR(2 * N_coarse);
-        INIT_INTEGRATOR(2 * N_fine);
-        // improved integration error
-        INIT_INTEGRATOR(N_coarse);
-        INIT_INTEGRATOR(N_fine);
-        // simple integration xy
-        INIT_INTEGRATOR(n_xy_inner);
+        //gauss::precompute<4>();
+        //gauss::precompute<8>();
+        //gauss::precompute<16>();
+        //gauss::precompute<32>();
+        //gauss::precompute<64>();
+        //gauss::precompute<128>();
+        //gauss::precompute<256>();
+        //gauss::precompute<512>();
+        //abort();
     }
 
     void PiFlux::time_evolution_magnus(nd_vector &rhos, Laser::Laser const *const laser, const momentum_type &k, const TimeIntegrationConfig &time_config) const
@@ -182,8 +181,8 @@ namespace HHG {
 
 #ifdef DEBUG_INTEGRATE
         constexpr int n_gauss = 100;
-        typedef boost::math::quadrature::gauss<h_float, 2 * n_gauss> y_gauss;
-        typedef boost::math::quadrature::gauss<h_float, n_gauss> error_gauss;
+        typedef gauss::container<2 * n_gauss> y_gauss;
+        typedef gauss::container<n_gauss> error_gauss;
         std::array<nd_vector, n_debug_points> error_evolutions{};
         error_evolutions.fill(nd_vector::Zero(time_config.n_measurements + 1));
 #endif
@@ -195,25 +194,25 @@ namespace HHG {
             momentum_type k(picked[i], 0.0, picked_z);
             nd_vector rho_buffer = nd_vector::Zero(time_config.n_measurements + 1);
             for (int y = 0; y < n_gauss; ++y) {
-                k.update_y(0.5 * pi * (0.5 + 0.5 * y_gauss::abscissa()[y]));
+                k.update_y(0.5 * pi * (0.5 + 0.5 * y_gauss::abscissa[y]));
                 __time_evolution__(rho_buffer, laser, k, time_config);
-                rho_buffer *= y_gauss::weights()[y];
+                rho_buffer *= y_gauss::weights[y];
                 time_evolutions[i] += rho_buffer;
 
-                k.update_y(0.5 * pi * (0.5 - 0.5 * y_gauss::abscissa()[y]));
+                k.update_y(0.5 * pi * (0.5 - 0.5 * y_gauss::abscissa[y]));
                 __time_evolution__(rho_buffer, laser, k, time_config);
-                rho_buffer *= y_gauss::weights()[y];
+                rho_buffer *= y_gauss::weights[y];
                 time_evolutions[i] += rho_buffer;
             }
             for (int y = 0; y < n_gauss / 2; ++y) {
-                k.update_y(0.5 * pi * (0.5 + 0.5 * error_gauss::abscissa()[y]));
+                k.update_y(0.5 * pi * (0.5 + 0.5 * error_gauss::abscissa[y]));
                 __time_evolution__(rho_buffer, laser, k, time_config);
-                rho_buffer *= error_gauss::weights()[y];
+                rho_buffer *= error_gauss::weights[y];
                 error_evolutions[i] += rho_buffer;
 
-                k.update_y(0.5 * pi * (0.5 - 0.5 * error_gauss::abscissa()[y]));
+                k.update_y(0.5 * pi * (0.5 - 0.5 * error_gauss::abscissa[y]));
                 __time_evolution__(rho_buffer, laser, k, time_config);
-                rho_buffer *= error_gauss::weights()[y];
+                rho_buffer *= error_gauss::weights[y];
                 error_evolutions[i] += rho_buffer;
             }
             std::cout << "#" << i << "  k_y=" << picked[i] << ":    " << (error_evolutions[i] - time_evolutions[i]).norm() << std::endl;
@@ -484,18 +483,18 @@ namespace HHG {
     }
 
     nd_vector PiFlux::xy_integral(momentum_type& k, nd_vector& rhos_buffer, Laser::Laser const * const laser, TimeIntegrationConfig const& time_config) const {
-        typedef boost::math::quadrature::gauss<h_float, 2 * n_xy_inner> xy_inner;
+        typedef gauss::container<2 * n_xy_inner> xy_inner;
 
         nd_vector x_buffer = nd_vector::Zero(time_config.n_measurements + 1);
 
         for (int i = 0; i < n_xy_inner; ++i) {
-            k.update_x(0.5 * pi * xy_inner::abscissa()[i]);
+            k.update_x(0.5 * pi * xy_inner::abscissa[i]);
 
             for (int j = 0; j < n_xy_inner; ++j) {
-                k.update_y(0.5 * pi * xy_inner::abscissa()[j]);
+                k.update_y(0.5 * pi * xy_inner::abscissa[j]);
                 __time_evolution__(rhos_buffer, laser, k, time_config);
 
-                x_buffer += xy_inner::weights()[i] * xy_inner::weights()[j] * rhos_buffer;
+                x_buffer += xy_inner::weights[i] * xy_inner::weights[j] * rhos_buffer;
             }
         }
         return x_buffer;
@@ -519,22 +518,22 @@ namespace HHG {
             INTEGRATOR_TYPEDEF(__N);
 
             for (int j = 0; j < __N; ++j) {
-                k.update_y(transform(__gauss::abscissa()[j], y_low, y_high));
+                k.update_y(transform(__gauss::abscissa[j], y_low, y_high));
                 __time_evolution__(rhos_buffer, laser, k, time_config);
-                x_buffer += main_weight * __gauss::weights()[j] * rhos_buffer;
+                x_buffer += main_weight * __gauss::weights[j] * rhos_buffer;
 
 #ifdef INTEGRATION_ERROR
                 if (!((j&1) || is_zero(error_weight))) 
-                    error_buffer += error_weight * __error::weights()[j / 2] * rhos_buffer;
+                    error_buffer += error_weight * __error::weights[j / 2] * rhos_buffer;
 #endif
 
-                k.update_y(transform(-__gauss::abscissa()[j], y_low, y_high));
+                k.update_y(transform(-__gauss::abscissa[j], y_low, y_high));
                 __time_evolution__(rhos_buffer, laser, k, time_config);
-                x_buffer += main_weight * __gauss::weights()[j] * rhos_buffer;
+                x_buffer += main_weight * __gauss::weights[j] * rhos_buffer;
 
 #ifdef INTEGRATION_ERROR
                 if (!((j&1) || is_zero(error_weight))) 
-                    error_buffer += error_weight * __error::weights()[j / 2] * rhos_buffer;
+                    error_buffer += error_weight * __error::weights[j / 2] * rhos_buffer;
 #endif
             }
         };
@@ -548,11 +547,11 @@ namespace HHG {
 
             INTEGRATOR_TYPEDEF(N_fine);
             for (int i = 0; i < N_fine; ++i) {
-                k.update_x(transform(__gauss::abscissa()[i], x_low, x_high));
-                y_integration.template operator()<N_fine / 2>(y_low, y_high, __gauss::weights()[i] * transform_weight, 
+                k.update_x(transform(__gauss::abscissa[i], x_low, x_high));
+                y_integration.template operator()<N_fine / 2>(y_low, y_high, __gauss::weights[i] * transform_weight, 
                     ERROR_INTEGRATOR_WEIGHT);
-                k.update_x(transform(-__gauss::abscissa()[i], x_low, x_high));
-                y_integration.template operator()<N_fine / 2>(y_low, y_high, __gauss::weights()[i] * transform_weight, 
+                k.update_x(transform(-__gauss::abscissa[i], x_low, x_high));
+                y_integration.template operator()<N_fine / 2>(y_low, y_high, __gauss::weights[i] * transform_weight, 
                     ERROR_INTEGRATOR_WEIGHT);
             }
 
@@ -571,11 +570,11 @@ namespace HHG {
             constexpr int Nx = 3 * N_coarse;
             INTEGRATOR_TYPEDEF(N_coarse);
             for (int i = 0; i < Nx; ++i) {
-                k.update_x(transform(__gauss::abscissa()[i], x_low, x_high));
-                y_integration.template operator()<N_coarse>(y_low, y_high, __gauss::weights()[i] * transform_weight, 
+                k.update_x(transform(__gauss::abscissa[i], x_low, x_high));
+                y_integration.template operator()<N_coarse>(y_low, y_high, __gauss::weights[i] * transform_weight, 
                     ERROR_INTEGRATOR_WEIGHT);
-                k.update_x(transform(-__gauss::abscissa()[i], x_low, x_high));
-                y_integration.template operator()<N_coarse>(y_low, y_high, __gauss::weights()[i] * transform_weight, 
+                k.update_x(transform(-__gauss::abscissa[i], x_low, x_high));
+                y_integration.template operator()<N_coarse>(y_low, y_high, __gauss::weights[i] * transform_weight, 
                     ERROR_INTEGRATOR_WEIGHT);
             }
 
@@ -593,11 +592,11 @@ namespace HHG {
 
             INTEGRATOR_TYPEDEF(N_coarse);
             for (int i = 0; i < N_coarse; ++i) {
-                k.update_x(transform(__gauss::abscissa()[i], x_low, x_high));
-                y_integration.template operator()<N_coarse>(y_low, y_high, __gauss::weights()[i] * transform_weight, 
+                k.update_x(transform(__gauss::abscissa[i], x_low, x_high));
+                y_integration.template operator()<N_coarse>(y_low, y_high, __gauss::weights[i] * transform_weight, 
                     ERROR_INTEGRATOR_WEIGHT);
-                k.update_x(transform(-__gauss::abscissa()[i], x_low, x_high));
-                y_integration.template operator()<N_coarse>(y_low, y_high, __gauss::weights()[i] * transform_weight, 
+                k.update_x(transform(-__gauss::abscissa[i], x_low, x_high));
+                y_integration.template operator()<N_coarse>(y_low, y_high, __gauss::weights[i] * transform_weight, 
                     ERROR_INTEGRATOR_WEIGHT);
             }
 
@@ -615,11 +614,11 @@ namespace HHG {
 
             INTEGRATOR_TYPEDEF(N_coarse);
             for (int i = 0; i < N_coarse; ++i) {
-                k.update_x(transform(__gauss::abscissa()[i], x_low, x_high));
-                y_integration.template operator()<N_coarse>(y_low, y_high, __gauss::weights()[i] * transform_weight, 
+                k.update_x(transform(__gauss::abscissa[i], x_low, x_high));
+                y_integration.template operator()<N_coarse>(y_low, y_high, __gauss::weights[i] * transform_weight, 
                     ERROR_INTEGRATOR_WEIGHT);
-                k.update_x(transform(-__gauss::abscissa()[i], x_low, x_high));
-                y_integration.template operator()<N_coarse>(y_low, y_high, __gauss::weights()[i] * transform_weight, 
+                k.update_x(transform(-__gauss::abscissa[i], x_low, x_high));
+                y_integration.template operator()<N_coarse>(y_low, y_high, __gauss::weights[i] * transform_weight, 
                     ERROR_INTEGRATOR_WEIGHT);
             }
 #ifdef INTEGRATION_ERROR
@@ -633,7 +632,7 @@ namespace HHG {
     std::vector<h_float> PiFlux::current_density_continuum_limit(Laser::Laser const * const laser, TimeIntegrationConfig const& time_config, 
         const int rank, const int n_ranks, const int n_z) const
     {
-        typedef boost::math::quadrature::gauss<h_float, 2 * z_range> z_gauss;
+        typedef gauss::container<2 * z_range> z_gauss;
 
         nd_vector rhos_buffer;
         nd_vector x_buffer;
@@ -656,20 +655,20 @@ namespace HHG {
         {
             PROGRESS_BAR_UPDATE(z_range);
             momentum_type k;
-            k.update_z(pi * z_gauss::abscissa()[z]);
+            k.update_z(pi * z_gauss::abscissa[z]);
             x_buffer = improved_xy_integral(k, rhos_buffer, laser, time_config);
             for (int i = 0; i <= time_config.n_measurements; ++i) {
-                x_buffer[i] *= z_gauss::weights()[z] * std::sin(k.z - laser->laser_function(i * time_step));
+                x_buffer[i] *= z_gauss::weights[z] * std::sin(k.z - laser->laser_function(i * time_step));
             }
             std::transform(current_density_time.begin(), current_density_time.end(), x_buffer.begin(), current_density_time.begin(), std::plus<>());
         
             /*
             *  -z
             */
-            k.update_z(-pi * z_gauss::abscissa()[z]);
+            k.update_z(-pi * z_gauss::abscissa[z]);
             x_buffer = improved_xy_integral(k, rhos_buffer, laser, time_config);
             for (int i = 0; i <= time_config.n_measurements; ++i) {
-                x_buffer[i] *= z_gauss::weights()[z] * std::sin(k.z - laser->laser_function(i * time_step));
+                x_buffer[i] *= z_gauss::weights[z] * std::sin(k.z - laser->laser_function(i * time_step));
             }
             std::transform(current_density_time.begin(), current_density_time.end(), x_buffer.begin(), current_density_time.begin(), std::plus<>());
         }

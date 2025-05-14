@@ -18,7 +18,7 @@ namespace HHG {
         static constexpr int N_coarse = 4; // Must be divisible by 2.
         static constexpr int N_fine = 8 * N_coarse; // Must be divisible by 4. Otherwise the error integrator breaks
 
-        static constexpr int n_xy_inner = 60;
+        static constexpr int n_xy_inner = 64;
     public:
         struct momentum_type {
             h_float cos_x{};
