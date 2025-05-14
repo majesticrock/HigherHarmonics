@@ -10,7 +10,7 @@
 #include "Laser/Laser.hpp"
 
 #ifdef MROCK_CL1
-#define __Z 256
+#define __Z 240
 #define __C 16
 #else
 #define __Z 64

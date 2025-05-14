@@ -58,15 +58,13 @@ namespace HHG {
             lattice_constant(sqrt_3 * hbar * _v_F / (_photon_energy * _band_width)),
             inverse_decay_time((1e15 * hbar) / (_decay_time * _photon_energy))
     {
-        //gauss::precompute<3*4>();
-        //gauss::precompute<3*8>();
-        //gauss::precompute<3*16>();
-        //gauss::precompute<3*32>();
-        //gauss::precompute<64>();
-        //gauss::precompute<128>();
-        //gauss::precompute<256>();
-        //gauss::precompute<512>();
-        //abort();
+        gauss::precompute<40>();
+        gauss::precompute<80>();
+        gauss::precompute<120>();
+        gauss::precompute<160>();
+        gauss::precompute<240>();
+        gauss::precompute<480>();
+        abort();
     }
 
     void PiFlux::time_evolution_magnus(nd_vector &rhos, Laser::Laser const *const laser, const momentum_type &k, const TimeIntegrationConfig &time_config) const
@@ -637,15 +635,14 @@ namespace HHG {
         nd_vector x_buffer;
         std::vector<h_float> current_density_time(time_config.n_measurements + 1, h_float{});
 
-        //const h_float momentum_ratio = 2.0 * pi / n_z;
         const h_float time_step = time_config.measure_every();
 #ifdef NO_MPI
-        //omp_set_num_threads(1);
         std::vector<int> progresses(omp_get_max_threads(), int{});
 #pragma omp parallel for private(rhos_buffer, x_buffer) reduction(vec_plus:current_density_time)
         for (int z = 0; z < z_range; ++z)
 #else
         int jobs_per_rank = z_range / n_ranks;
+        if (rank == 0) { std::cout << "Jobs per rank: " << jobs_per_rank << "\nn_ranks: " << n_ranks << "\nz_range: " << z_range << std::endl; }
         if (jobs_per_rank * n_ranks < z_range) ++jobs_per_rank;
         const int this_rank_min_z = rank * jobs_per_rank;
         const int this_rank_max_z = this_rank_min_z + jobs_per_rank > z_range ? z_range : this_rank_min_z + jobs_per_rank;
