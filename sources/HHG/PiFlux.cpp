@@ -12,7 +12,6 @@
 #include <mrock/utility/OutputConvenience.hpp>
 #include <mrock/utility/progress_bar.hpp>
 
-#include <boost/math/quadrature/gauss.hpp>
 #include <boost/numeric/odeint.hpp>
 using namespace boost::numeric::odeint;
 
@@ -59,10 +58,10 @@ namespace HHG {
             lattice_constant(sqrt_3 * hbar * _v_F / (_photon_energy * _band_width)),
             inverse_decay_time((1e15 * hbar) / (_decay_time * _photon_energy))
     {
-        //gauss::precompute<4>();
-        //gauss::precompute<8>();
-        //gauss::precompute<16>();
-        //gauss::precompute<32>();
+        //gauss::precompute<3*4>();
+        //gauss::precompute<3*8>();
+        //gauss::precompute<3*16>();
+        //gauss::precompute<3*32>();
         //gauss::precompute<64>();
         //gauss::precompute<128>();
         //gauss::precompute<256>();
@@ -568,7 +567,7 @@ namespace HHG {
             constexpr h_float transform_weight = weight(x_low, x_high) * weight(y_low, y_high);
 
             constexpr int Nx = 3 * N_coarse;
-            INTEGRATOR_TYPEDEF(N_coarse);
+            INTEGRATOR_TYPEDEF(Nx);
             for (int i = 0; i < Nx; ++i) {
                 k.update_x(transform(__gauss::abscissa[i], x_low, x_high));
                 y_integration.template operator()<N_coarse>(y_low, y_high, __gauss::weights[i] * transform_weight, 
