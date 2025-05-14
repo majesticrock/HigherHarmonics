@@ -9,13 +9,20 @@
 #include "TimeIntegrationConfig.hpp"
 #include "Laser/Laser.hpp"
 
+#ifdef MROCK_CL1
+#define __Z 256
+#define __C 16
+#else
+#define __Z 64
+#define __C 8
+#endif
 
 namespace HHG {
     class PiFlux {
     private:
-        static constexpr int z_range = 32;
+        static constexpr int z_range = __Z;
 
-        static constexpr int N_coarse = 4; // Must be divisible by 2.
+        static constexpr int N_coarse = __C; // Must be divisible by 2.
         static constexpr int N_fine = 8 * N_coarse; // Must be divisible by 4. Otherwise the error integrator breaks
 
         static constexpr int n_xy_inner = 64;
@@ -111,3 +118,6 @@ namespace HHG {
             const int rank, const int n_ranks, const int n_z) const;
     };
 }
+
+#undef __Z
+#undef __C
