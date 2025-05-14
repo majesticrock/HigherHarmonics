@@ -4,9 +4,6 @@
 
 #include <iostream>
 #include <chrono>
-#ifndef NO_MPI
-#include <mpi.h>
-#endif
 
 constexpr double target_kappa_error = 1e-3;
 constexpr int n_kappa = 10;
@@ -38,26 +35,12 @@ void HHG::DiracDispatcher::compute(int rank, int n_ranks, int n_z)
     std::chrono::high_resolution_clock::time_point begin = std::chrono::high_resolution_clock::now();
     std::cout << "Computing the k integrals..." << std::endl;
 
-#ifndef NO_MPI
-    std::vector<h_float> current_density_time_local;
-
-    if (decay_time > 0) {
-        current_density_time_local = system.compute_current_density_decay(laser.get(), time_config, rank, n_ranks, n_z, n_kappa, target_kappa_error);
-    }
-    else {
-        current_density_time_local = system.compute_current_density(laser.get(), time_config, rank, n_ranks, n_z, n_kappa, target_kappa_error); 
-    }
-
-    current_density_time.resize(current_density_time_local.size());
-    MPI_Reduce(current_density_time_local.data(), current_density_time.data(), current_density_time_local.size(), MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-#else
     if (decay_time > 0) {
         current_density_time = system.compute_current_density_decay(laser.get(), time_config, rank, n_ranks, n_z, n_kappa, target_kappa_error);
     }
     else {
         current_density_time = system.compute_current_density(laser.get(), time_config, rank, n_ranks, n_z, n_kappa, target_kappa_error);
     }
-#endif
 
     std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
 	std::cout << "Runtime = " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "[ms]" << std::endl;

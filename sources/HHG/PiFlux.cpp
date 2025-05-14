@@ -24,7 +24,7 @@ constexpr HHG::h_float rel_error = 1.0e-8;
 
 #pragma omp declare reduction(vec_plus : std::vector<HHG::h_float> : \
     std::transform(omp_out.begin(), omp_out.end(), omp_in.begin(), omp_out.begin(), std::plus<HHG::h_float>())) \
-    initializer(omp_priv = decltype(omp_orig)(omp_orig.size()))
+    initializer(omp_priv = decltype(omp_orig)(omp_orig.size(), decltype(omp_orig)::value_type{}))
 
 #ifdef NO_MPI
 #define PROGRESS_BAR_UPDATE(z_max) ++(progresses[omp_get_thread_num()]); \
@@ -49,6 +49,8 @@ constexpr HHG::h_float rel_error = 1.0e-8;
 
 //#define DEBUG_INTEGRATE
 
+#define INIT_INTEGRATOR(N) boost::math::quadrature::gauss<h_float, (N)>::abscissa(); boost::math::quadrature::gauss<h_float, (N)>::weights();
+
 namespace HHG {
     PiFlux::PiFlux(h_float temperature, h_float _E_F, h_float _v_F, h_float _band_width, h_float _photon_energy, h_float _decay_time)
         : beta(is_zero(temperature) ? std::numeric_limits<h_float>::infinity() : _photon_energy / (k_B * temperature)), 
@@ -56,7 +58,18 @@ namespace HHG {
             hopping_element(_band_width / sqrt_12), 
             lattice_constant(sqrt_3 * hbar * _v_F / (_photon_energy * _band_width)),
             inverse_decay_time((1e15 * hbar) / (_decay_time * _photon_energy))
-    { }
+    {
+        // Base z
+        INIT_INTEGRATOR(2 * z_range);
+        // improved integration main
+        INIT_INTEGRATOR(2 * N_coarse);
+        INIT_INTEGRATOR(2 * N_fine);
+        // improved integration error
+        INIT_INTEGRATOR(N_coarse);
+        INIT_INTEGRATOR(N_fine);
+        // simple integration xy
+        INIT_INTEGRATOR(n_xy_inner);
+    }
 
     void PiFlux::time_evolution_magnus(nd_vector &rhos, Laser::Laser const *const laser, const momentum_type &k, const TimeIntegrationConfig &time_config) const
     {
@@ -121,6 +134,7 @@ namespace HHG {
 
     void PiFlux::time_evolution_decay(nd_vector &rhos, Laser::Laser const *const laser, const momentum_type &k, const TimeIntegrationConfig &time_config) const
     {
+        assert(!is_zero(dispersion(k)));
         const h_float prefactor = 4 * hopping_element;
 
         const h_float alpha2 = occupation_a(k);
@@ -144,7 +158,7 @@ namespace HHG {
         h_float t_begin = time_config.t_begin;
         h_float t_end = t_begin + measure_every;
 
-        rhos.conservativeResize(time_config.n_measurements + 1);
+        rhos.resize(time_config.n_measurements + 1);
         rhos[0] = current_state(2);// * std::sin(k.z - laser->laser_function(t_begin));
 
         for (int i = 1; i <= time_config.n_measurements; ++i) {
@@ -375,8 +389,8 @@ namespace HHG {
 #pragma omp parallel for firstprivate(rhos_buffer) reduction(vec_plus:current_density_time) schedule(dynamic)
         for (int z = 0; z < n_z; ++z)
 #else
-        int jobs_per_rank = (n_z - 1) / n_ranks;
-        if (jobs_per_rank * n_ranks < n_z - 1) ++jobs_per_rank;
+        int jobs_per_rank = n_z / n_ranks;
+        if (jobs_per_rank * n_ranks < n_z) ++jobs_per_rank;
         const int this_rank_min_z = rank * jobs_per_rank + 1;
         const int this_rank_max_z = this_rank_min_z + jobs_per_rank > n_z ? n_z : this_rank_min_z + jobs_per_rank;
         for (int z = this_rank_min_z; z < this_rank_max_z; ++z)
@@ -470,7 +484,6 @@ namespace HHG {
     }
 
     nd_vector PiFlux::xy_integral(momentum_type& k, nd_vector& rhos_buffer, Laser::Laser const * const laser, TimeIntegrationConfig const& time_config) const {
-        constexpr int n_xy_inner = 60;
         typedef boost::math::quadrature::gauss<h_float, 2 * n_xy_inner> xy_inner;
 
         nd_vector x_buffer = nd_vector::Zero(time_config.n_measurements + 1);
@@ -489,8 +502,6 @@ namespace HHG {
     }
 
     nd_vector PiFlux::improved_xy_integral(momentum_type& k, nd_vector& rhos_buffer, Laser::Laser const * const laser, TimeIntegrationConfig const& time_config) const {
-        constexpr int N_coarse = 16; // Must be divisible by 2.
-        constexpr int N_fine = 8 * N_coarse; // Must be divisible by 4. Otherwise the error integrator breaks
         constexpr h_float edge = 0.35 * pi;
         
         nd_vector x_buffer = nd_vector::Zero(time_config.n_measurements + 1);
@@ -517,7 +528,7 @@ namespace HHG {
                     error_buffer += error_weight * __error::weights()[j / 2] * rhos_buffer;
 #endif
 
-                k.update_y(transform(__gauss::abscissa()[j], y_low, y_high));
+                k.update_y(transform(-__gauss::abscissa()[j], y_low, y_high));
                 __time_evolution__(rhos_buffer, laser, k, time_config);
                 x_buffer += main_weight * __gauss::weights()[j] * rhos_buffer;
 
@@ -622,23 +633,23 @@ namespace HHG {
     std::vector<h_float> PiFlux::current_density_continuum_limit(Laser::Laser const * const laser, TimeIntegrationConfig const& time_config, 
         const int rank, const int n_ranks, const int n_z) const
     {
-        constexpr int z_range = 240;
         typedef boost::math::quadrature::gauss<h_float, 2 * z_range> z_gauss;
 
-        nd_vector rhos_buffer = nd_vector::Zero(time_config.n_measurements + 1);
+        nd_vector rhos_buffer;
+        nd_vector x_buffer;
         std::vector<h_float> current_density_time(time_config.n_measurements + 1, h_float{});
 
         //const h_float momentum_ratio = 2.0 * pi / n_z;
         const h_float time_step = time_config.measure_every();
-
 #ifdef NO_MPI
+        //omp_set_num_threads(1);
         std::vector<int> progresses(omp_get_max_threads(), int{});
-#pragma omp parallel for firstprivate(rhos_buffer) reduction(vec_plus:current_density_time) schedule(dynamic)
+#pragma omp parallel for private(rhos_buffer, x_buffer) reduction(vec_plus:current_density_time)
         for (int z = 0; z < z_range; ++z)
 #else
-        int jobs_per_rank = (z_range - 1) / n_ranks;
-        if (jobs_per_rank * n_ranks < z_range - 1) ++jobs_per_rank;
-        const int this_rank_min_z = rank * jobs_per_rank + 1;
+        int jobs_per_rank = z_range / n_ranks;
+        if (jobs_per_rank * n_ranks < z_range) ++jobs_per_rank;
+        const int this_rank_min_z = rank * jobs_per_rank;
         const int this_rank_max_z = this_rank_min_z + jobs_per_rank > z_range ? z_range : this_rank_min_z + jobs_per_rank;
         for (int z = this_rank_min_z; z < this_rank_max_z; ++z)
 #endif
@@ -646,8 +657,7 @@ namespace HHG {
             PROGRESS_BAR_UPDATE(z_range);
             momentum_type k;
             k.update_z(pi * z_gauss::abscissa()[z]);
-
-            nd_vector x_buffer = improved_xy_integral(k, rhos_buffer, laser, time_config);
+            x_buffer = improved_xy_integral(k, rhos_buffer, laser, time_config);
             for (int i = 0; i <= time_config.n_measurements; ++i) {
                 x_buffer[i] *= z_gauss::weights()[z] * std::sin(k.z - laser->laser_function(i * time_step));
             }
@@ -669,12 +679,11 @@ namespace HHG {
     std::vector<h_float> PiFlux::current_density_monte_carlo(Laser::Laser const * const laser, TimeIntegrationConfig const& time_config, 
         const int rank, const int n_ranks, const int n_z) const
     {
-        nd_vector rhos_buffer = nd_vector::Zero(time_config.n_measurements + 1);
         std::vector<h_float> current_density_time(time_config.n_measurements + 1, h_float{});
-
+#ifdef NO_MPI
+        nd_vector rhos_buffer = nd_vector::Zero(time_config.n_measurements + 1);
         const h_float time_step = time_config.measure_every();
 
-//#ifdef NO_MPI
         std::vector<int> progresses(omp_get_max_threads(), int{});
         std::vector<std::mt19937> gens;
         gens.reserve(omp_get_max_threads());
@@ -705,7 +714,7 @@ namespace HHG {
         for (auto& j : current_density_time) {
             j *= (pi*pi*pi)/n_z;
         }
-
+#endif
         return current_density_time;
     }
 }

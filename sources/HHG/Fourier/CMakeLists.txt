@@ -7,11 +7,7 @@ set(FOURIER_SOURCES
 
 add_library(Fourier STATIC ${FOURIER_SOURCES})
 
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    SET_DEBUG_FLAGS(Fourier)
-else()
-    SET_COMPILER_FLAGS(Fourier)
-endif()
+SET_COMPILER_FLAGS(Fourier)
 
 target_include_directories(Fourier PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 

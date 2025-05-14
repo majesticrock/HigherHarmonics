@@ -128,6 +128,14 @@ int main(int argc, char** argv) {
     if (debug_data != "only") dispatcher->compute(rank, n_ranks, n_z);
     if (debug_data != "no") dispatcher->debug(n_z);
 
+#ifndef NO_MPI
+    //std::cout << "#" << rank << ":\t" << dispatcher->current_density_time[100] << std::endl;
+    std::vector<h_float> current_density_time(dispatcher->current_density_time.size());
+    MPI_Reduce(dispatcher->current_density_time.data(), current_density_time.data(), dispatcher->current_density_time.size(), MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+#else
+    std::vector<h_float>& current_density_time = dispatcher->current_density_time;
+#endif
+
     if (rank != 0) return EXIT;
     /////////////////////////////////////////////////////////////////////
 
@@ -146,10 +154,10 @@ int main(int argc, char** argv) {
     if (laser_type == "continuous") {
         Fourier::WelchWindow window(N);
         for (int i = 0; i < N; ++i) {
-            dispatcher->current_density_time[i] *= window[i];
+            current_density_time[i] *= window[i];
         }
         Fourier::FFT fft(N);
-        fft.compute(dispatcher->current_density_time, current_density_frequency_real, current_density_frequency_imag);
+        fft.compute(current_density_time, current_density_frequency_real, current_density_frequency_imag);
 
         frequencies.resize(N / 2 + 1);
         for (int i = 0; i < frequencies.size(); ++i) {
@@ -160,11 +168,11 @@ int main(int argc, char** argv) {
         HHG::Fourier::TrapezoidalFFT integrator(dispatcher->time_config);
 
         // 0 padding to increase frequency resolution. Factor >= 4 is recommended by numerical recipes
-        dispatcher->current_density_time.resize(zero_padding * (N + 1));
+        current_density_time.resize(zero_padding * (N + 1));
         current_density_frequency_real.resize(zero_padding * (N + 1));
         current_density_frequency_imag.resize(zero_padding * (N + 1));
 
-        integrator.compute(dispatcher->current_density_time, current_density_frequency_real, current_density_frequency_imag);
+        integrator.compute(current_density_time, current_density_frequency_real, current_density_frequency_imag);
         frequencies = integrator.frequencies;
 
         if (debug_data != "no") {
@@ -187,7 +195,7 @@ int main(int argc, char** argv) {
     }
 
     // We do not need to output the zero padding
-    std::vector<h_float> current_density_time_output(dispatcher->current_density_time.begin(), dispatcher->current_density_time.begin() + N + 1);
+    std::vector<h_float> current_density_time_output(current_density_time.begin(), current_density_time.begin() + N + 1);
     nlohmann::json data_json {
         { "time", 				                mrock::utility::time_stamp() },
         { "laser_function",                     laser_function },
