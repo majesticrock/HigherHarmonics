@@ -654,7 +654,7 @@ namespace HHG {
             k.update_z(pi * z_gauss::abscissa[z]);
             x_buffer = improved_xy_integral(k, rhos_buffer, laser, time_config);
             for (int i = 0; i <= time_config.n_measurements; ++i) {
-                x_buffer[i] *= z_gauss::weights[z] * std::sin(k.z - laser->laser_function(i * time_step));
+                x_buffer[i] *= z_gauss::weights[z] * std::sin(k.z - laser->laser_function(i * time_step + time_config.t_begin));
             }
             std::transform(current_density_time.begin(), current_density_time.end(), x_buffer.begin(), current_density_time.begin(), std::plus<>());
         
@@ -664,7 +664,7 @@ namespace HHG {
             k.update_z(-pi * z_gauss::abscissa[z]);
             x_buffer = improved_xy_integral(k, rhos_buffer, laser, time_config);
             for (int i = 0; i <= time_config.n_measurements; ++i) {
-                x_buffer[i] *= z_gauss::weights[z] * std::sin(k.z - laser->laser_function(i * time_step));
+                x_buffer[i] *= z_gauss::weights[z] * std::sin(k.z - laser->laser_function(i * time_step + time_config.t_begin));
             }
             std::transform(current_density_time.begin(), current_density_time.end(), x_buffer.begin(), current_density_time.begin(), std::plus<>());
         }

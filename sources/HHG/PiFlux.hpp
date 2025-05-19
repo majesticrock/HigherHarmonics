@@ -13,8 +13,8 @@
 #define __Z 240
 #define __C 16
 #else
-#define __Z 64
-#define __C 8
+#define __Z 32
+#define __C 4
 #endif
 
 namespace HHG {

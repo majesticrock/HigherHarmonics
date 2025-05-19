@@ -64,6 +64,7 @@ int main(int argc, char** argv) {
 
     const std::string laser_type = input.getString("laser_type");
     const int n_laser_cylces = input.getInt("n_laser_cycles");
+    const h_float t0_offset = HHG::pi * input.getDouble("t0_offset");
     const int n_z = input.getInt("n_z");
     
     const std::string system_type = input.getString("system_type");
@@ -116,10 +117,10 @@ int main(int argc, char** argv) {
      */
     std::unique_ptr<Dispatcher> dispatcher;
     if (system_type == "Dirac") {
-        dispatcher = std::make_unique<DiracDispatcher>(input, N);
+        dispatcher = std::make_unique<DiracDispatcher>(input, N, t0_offset);
     }
     else if (system_type == "PiFlux") {
-        dispatcher = std::make_unique<PiFluxDispatcher>(input, N);
+        dispatcher = std::make_unique<PiFluxDispatcher>(input, N, t0_offset);
     }
     else {
         throw std::invalid_argument("System type '" + system_type + "' not recognized!");

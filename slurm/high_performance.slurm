@@ -14,7 +14,7 @@
 #SBATCH --cpus-per-task=1       ## logical cores used per mpi process: should be 1, except if you want to combine OpenMP with$
 
 ##SBATCH --mem=40gb               ## sets maximum allowed memory per node
-#SBATCH --mem-per-cpu=1gb    ## sets maximum allowed memory per mpi process
+#SBATCH --mem-per-cpu=256mb    ## sets maximum allowed memory per mpi process
 
 #SBATCH --mail-user=joshua.althueser@tu-dortmund.de     ## replace mail by personal mail address
 #SBATCH --mail-type=END ## most relevant options: NONE, BEGIN, END, FAIL

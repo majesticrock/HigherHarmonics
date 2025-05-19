@@ -8,7 +8,7 @@
 constexpr double target_kappa_error = 1e-3;
 constexpr int n_kappa = 10;
 
-HHG::DiracDispatcher::DiracDispatcher(mrock::utility::InputFileReader &input, int N)
+HHG::DiracDispatcher::DiracDispatcher(mrock::utility::InputFileReader &input, int N, h_float t0_offset/* = h_float{} */)
     : Dispatcher(N, input.getDouble("decay_time")),
     system(input.getDouble("T"), input.getDouble("E_F"), input.getDouble("v_F"), input.getDouble("band_width"), input.getDouble("photon_energy"), input.getDouble("decay_time"))
 {
@@ -22,7 +22,7 @@ HHG::DiracDispatcher::DiracDispatcher(mrock::utility::InputFileReader &input, in
         time_config = {-n_laser_cylces * HHG::pi, n_laser_cylces * HHG::pi, N, 500};
     }
     else if (laser_type == "cosine") {
-        laser = std::make_unique<Laser::CosineLaser>(photon_energy, E0, system.laser_model_ratio(photon_energy), n_laser_cylces);
+        laser = std::make_unique<Laser::CosineLaser>(photon_energy, E0, system.laser_model_ratio(photon_energy), n_laser_cylces, t0_offset);
         time_config = {laser->t_begin, laser->t_end, N, 500};
     }
     else {
