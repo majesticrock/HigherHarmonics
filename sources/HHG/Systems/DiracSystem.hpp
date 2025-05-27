@@ -4,11 +4,11 @@
 #include <array>
 #include <Eigen/Dense>
 
-#include "GlobalDefinitions.hpp"
-#include "TimeIntegrationConfig.hpp"
-#include "Laser/Laser.hpp"
+#include "../GlobalDefinitions.hpp"
+#include "../TimeIntegrationConfig.hpp"
+#include "../Laser/Laser.hpp"
 
-namespace HHG {
+namespace HHG::Systems {
     class DiracSystem {
     public:
         using c_vector = complex_vector<2>;

@@ -16,8 +16,8 @@
 #include <mrock/utility/InputFileReader.hpp>
 #include <mrock/utility/better_to_string.hpp>
 
-#include "HHG/DiracDispatcher.hpp"
-#include "HHG/PiFluxDispatcher.hpp"
+#include "HHG/Dispatch/DiracDispatcher.hpp"
+#include "HHG/Dispatch/PiFluxDispatcher.hpp"
 
 #include "HHG/Fourier/FFT.hpp"
 #include "HHG/Fourier/WelchWindow.hpp"
@@ -115,12 +115,12 @@ int main(int argc, char** argv) {
     /**
      * Starting calculations
      */
-    std::unique_ptr<Dispatcher> dispatcher;
+    std::unique_ptr<Dispatch::Dispatcher> dispatcher;
     if (system_type == "Dirac") {
-        dispatcher = std::make_unique<DiracDispatcher>(input, N, t0_offset);
+        dispatcher = std::make_unique<Dispatch::DiracDispatcher>(input, N, t0_offset);
     }
     else if (system_type == "PiFlux") {
-        dispatcher = std::make_unique<PiFluxDispatcher>(input, N, t0_offset);
+        dispatcher = std::make_unique<Dispatch::PiFluxDispatcher>(input, N, t0_offset);
     }
     else {
         throw std::invalid_argument("System type '" + system_type + "' not recognized!");

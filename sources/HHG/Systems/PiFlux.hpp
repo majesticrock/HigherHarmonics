@@ -5,9 +5,9 @@
 #include <Eigen/Dense>
 #include <random>
 
-#include "GlobalDefinitions.hpp"
-#include "TimeIntegrationConfig.hpp"
-#include "Laser/Laser.hpp"
+#include "../GlobalDefinitions.hpp"
+#include "../TimeIntegrationConfig.hpp"
+#include "../Laser/Laser.hpp"
 
 #ifdef MROCK_CL1
 #define __Z 240
@@ -17,7 +17,7 @@
 #define __C 4
 #endif
 
-namespace HHG {
+namespace HHG::Systems {
     class PiFlux {
     private:
         static constexpr int z_range = __Z;

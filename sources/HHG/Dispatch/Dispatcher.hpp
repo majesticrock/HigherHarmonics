@@ -1,13 +1,14 @@
 #pragma once
-#include "GlobalDefinitions.hpp"
+#include "../GlobalDefinitions.hpp"
+#include "../TimeIntegrationConfig.hpp"
+#include "../Laser/Laser.hpp"
+
 #include <array>
 #include <vector>
 #include <memory>
 
-#include "TimeIntegrationConfig.hpp"
-#include "Laser/Laser.hpp"
 
-namespace HHG {
+namespace HHG::Dispatch {
     struct Dispatcher {
         h_float decay_time{};
 

@@ -1,8 +1,8 @@
 #pragma once
-#include "../GlobalDefinitions.hpp"
+#include "../../GlobalDefinitions.hpp"
 #include <array>
 
-namespace HHG {
+namespace HHG::Systems {
     struct Magnus {
         const h_float k, k2, k3, k4;
         const h_float kappa, kappa2, kappa4; // kappa3 is not used

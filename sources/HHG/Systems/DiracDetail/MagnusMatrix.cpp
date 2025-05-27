@@ -8,13 +8,13 @@
 #define gamma expansion_coefficients[2]
 #define delta expansion_coefficients[3]
 
-HHG::Magnus::Magnus(h_float _k, h_float _kappa, h_float _k_z, h_float delta_t)
+HHG::Systems::Magnus::Magnus(h_float _k, h_float _kappa, h_float _k_z, h_float delta_t)
     : k(_k * delta_t), k2(k * k), k3(k * k2), k4(k2 * k2),
       kappa(_kappa * delta_t), kappa2(kappa * kappa), kappa4(kappa2 * kappa2),
       k_z(_k_z * delta_t), k_z2(k_z * k_z), k_z3(k_z * k_z2), k_z4(k_z2 * k_z2)
 { }
 
-HHG::Magnus::u_matrix HHG::Magnus::Omega(std::array<h_float, 4> const& expansion_coefficients) const
+HHG::Systems::Magnus::u_matrix HHG::Systems::Magnus::Omega(std::array<h_float, 4> const& expansion_coefficients) const
 {
     const h_float alpha2 = alpha * alpha;
     const h_float alpha3 = alpha2 * alpha;

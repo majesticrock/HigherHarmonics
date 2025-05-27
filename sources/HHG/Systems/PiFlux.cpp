@@ -1,6 +1,7 @@
 #include "PiFlux.hpp"
-#include "GeneralMagnus.hpp"
-#include "Laser/gauss.hpp"
+#include "../GeneralMagnus.hpp"
+#include "../Laser/gauss.hpp"
+#include "../thread_gauss.hpp"
 
 #include <cmath>
 #include <cassert>
@@ -14,8 +15,6 @@
 
 #include <boost/numeric/odeint.hpp>
 using namespace boost::numeric::odeint;
-
-#include "thread_gauss.hpp"
 
 typedef Eigen::Vector<HHG::h_float, 3> sigma_state_type;
 typedef runge_kutta_fehlberg78<sigma_state_type> sigma_error_stepper_type;
@@ -50,7 +49,7 @@ constexpr HHG::h_float rel_error = 1.0e-8;
 
 //#define DEBUG_INTEGRATE
 
-namespace HHG {
+namespace HHG::Systems {
     PiFlux::PiFlux(h_float temperature, h_float _E_F, h_float _v_F, h_float _band_width, h_float _photon_energy, h_float _decay_time)
         : beta(is_zero(temperature) ? std::numeric_limits<h_float>::infinity() : _photon_energy / (k_B * temperature)), 
             E_F(_E_F / _photon_energy), 

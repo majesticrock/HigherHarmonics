@@ -1,11 +1,11 @@
 #pragma once
 #include "Dispatcher.hpp"
 #include <mrock/utility/InputFileReader.hpp>
-#include "PiFlux.hpp"
+#include "../Systems/PiFlux.hpp"
 
-namespace HHG {
+namespace HHG::Dispatch {
     struct PiFluxDispatcher : public Dispatcher {
-        PiFlux system;
+        Systems::PiFlux system;
 
         PiFluxDispatcher(mrock::utility::InputFileReader& input, int N, h_float t0_offset = h_float{});
 

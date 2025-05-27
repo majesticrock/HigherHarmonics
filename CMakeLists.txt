@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(HigherHarmonics VERSION 1.0)
+project(HigherHarmonics VERSION 1.1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
@@ -22,18 +22,15 @@ else()
 endif()
 include(${CMAKE_CURRENT_SOURCE_DIR}/../../PhdUtility/cmake/mrock-information.cmake)
 
-add_subdirectory(sources/HHG/Laser)
+add_subdirectory(sources/HHG/Dispatch)
 add_subdirectory(sources/HHG/Fourier)
+add_subdirectory(sources/HHG/Systems)
+add_subdirectory(sources/HHG/Laser)
 
 add_executable(hhg 
     sources/hhg.cpp
 )
 target_sources(hhg PRIVATE
-    sources/HHG/DiracDispatcher.cpp
-    sources/HHG/PiFluxDispatcher.cpp
-    sources/HHG/DiracSystem.cpp
-    sources/HHG/DiracDetail/MagnusMatrix.cpp
-    sources/HHG/PiFlux.cpp
     sources/HHG/GeneralMagnus.cpp
     sources/HHG/TimeIntegrationConfig.cpp
     sources/HHG/GreensFunction.cpp
@@ -45,5 +42,5 @@ if(NOT CMAKE_BUILD_TYPE STREQUAL "NO_MPI")
     target_link_libraries(hhg PRIVATE MPI::MPI_CXX)
 endif()
 
-target_link_libraries(hhg PRIVATE Laser Fourier OpenMP::OpenMP_CXX ${mrock_LIBRARIES})
+target_link_libraries(hhg PRIVATE Dispatch Fourier ${mrock_LIBRARIES})
 target_include_directories(hhg PRIVATE ${mrock_INCLUDE_DIRS})

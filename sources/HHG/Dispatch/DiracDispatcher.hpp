@@ -1,11 +1,11 @@
 #pragma once
 #include "Dispatcher.hpp"
 #include <mrock/utility/InputFileReader.hpp>
-#include "DiracSystem.hpp"
+#include "../Systems/DiracSystem.hpp"
 
-namespace HHG {
+namespace HHG::Dispatch {
     struct DiracDispatcher : public Dispatcher {
-        DiracSystem system;
+        Systems::DiracSystem system;
 
         DiracDispatcher(mrock::utility::InputFileReader& input, int N, h_float t0_offset = h_float{});
 
