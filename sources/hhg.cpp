@@ -18,6 +18,7 @@
 
 #include "HHG/Dispatch/DiracDispatcher.hpp"
 #include "HHG/Dispatch/PiFluxDispatcher.hpp"
+#include "HHG/Dispatch/HoneycombDispatcher.hpp"
 
 #include "HHG/Fourier/FFT.hpp"
 #include "HHG/Fourier/WelchWindow.hpp"
@@ -121,6 +122,9 @@ int main(int argc, char** argv) {
     }
     else if (system_type == "PiFlux") {
         dispatcher = std::make_unique<Dispatch::PiFluxDispatcher>(input, N, t0_offset);
+    }
+    else if (system_type == "Honeycomb") {
+        dispatcher = std::make_unique<Dispatch::HoneycombDispatcher>(input, N, t0_offset);
     }
     else {
         throw std::invalid_argument("System type '" + system_type + "' not recognized!");

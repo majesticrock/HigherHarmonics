@@ -2,6 +2,7 @@ set(SYSTEMS_SOURCES
     DiracSystem.cpp
     DiracDetail/MagnusMatrix.cpp
     PiFlux.cpp
+    Honeycomb.cpp
 )
 
 add_library(Systems STATIC ${SYSTEMS_SOURCES})

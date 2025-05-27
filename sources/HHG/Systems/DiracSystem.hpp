@@ -1,12 +1,11 @@
 #pragma once
+#include "../GlobalDefinitions.hpp"
+#include "../TimeIntegrationConfig.hpp"
+#include "../Laser/Laser.hpp"
 
 #include <string>
 #include <array>
 #include <Eigen/Dense>
-
-#include "../GlobalDefinitions.hpp"
-#include "../TimeIntegrationConfig.hpp"
-#include "../Laser/Laser.hpp"
 
 namespace HHG::Systems {
     class DiracSystem {

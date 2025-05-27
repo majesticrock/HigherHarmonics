@@ -1,13 +1,12 @@
 #pragma once
+#include "../GlobalDefinitions.hpp"
+#include "../TimeIntegrationConfig.hpp"
+#include "../Laser/Laser.hpp"
 
 #include <string>
 #include <array>
 #include <Eigen/Dense>
 #include <random>
-
-#include "../GlobalDefinitions.hpp"
-#include "../TimeIntegrationConfig.hpp"
-#include "../Laser/Laser.hpp"
 
 #ifdef MROCK_CL1
 #define __Z 240

@@ -8,9 +8,7 @@
 #include <numeric>
 #include <random>
 #include <omp.h>
-#include <nlohmann/json.hpp>
 
-#include <mrock/utility/OutputConvenience.hpp>
 #include <mrock/utility/progress_bar.hpp>
 
 #include <boost/numeric/odeint.hpp>
@@ -117,11 +115,11 @@ namespace HHG::Systems {
         h_float t_end = t_begin + measure_every;
 
         rhos.conservativeResize(time_config.n_measurements + 1);
-        rhos[0] = current_state(2);// * std::sin(k.z - laser->laser_function(t_begin));
+        rhos[0] = current_state(2);
 
         for (int i = 1; i <= time_config.n_measurements; ++i) {
             integrate_adaptive(make_controlled<sigma_error_stepper_type>(abs_error, rel_error), right_side, current_state, t_begin, t_end, dt);
-            rhos[i] = current_state(2);// * std::sin(k.z - laser->laser_function(t_end));
+            rhos[i] = current_state(2);
             t_begin = t_end;
             t_end += measure_every;
         }
@@ -154,11 +152,11 @@ namespace HHG::Systems {
         h_float t_end = t_begin + measure_every;
 
         rhos.resize(time_config.n_measurements + 1);
-        rhos[0] = current_state(2);// * std::sin(k.z - laser->laser_function(t_begin));
+        rhos[0] = current_state(2);
 
         for (int i = 1; i <= time_config.n_measurements; ++i) {
             integrate_adaptive(make_controlled<sigma_error_stepper_type>(abs_error, rel_error), right_side, current_state, t_begin, t_end, dt);
-            rhos[i] = current_state(2);// * std::sin(k.z - laser->laser_function(t_end));
+            rhos[i] = current_state(2);
             t_begin = t_end;
             t_end += measure_every;
         }
