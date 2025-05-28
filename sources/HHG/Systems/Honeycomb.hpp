@@ -20,7 +20,6 @@ namespace HHG::Systems {
     private:
         static constexpr int N_k = __Z;
     public:
-        typedef Eigen::Vector<HHG::h_float, 3> sigma_state_type;
         constexpr static std::array< std::array<h_float, 2>, 3> nearest_neighbors = {
             std::array<h_float, 2>{ 1., 0. },
             std::array<h_float, 2>{ -0.5,  0.5 * sqrt_3 },
@@ -95,7 +94,7 @@ namespace HHG::Systems {
         h_float occupation_a(const momentum_type& k) const;
         h_float occupation_b(const momentum_type& k) const;
 
-        sigma_state_type ic_sigma(const momentum_type& k, h_float alpha_beta_diff, h_float alpha_beta_prod) const noexcept;
+        Eigen::Vector<HHG::h_float, 3> ic_sigma(const momentum_type& k, h_float alpha_beta_diff, h_float alpha_beta_prod) const noexcept;
     };
 }
 

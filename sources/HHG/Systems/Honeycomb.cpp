@@ -8,7 +8,8 @@
 
 #include <boost/numeric/odeint.hpp>
 using namespace boost::numeric::odeint;
-typedef runge_kutta_fehlberg78<HHG::Systems::Honeycomb::sigma_state_type> sigma_error_stepper_type;
+typedef Eigen::Vector<HHG::h_float, 3> sigma_state_type;
+typedef runge_kutta_fehlberg78<sigma_state_type> sigma_error_stepper_type;
 
 constexpr HHG::h_float abs_error = 1.0e-12;
 constexpr HHG::h_float rel_error = 1.0e-8;
@@ -212,8 +213,9 @@ namespace HHG::Systems {
     {
         constexpr h_float min_x = - 2 * pi / 3;
         constexpr h_float max_x = 2 * pi / 3;
-        constexpr h_float min_y = - 2 * pi / (3 * sqrt_3);
-        constexpr h_float max_y = 4 * pi / (3 * sqrt_3);
+        auto bound_y = [](h_float x) {
+            return (4 * pi / (3 * sqrt_3)) - (std::abs(x) / sqrt_3);
+        };
 
         auto transform = [](h_float x, h_float low, h_float high) {
             return 0.5 * (high - low) * x + 0.5 * (high + low);
@@ -247,11 +249,12 @@ namespace HHG::Systems {
             PROGRESS_BAR_UPDATE(N_k);
 
             momentum_type k(transform(__gauss::abscissa[x], min_x, max_x), h_float{});
+            const h_float curr_max_y = bound_y(k.x);
 
             for (int y = 0; y < N_k; ++y) {
-                const h_float transform_weight = weight(min_x, max_x) * weight(min_y, max_y) * __gauss::weights[x] * __gauss::weights[y];
+                const h_float transform_weight = weight(min_x, max_x) * weight(-curr_max_y, curr_max_y) * __gauss::weights[x] * __gauss::weights[y];
 
-                k.update_y(transform(__gauss::abscissa[y], min_y, max_y));
+                k.update_y(transform(__gauss::abscissa[y], -curr_max_y, curr_max_y));
                 __time_evolution__(rho_x, rho_y, laser, k, time_config);
                 
                 for (int i = 0; i <= time_config.n_measurements; ++i) {
@@ -261,7 +264,7 @@ namespace HHG::Systems {
                 }
 
                 // minus y
-                k.update_y(transform(-__gauss::abscissa[y], min_y, max_y));
+                k.update_y(transform(-__gauss::abscissa[y], -curr_max_y, curr_max_y));
                 __time_evolution__(rho_x, rho_y, laser, k, time_config);
 
                 for (int i = 0; i <= time_config.n_measurements; ++i) {
@@ -274,9 +277,9 @@ namespace HHG::Systems {
             // minus x
             k.update_x(transform(-__gauss::abscissa[x], min_x, max_x));
             for (int y = 0; y < N_k; ++y) {
-                const h_float transform_weight = weight(min_x, max_x) * weight(min_y, max_y) * __gauss::weights[x] * __gauss::weights[y];
+                const h_float transform_weight = weight(min_x, max_x) * weight(-curr_max_y, curr_max_y) * __gauss::weights[x] * __gauss::weights[y];
 
-                k.update_y(transform(__gauss::abscissa[y], min_y, max_y));
+                k.update_y(transform(__gauss::abscissa[y], -curr_max_y, curr_max_y));
                 __time_evolution__(rho_x, rho_y, laser, k, time_config);
 
                 for (int i = 0; i <= time_config.n_measurements; ++i) {
@@ -286,7 +289,7 @@ namespace HHG::Systems {
                 }
 
                 // minus y
-                k.update_y(transform(-__gauss::abscissa[y], min_y, max_y));
+                k.update_y(transform(-__gauss::abscissa[y], -curr_max_y, curr_max_y));
                 __time_evolution__(rho_x, rho_y, laser, k, time_config);
                           
                 for (int i = 0; i <= time_config.n_measurements; ++i) {
@@ -299,10 +302,12 @@ namespace HHG::Systems {
 
         // Project the current density onto the laser polarization
         // I assume that the current density will vanish orthogonal to the laser polarization, but this is yet to be verified
+        // 28.05.2025: Seems to be correct
         for (int i = 0; i <= time_config.n_measurements; ++i) {
             current_density_time[i] = buffer_x[i] * cos_theta + buffer_y[i] * sin_theta;
-            if(!is_zero(buffer_x[i] * sin_theta + buffer_y[i] * cos_theta)) {
-                std::cerr << "Warning: j_perp = " << buffer_x[i] * sin_theta + buffer_y[i] * cos_theta << "\t\tj_par = " << buffer_x[i] * cos_theta + buffer_y[i] * sin_theta << "!\n";
+            const auto j_perp = buffer_x[i] * sin_theta + buffer_y[i] * cos_theta;
+            if(std::abs(j_perp) > 1e-6 * std::abs(current_density_time[i]) && std::abs(j_perp) > 1e-6) {
+                std::cerr << "Warning: j_perp = " << j_perp << "\t\tj_par = " << current_density_time[i] << "!\n";
             }
         }
         return current_density_time;
@@ -332,9 +337,12 @@ namespace HHG::Systems {
     }
 
 
-    Honeycomb::sigma_state_type Honeycomb::ic_sigma(const momentum_type &k, h_float alpha_beta_diff, h_float alpha_beta_prod) const noexcept
+    Eigen::Vector<HHG::h_float, 3> Honeycomb::ic_sigma(const momentum_type &k, h_float alpha_beta_diff, h_float alpha_beta_prod) const noexcept
     {
         assert(!k.is_dirac_point());
-        return sigma_state_type{ alpha_beta_diff, - k.gamma.imag() / std::abs(k.gamma), -k.gamma.real() / std::abs(k.gamma) };
+        return Eigen::Vector<HHG::h_float, 3>{ 
+            -alpha_beta_diff * k.gamma.real() / std::abs(k.gamma), 
+            alpha_beta_diff * k.gamma.imag() / std::abs(k.gamma), 
+            -alpha_beta_prod };
     }
 }
