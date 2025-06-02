@@ -225,6 +225,7 @@ int main(int argc, char** argv) {
         { "system_type",                        system_type },
         { "n_z",                                n_z }
     };
+    data_json.merge_patch(dispatcher->special_information());
     std::cout << "Saving data to " << output_dir << "/current_density.json.gz" << std::endl;
     mrock::utility::saveString(data_json.dump(4), output_dir + "current_density.json.gz");
 

@@ -2,6 +2,7 @@ set(DISPATCH_SOURCES
     DiracDispatcher.cpp
     PiFluxDispatcher.cpp
     HoneycombDispatcher.cpp
+    Dispatcher.cpp
 )
 
 add_library(Dispatch STATIC ${DISPATCH_SOURCES})

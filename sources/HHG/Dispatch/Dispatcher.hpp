@@ -6,7 +6,7 @@
 #include <array>
 #include <vector>
 #include <memory>
-
+#include <nlohmann/json.hpp>
 
 namespace HHG::Dispatch {
     struct Dispatcher {
@@ -24,5 +24,7 @@ namespace HHG::Dispatch {
 
         virtual void compute(int rank, int n_ranks, int n_z) = 0;
         virtual void debug(int n_z) = 0;
+
+        virtual nlohmann::json special_information() const;
     };
 }

@@ -7,10 +7,10 @@
 
 HHG::Dispatch::HoneycombDispatcher::HoneycombDispatcher(mrock::utility::InputFileReader &input, int N, h_float t0_offset/* = h_float{} */)
     : Dispatcher(N, input.getDouble("decay_time")),
-    system(input.getDouble("T"), input.getDouble("E_F"), input.getDouble("v_F"), input.getDouble("band_width"), input.getDouble("photon_energy"), input.getDouble("decay_time"))
+    system(input.getDouble("T"), input.getDouble("E_F"), input.getDouble("v_F"), input.getDouble("band_width"), input.getDouble("photon_energy"), input.getDouble("decay_time")),
+    photon_energy(input.getDouble("photon_energy"))
 {
     const h_float E0 = input.getDouble("field_amplitude");
-    const h_float photon_energy = input.getDouble("photon_energy");
     const std::string laser_type = input.getString("laser_type");
     const int n_laser_cylces = input.getInt("n_laser_cycles");
 
@@ -52,4 +52,12 @@ void HHG::Dispatch::HoneycombDispatcher::debug(int n_z)
 
     std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
 	std::cout << "Runtime = " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "[ms]" << std::endl;
+}
+
+nlohmann::json HHG::Dispatch::HoneycombDispatcher::special_information() const
+{
+    return { 
+        { "lattice_constant", system.get_property_in_SI_units("d", photon_energy)},
+        { "hopping_element", system.get_property_in_SI_units("t", photon_energy)} 
+    };
 }
