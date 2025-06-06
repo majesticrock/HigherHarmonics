@@ -18,12 +18,14 @@ namespace HHG::Laser {
      * => model_ratio = hbar v_F / photon_energy
      */
     Laser::Laser(h_float photon_energy, h_float E_0, h_float model_ratio)
-        : momentum_amplitude{model_ratio * 1e11 * E_0 / photon_energy} 
+        : momentum_amplitude{model_ratio * 1e11 * E_0 / photon_energy}
     { }
 
-    Laser::Laser(h_float photon_energy, h_float E_0, h_float model_ratio, h_float t_begin, h_float t_end)
-        : momentum_amplitude{model_ratio * 1e11 * E_0 / photon_energy}, t_begin{t_begin}, t_end{t_end} 
-    { }
+    Laser::Laser(h_float photon_energy, h_float E_0, h_float model_ratio, h_float t_begin, h_float t_end, bool _use_spline/* = false */)
+        : momentum_amplitude{model_ratio * 1e11 * E_0 / photon_energy}, t_begin{t_begin}, t_end{t_end}, use_spline{_use_spline}
+    { 
+        if (_use_spline) this->compute_spline();
+    }
 
     std::array<h_float, 4> Laser::magnus_coefficients(h_float delta_t, h_float t_0) const
     {
@@ -41,5 +43,21 @@ namespace HHG::Laser {
         coeffs[2] *= 5. * this->momentum_amplitude;
         coeffs[3] *= 7. * this->momentum_amplitude;
         return coeffs;
+    }
+
+    void Laser::compute_spline()
+    {
+        std::cerr << "NONONONONON" << std::endl;
+        assert(this->use_spline);
+        const int N = 48e3; // This way we can compute 8 cycles (8*2*pi ~ 64) to an accuracy of h^4= ~ 1e-12
+        std::vector<h_float> __temp(N);
+
+        const h_float dt = (t_end - t_begin) / N;
+        for (int i = 0; i < N; ++i) {
+            const h_float t = t_begin + dt * i;
+            __temp[i] = this->__laser_function__(t);
+        }
+
+        this->laser_spline = Spline(__temp.data(), N, t_begin, dt);
     }
 }

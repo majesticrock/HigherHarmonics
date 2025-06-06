@@ -2,6 +2,7 @@ set(LASER_SOURCES
     ContinuousLaser.cpp
     CosineLaser.cpp
     Laser.cpp
+    ExperimentalLaser.cpp
 )
 
 add_library(Laser STATIC ${LASER_SOURCES})

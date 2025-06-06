@@ -1,6 +1,7 @@
 #include "DiracDispatcher.hpp"
 #include "../Laser/ContinuousLaser.hpp"
 #include "../Laser/CosineLaser.hpp"
+#include "../Laser/ExperimentalLaser.hpp"
 
 #include <iostream>
 #include <chrono>
@@ -23,6 +24,10 @@ HHG::Dispatch::DiracDispatcher::DiracDispatcher(mrock::utility::InputFileReader 
     }
     else if (laser_type == "cosine") {
         laser = std::make_unique<Laser::CosineLaser>(photon_energy, E0, system.laser_model_ratio(photon_energy), n_laser_cylces, t0_offset);
+        time_config = {laser->t_begin, laser->t_end, N, 500};
+    }
+    else if (laser_type == "exp") {
+        laser = std::make_unique<Laser::ExperimentalLaser>(photon_energy, E0, system.laser_model_ratio(photon_energy * Laser::ExperimentalLaser::exp_photon_frequency), t0_offset);
         time_config = {laser->t_begin, laser->t_end, N, 500};
     }
     else {

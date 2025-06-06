@@ -4,6 +4,8 @@
 #include <cmath>
 #include <array>
 
+#include <boost/math/interpolators/cardinal_cubic_b_spline.hpp>
+
 namespace HHG::Laser {
     /**
     * We measure the time in units of the period of the electric field
@@ -19,16 +21,30 @@ namespace HHG::Laser {
          * @param E_0 peak electric field strength in MV / cm
          */
         Laser(h_float photon_energy, h_float E_0, h_float model_ratio);
-        Laser(h_float photon_energy, h_float E_0, h_float model_ratio, h_float t_begin, h_float t_end);
+        Laser(h_float photon_energy, h_float E_0, h_float model_ratio, h_float t_begin, h_float t_end, bool _use_spline = false);
 
         virtual h_float envelope(h_float t) const = 0;
         inline h_float laser_function(h_float t) const {
-            return momentum_amplitude * envelope(t) * std::sin(t);
+            if (!use_spline)
+                return momentum_amplitude * __laser_function__(t);
+            return laser_spline(t);
         }
         inline h_float raw_laser_function(h_float t) const {
-            return envelope(t) * std::sin(t);
+            if (!use_spline)
+                return __laser_function__(t);
+            return laser_spline(t) / momentum_amplitude;
         }
 
         std::array<h_float, 4> magnus_coefficients(h_float delta_t, h_float t_0) const;
+
+    protected:
+        using Spline = boost::math::interpolators::cardinal_cubic_b_spline<h_float>;
+        Spline laser_spline;
+        const bool use_spline{};
+
+        virtual void compute_spline();
+        inline h_float __laser_function__(h_float t) const {
+            return envelope(t) * std::sin(t);
+        }
     };
 }
