@@ -14,21 +14,26 @@ time = data[:, 0]
 A = data[:, 1]
 B = data[:, 2]
 
+N = len(time)
+FFT_MIN = int(0.25 * N)
+FFT_MAX = int(0.65 * N)
+
 signal_A = hilbert(A)
 env_A = np.abs(signal_A)
 
 signal_B = hilbert(B)
 env_B = np.abs(signal_B)
 
-fig, axes = plt.subplots(nrows=2, sharex=True)
+fig, axes = plt.subplots(nrows=3, sharex=True)
 
 axes[0].plot(time, A, "-",label="$E$")
 axes[0].plot(time, env_A, "--", label="Envelope")
 axes[1].plot(time, B, "-",label="$E_B$")
 axes[1].plot(time, env_B, "--", label="Envelope")
 
-#axes[0].plot(time, A / env_A, label="$E$ / Enevelope")
-#axes[1].plot(time, B / env_B, label="$E$ / Enevelope")
+axes[2].plot(time, A + B)
+axes[2].axvline(time[FFT_MIN], c='k')
+axes[2].axvline(time[FFT_MAX], c='k')
 
 tA = time[np.argmax(env_A)]
 ampA = np.max(env_A)
@@ -45,28 +50,28 @@ fig.tight_layout()
 
 from scipy.fft import rfft, rfftfreq
 HBAR = 6.582119569509065698e-1 # meV ps
-N = len(time)
 PAD = 8
 fftA = np.abs(rfft(A, n=PAD*N))
 fftB = np.abs(rfft(B, n=PAD*N))
+fft_total = np.abs(rfft((A+B)[FFT_MIN:FFT_MAX], n=PAD*N))
 
 dt = 0
-
 for i in range(N - 1):
     dt += time[i + 1] - time[i]
 dt /= N
-
-print(dt)
 
 freq = 2 * np.pi * HBAR * rfftfreq(PAD*N, dt)
 
 fig2, ax2 = plt.subplots()
 ax2.plot(freq, fftA / np.max(fftA), label="A")
 ax2.plot(freq, fftB / np.max(fftB), label="B")
+ax2.plot(freq, fft_total / np.max(fft_total), label="A+B")
 
-peak_pos = 0.5*(freq[np.argmax(fftA)] + freq[np.argmax(fftB)])
+peak_pos = freq[np.argmax(fft_total)]
 ax2.axvline(peak_pos, ls="--", c="k")
 
+# my analysis: 1.489 THz; Wang: 1.45 THz...?
+# Answer: Depends on where we set the FFT frame
 print(peak_pos)
 
 ax2.set_xlabel(r"$\hbar \omega$ (meV)")

@@ -1,17 +1,22 @@
 #include "ExperimentalLaser.hpp"
+#include <iostream>
 
 namespace HHG::Laser {
     ExperimentalLaser::ExperimentalLaser(h_float _photon_energy, h_float _E_0, h_float model_ratio, h_float _second_laser_shift)
-        : Laser(_photon_energy * exp_photon_frequency, _E_0, model_ratio, 0, (laser_end + std::abs(_second_laser_shift)) / _photon_energy, true), 
-        second_laser_shift{_second_laser_shift}, photon_energy(_photon_energy * exp_photon_frequency)
-    { }
+        : Laser(_photon_energy * exp_photon_energy, _E_0, model_ratio, 0, (laser_end + std::abs(_second_laser_shift)) * (_photon_energy * exp_photon_energy / (1e12 * hbar)), true), 
+        second_laser_shift{_second_laser_shift}, photon_energy(_photon_energy * exp_photon_energy)
+    {
+        this->compute_spline();
+    }
 
     void ExperimentalLaser::compute_spline()
     {
         constexpr int N = 201;
         // Experimental data in ps [average temporal spacing of measurements]
         constexpr h_float exp_dt{ 0.03318960199004975 };
-        const h_float dt = exp_dt * this->photon_energy / (1e12 * hbar); // unitless
+        const h_float dt = this->photon_energy * (exp_dt / (1e12 * hbar)); // unitless
+        const h_float unitless_laser_end = this->photon_energy * (laser_end / (1e12 * hbar));
+
         // Experimental data in MV/cm [measured]
         constexpr std::array<h_float, N> E_A = { -2.55696e-3, 2.10912e-3, 6.31776e-3, 9.55008e-3, 12.92784e-3, 14.19168e-3, 14.73648e-3, 12.94512e-3, 10.848e-3, 7.81296e-3, 5.56224e-3, 2.75136e-3, 0.94992e-3, 0.90144e-3, -0.00576e-3, -0.47712e-3, 1.47744e-3, 3.53376e-3, 6.2232e-3, 9.19584e-3, 10.59264e-3, 11.9496e-3, 13.90368e-3, 14.79456e-3, 14.42928e-3, 14.69664e-3, 12.96336e-3, 12.09024e-3, 10.44288e-3, 9.5544e-3, 9.50688e-3, 9.324e-3, 9.44592e-3, 9.80448e-3, 10.42848e-3, 10.14624e-3, 10.71744e-3, 10.74144e-3, 11.29392e-3, 12.27216e-3, 14.484e-3, 15.33264e-3, 16.37376e-3, 17.77248e-3, 17.4864e-3, 17.02848e-3, 14.20224e-3, 10.47888e-3, 4.25232e-3, -2.6328e-3, -10.33536e-3, -18.71472e-3, -28.8456e-3, -39.21744e-3, -49.02864e-3, -63.51024e-3, -78.50592e-3, -95.61984e-3, -114.37488e-3, -137.49504e-3, -159.21216e-3, -179.00112e-3, -198.012e-3, -210.59136e-3, -220.03488e-3, -217.95456e-3, -207.36384e-3, -185.70384e-3, -150.52896e-3, -95.31168e-3, -25.4928e-3, 65.42256e-3, 174.52992e-3, 301.66368e-3, 452.8152e-3, 620.43168e-3, 764.65248e-3, 902.82144e-3, 986.56944e-3, 1036.5168e-3, 1023.91392e-3, 931.74576e-3, 728.73312e-3, 353.4624e-3, -51.29184e-3, -497.22672e-3, -1008.81456e-3, -1390.3368e-3, -1563.96912e-3, -1578.59424e-3, -1425.19296e-3, -1124.78544e-3, -653.9136e-3, -137.19216e-3, 241.85616e-3, 541.9464e-3, 690.40512e-3, 681.43872e-3, 542.65248e-3, 317.91408e-3, 54.77472e-3, -186.63648e-3, -336.83328e-3, -388.92336e-3, -341.38896e-3, -243.9744e-3, -100.69536e-3, 20.13264e-3, 105.09984e-3, 134.44896e-3, 106.96272e-3, 60.70128e-3, 6.39168e-3, -23.56848e-3, -18.42432e-3, 11.94816e-3, 66.47472e-3, 130.02624e-3, 183.82416e-3, 214.10976e-3, 217.644e-3, 190.53696e-3, 146.1816e-3, 93.20928e-3, 41.51232e-3, 7.55904e-3, -7.24464e-3, -10.84992e-3, -4.59792e-3, -3.02448e-3, -3.48192e-3, -14.8752e-3, -32.49744e-3, -53.08608e-3, -67.54848e-3, -68.22432e-3, -54.75168e-3, -28.3728e-3, 3.53904e-3, 38.86608e-3, 67.60512e-3, 84.57072e-3, 87.24864e-3, 72.96432e-3, 46.76688e-3, 12.67872e-3, -22.67856e-3, -54.4056e-3, -75.13104e-3, -84.07104e-3, -82.01712e-3, -68.90736e-3, -45.13728e-3, -15.16704e-3, 15.20496e-3, 41.75472e-3, 63.07248e-3, 73.20096e-3, 75.97104e-3, 68.9568e-3, 56.25696e-3, 39.71136e-3, 22.404e-3, 9.47136e-3, 1.56864e-3, -0.20832e-3, 1.5264e-3, 3.66528e-3, 4.70736e-3, 2.73552e-3, -4.04112e-3, -13.6104e-3, -22.5816e-3, -29.51664e-3, -30.87696e-3, -25.97952e-3, -15.42384e-3, -0.50544e-3, 11.41056e-3, 19.54464e-3, 22.33536e-3, 16.58208e-3, 4.84992e-3, -12.80976e-3, -30.85488e-3, -43.15872e-3, -50.3448e-3, -47.31744e-3, -37.52448e-3, -23.10048e-3, -7.1544e-3, 10.32384e-3, 21.94032e-3, 29.208e-3, 32.27232e-3, 33.51888e-3, 31.52064e-3, 29.2632e-3, 26.72112e-3, 23.49840e-3, 17.39232e-3 };
         // Experimental data in MV/cm [measured]
@@ -20,21 +25,25 @@ namespace HHG::Laser {
         Spline __spline_A(E_A.data(), N, t_begin, dt);
         Spline __spline_B(E_B.data(), N, t_begin, dt);
 
-        constexpr int fac = 4;
+        constexpr int fac = 1;
         constexpr int N_main = fac * N;
         std::array<h_float, N_main> __temp;
+
         for(int i = 0; i < N_main; ++i) {
             const h_float t = t_begin + (dt * i) / fac;
+            //__temp[i] = __spline_A(t) + __spline_B(t);
             if (second_laser_shift >= 0) {
-                const h_float __A = t <= laser_end ? __spline_A(t) : h_float{};
-                const h_float __B = (t - second_laser_shift >= 0 && t - second_laser_shift <= laser_end) ? __spline_B(t - second_laser_shift) : h_float{};
-                __temp[i] = __A + __B;
+                const h_float __A = t <= unitless_laser_end ? __spline_A(t) : h_float{};
+                const h_float __B = (t - second_laser_shift >= 0 && t - second_laser_shift <= unitless_laser_end) ? __spline_B(t - second_laser_shift) : h_float{};
+                __temp[i] = -(__A + __B) * dt / fac;
             }
             else {
-                const h_float __A = (t + second_laser_shift >= 0 && t + second_laser_shift <= laser_end) ? __spline_A(t + second_laser_shift) : h_float{};
-                const h_float __B = t <= laser_end ? __spline_B(t) : h_float{};
-                __temp[i] = __A + __B;
+                const h_float __A = (t + second_laser_shift >= 0 && t + second_laser_shift <= unitless_laser_end) ? __spline_A(t + second_laser_shift) : h_float{};
+                const h_float __B = t <= unitless_laser_end ? __spline_B(t) : h_float{};
+                __temp[i] = -(__A + __B) * dt / fac;
             }
+            if (i > 0) // A = - 1/c int_0^t E(t') dt'. The factor 1/c cancels in the Peierls substitution   
+                __temp[i] += __temp[i-1];
         }
 
         this->laser_spline = Spline(__temp.data(), N_main, t_begin, dt / fac);

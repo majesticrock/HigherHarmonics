@@ -17,6 +17,7 @@ namespace HHG::Dispatch {
         std::unique_ptr<Laser::Laser> laser;
         TimeIntegrationConfig time_config;
 
+        virtual ~Dispatcher() = default;
         Dispatcher(int N, h_float _decay_time) : decay_time(_decay_time), current_density_time(N + 1)
         {
             time_evolutions.fill(std::vector<h_float>(N + 1));
