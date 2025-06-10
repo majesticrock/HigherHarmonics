@@ -3,6 +3,7 @@
 #include "../TimeIntegrationConfig.hpp"
 #include "../Laser/Laser.hpp"
 
+#include <mrock/utility/InputFileReader.hpp>
 #include <array>
 #include <vector>
 #include <memory>
@@ -27,5 +28,7 @@ namespace HHG::Dispatch {
         virtual void debug(int n_z) = 0;
 
         virtual nlohmann::json special_information() const;
+
+        static h_float get_photon_energy(mrock::utility::InputFileReader &input);
     };
 }

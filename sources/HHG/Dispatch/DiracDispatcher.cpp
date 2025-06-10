@@ -27,7 +27,18 @@ HHG::Dispatch::DiracDispatcher::DiracDispatcher(mrock::utility::InputFileReader 
         time_config = {laser->t_begin, laser->t_end, N, 500};
     }
     else if (laser_type == "exp") {
-        laser = std::make_unique<Laser::ExperimentalLaser>(photon_energy, E0, system.laser_model_ratio(photon_energy * Laser::ExperimentalLaser::exp_photon_energy), t0_offset);
+        laser = std::make_unique<Laser::ExperimentalLaser>(photon_energy, E0, 
+            system.laser_model_ratio(photon_energy * Laser::ExperimentalLaser::exp_photon_energy), t0_offset);
+        time_config = {laser->t_begin, laser->t_end, N, 500};
+    }
+    else if (laser_type == "expA") {
+        laser = std::make_unique<Laser::ExperimentalLaser>(photon_energy, E0, 
+            system.laser_model_ratio(photon_energy * Laser::ExperimentalLaser::exp_photon_energy), t0_offset, Laser::ExperimentalLaser::Active::A);
+        time_config = {laser->t_begin, laser->t_end, N, 500};
+    }
+    else if (laser_type == "expB") {
+        laser = std::make_unique<Laser::ExperimentalLaser>(photon_energy, E0, 
+            system.laser_model_ratio(photon_energy * Laser::ExperimentalLaser::exp_photon_energy), t0_offset, Laser::ExperimentalLaser::Active::B);
         time_config = {laser->t_begin, laser->t_end, N, 500};
     }
     else {

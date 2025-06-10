@@ -8,7 +8,7 @@
 
 HHG::Dispatch::PiFluxDispatcher::PiFluxDispatcher(mrock::utility::InputFileReader &input, int N, h_float t0_offset/* = h_float{} */)
     : Dispatcher(N, input.getDouble("decay_time")),
-    system(input.getDouble("T"), input.getDouble("E_F"), input.getDouble("v_F"), input.getDouble("band_width"), input.getDouble("photon_energy"), input.getDouble("decay_time"))
+    system(input.getDouble("T"), input.getDouble("E_F"), input.getDouble("v_F"), input.getDouble("band_width"), Dispatcher::get_photon_energy(input), input.getDouble("decay_time"))
 {
     const h_float E0 = input.getDouble("field_amplitude");
     const h_float photon_energy = input.getDouble("photon_energy");
@@ -26,6 +26,14 @@ HHG::Dispatch::PiFluxDispatcher::PiFluxDispatcher(mrock::utility::InputFileReade
     }
     else if (laser_type == "exp") {
         laser = std::make_unique<Laser::ExperimentalLaser>(photon_energy, E0, system.laser_model_ratio(), t0_offset);
+        time_config = {laser->t_begin, laser->t_end, N, 500};
+    }
+    else if (laser_type == "expA") {
+        laser = std::make_unique<Laser::ExperimentalLaser>(photon_energy, E0, system.laser_model_ratio(), t0_offset, Laser::ExperimentalLaser::Active::A);
+        time_config = {laser->t_begin, laser->t_end, N, 500};
+    }
+    else if (laser_type == "expB") {
+        laser = std::make_unique<Laser::ExperimentalLaser>(photon_energy, E0, system.laser_model_ratio(), t0_offset, Laser::ExperimentalLaser::Active::B);
         time_config = {laser->t_begin, laser->t_end, N, 500};
     }
     else {

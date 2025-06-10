@@ -8,24 +8,33 @@
 
 HHG::Dispatch::HoneycombDispatcher::HoneycombDispatcher(mrock::utility::InputFileReader &input, int N, h_float t0_offset/* = h_float{} */)
     : Dispatcher(N, input.getDouble("decay_time")),
-    system(input.getDouble("T"), input.getDouble("E_F"), input.getDouble("v_F"), input.getDouble("band_width"), input.getDouble("photon_energy"), input.getDouble("decay_time")),
-    photon_energy(input.getDouble("photon_energy"))
+    system(input.getDouble("T"), input.getDouble("E_F"), input.getDouble("v_F"), input.getDouble("band_width"), Dispatcher::get_photon_energy(input), input.getDouble("decay_time")),
+    photon_energy(Dispatcher::get_photon_energy(input))
 {
     const h_float E0 = input.getDouble("field_amplitude");
     const std::string laser_type = input.getString("laser_type");
     const int n_laser_cylces = input.getInt("n_laser_cycles");
+    const h_float __photon_energy = input.getDouble("photon_energy");
 
     if (laser_type == "continuous") {
-        laser = std::make_unique<Laser::ContinuousLaser>(photon_energy, E0, system.laser_model_ratio());
+        laser = std::make_unique<Laser::ContinuousLaser>(__photon_energy, E0, system.laser_model_ratio());
         time_config = {-n_laser_cylces * HHG::pi, n_laser_cylces * HHG::pi, N, 500};
     }
     else if (laser_type == "cosine") {
-        laser = std::make_unique<Laser::CosineLaser>(photon_energy, E0, system.laser_model_ratio(), n_laser_cylces, t0_offset);
+        laser = std::make_unique<Laser::CosineLaser>(__photon_energy, E0, system.laser_model_ratio(), n_laser_cylces, t0_offset);
         // continue time evolution for 1 cycle so that the relaxation can set in
         time_config = {laser->t_begin, laser->t_end + (2. * pi), N, 500};
     }
     else if (laser_type == "exp") {
-        laser = std::make_unique<Laser::ExperimentalLaser>(photon_energy, E0, system.laser_model_ratio(), t0_offset);
+        laser = std::make_unique<Laser::ExperimentalLaser>(__photon_energy, E0, system.laser_model_ratio(), t0_offset);
+        time_config = {laser->t_begin, laser->t_end, N, 500};
+    }
+    else if (laser_type == "expA") {
+        laser = std::make_unique<Laser::ExperimentalLaser>(__photon_energy, E0, system.laser_model_ratio(), t0_offset, Laser::ExperimentalLaser::Active::A);
+        time_config = {laser->t_begin, laser->t_end, N, 500};
+    }
+    else if (laser_type == "expB") {
+        laser = std::make_unique<Laser::ExperimentalLaser>(__photon_energy, E0, system.laser_model_ratio(), t0_offset, Laser::ExperimentalLaser::Active::B);
         time_config = {laser->t_begin, laser->t_end, N, 500};
     }
     else {

@@ -44,6 +44,7 @@ ampA = np.max(env_B)
 axes[1].set_xlabel("Time (ps)")
 axes[0].set_ylabel("$E_A$ (kV/cm)")
 axes[1].set_ylabel("$E_B$ (kV/cm)")
+axes[2].set_ylabel("$E_A + E_B$ (kV/cm)")
 axes[0].legend()
 fig.tight_layout()
 

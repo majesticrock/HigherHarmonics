@@ -12,7 +12,7 @@ shift
 values=("$@")
 
 # Path to the params.config file
-config_file="params/params.config"
+config_file="params/experiment.config"
 
 # Ensure that the params.config file exists
 if [ ! -f "$config_file" ]; then
@@ -27,5 +27,5 @@ for value in "${values[@]}"; do
     sed -i "s/^$name.*/$name $value/" "$config_file"
 
     # Execute the script ./exec.sh
-    ./build_no_mpi/hhg params/params.config
+    ./build_no_mpi/hhg params/experiment.config
 done
