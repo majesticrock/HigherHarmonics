@@ -6,11 +6,14 @@ namespace HHG::Laser {
     struct ExperimentalLaser : public Laser {
         enum class Active { A, B, Both };
 
-        constexpr static h_float laser_end{ 6.67111 }; ///< in ps [measured data ends here]
+        // Experimental data in ps [average temporal spacing of measurements]
+        constexpr static h_float exp_dt{ 0.03318960199004975 };
+        constexpr static int N_extra = 32;
+        constexpr static int N_experiment = 201;
+        constexpr static h_float laser_end{ 6.67111 + (N_extra - 1) * exp_dt }; ///< in ps [measured data ends here]
         constexpr static h_float exp_photon_energy{ 5.889401182228545 }; ///< in meV [obtained by FFT of the measured electric field]
 
-        const h_float second_laser_shift{}; ///< in ps
-        const h_float photon_energy{};
+        const h_float second_laser_shift{}; ///< in units of hbar omega
 
         // photon_energy and E_0 should be given in units of the experimental input
         // That is, they merely rescale the experimental data

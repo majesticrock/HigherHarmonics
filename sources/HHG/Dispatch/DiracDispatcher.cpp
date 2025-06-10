@@ -23,7 +23,7 @@ HHG::Dispatch::DiracDispatcher::DiracDispatcher(mrock::utility::InputFileReader 
         time_config = {-n_laser_cylces * HHG::pi, n_laser_cylces * HHG::pi, N, 500};
     }
     else if (laser_type == "cosine") {
-        laser = std::make_unique<Laser::CosineLaser>(photon_energy, E0, system.laser_model_ratio(photon_energy), n_laser_cylces, t0_offset);
+        laser = std::make_unique<Laser::CosineLaser>(photon_energy, E0, system.laser_model_ratio(photon_energy), n_laser_cylces, pi * t0_offset);
         time_config = {laser->t_begin, laser->t_end, N, 500};
     }
     else if (laser_type == "exp") {

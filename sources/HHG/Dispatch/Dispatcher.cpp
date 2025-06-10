@@ -4,7 +4,7 @@
 namespace HHG::Dispatch {
     nlohmann::json Dispatcher::special_information() const
     {
-        return nlohmann::json{};
+        return nlohmann::json{{"special_information", "empty"}};
     }
 
     h_float Dispatcher::get_photon_energy(mrock::utility::InputFileReader &input)

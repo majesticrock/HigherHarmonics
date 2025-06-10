@@ -14,9 +14,10 @@ namespace HHG::Laser {
     * and therefore the energy in units of hbar omega_L
     */
     struct Laser {
-        const h_float momentum_amplitude{}; // e E_0 / (hbar omega_L)
-        const h_float t_begin{}; // Only meaningful for pulsed lasers
-        const h_float t_end{}; // Only meaningful for pulsed lasers
+        const h_float momentum_amplitude{}; ///< e E_0 / (hbar omega_L)
+        const h_float t_begin{}; ///< Only meaningful for pulsed lasers
+        const h_float t_end{}; ///< Only meaningful for pulsed lasers
+        const h_float photon_energy{}; ///< Not needed for the class itself, but saved for metadata purposes
 
         virtual ~Laser() = default;
         /**
@@ -31,11 +32,13 @@ namespace HHG::Laser {
         inline h_float laser_function(h_float t) const {
             if (!use_spline)
                 return momentum_amplitude * __laser_function__(t);
+            if (t > t_end) return h_float{};
             return laser_spline(t);
         }
         inline h_float raw_laser_function(h_float t) const {
             if (!use_spline)
                 return __laser_function__(t);
+            if (t > t_end) return h_float{};
             return laser_spline(t) / momentum_amplitude;
         }
 

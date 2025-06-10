@@ -21,7 +21,7 @@ HHG::Dispatch::HoneycombDispatcher::HoneycombDispatcher(mrock::utility::InputFil
         time_config = {-n_laser_cylces * HHG::pi, n_laser_cylces * HHG::pi, N, 500};
     }
     else if (laser_type == "cosine") {
-        laser = std::make_unique<Laser::CosineLaser>(__photon_energy, E0, system.laser_model_ratio(), n_laser_cylces, t0_offset);
+        laser = std::make_unique<Laser::CosineLaser>(__photon_energy, E0, system.laser_model_ratio(), n_laser_cylces, pi * t0_offset);
         // continue time evolution for 1 cycle so that the relaxation can set in
         time_config = {laser->t_begin, laser->t_end + (2. * pi), N, 500};
     }

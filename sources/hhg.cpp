@@ -65,7 +65,7 @@ int main(int argc, char** argv) {
 
     const std::string laser_type = input.getString("laser_type");
     const int n_laser_cylces = input.getInt("n_laser_cycles");
-    const h_float t0_offset = HHG::pi * input.getDouble("t0_offset");
+    const h_float t0_offset = input.getDouble("t0_offset");
     const int n_z = input.getInt("n_z");
     
     const std::string system_type = input.getString("system_type");
@@ -217,13 +217,14 @@ int main(int argc, char** argv) {
         { "v_F",                                v_F },
         { "band_width",                         band_width },
         { "field_amplitude",                    E0 },
-        { "photon_energy",                      photon_energy },
+        { "photon_energy",                      dispatcher->laser->photon_energy },
         { "laser_type",                         laser_type },
         { "decay_time",                         decay_time },
         { "frequencies",                        frequencies },
         { "zero_padding",                       zero_padding },
         { "system_type",                        system_type },
-        { "n_z",                                n_z }
+        { "n_z",                                n_z },
+        { "t0_offset",                          t0_offset }
     };
     data_json.merge_patch(dispatcher->special_information());
     std::cout << "Saving data to " << output_dir << "/current_density.json.gz" << std::endl;
