@@ -37,8 +37,8 @@ namespace HHG::Fourier {
             const h_complex corrections = alpha_0(theta) * input[0] + std::conj(alpha_0(theta)) * std::polar(1.0, frequencies[i] * (t_end - t_begin)) * input[n_input - 1];
             const h_complex corrected_output = std::polar(delta_t * W(theta), frequencies[i] * t_begin) * h_complex(real_output[i], imag_output[i]) + corrections;
 
-            real_output[i] = corrected_output.real();
-            imag_output[i] = corrected_output.imag();
+            real_output[i] = delta_t * corrected_output.real();
+            imag_output[i] = delta_t * corrected_output.imag();
         }
     }
 }

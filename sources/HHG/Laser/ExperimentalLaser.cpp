@@ -69,12 +69,12 @@ namespace HHG::Laser {
             if (second_laser_shift >= 0) {
                 const h_float __A = t <= unitless_laser_end ? __spline_A(t) : h_float{};
                 const h_float __B = (t - second_laser_shift >= 0 && t - second_laser_shift <= unitless_laser_end) ? __spline_B(t - second_laser_shift) : h_float{};
-                __temp[i] = add_laser(__A, __B);
+                __temp[i] = momentum_amplitude * add_laser(__A, __B);
             }
             else {
                 const h_float __A = (t + second_laser_shift >= 0 && t + second_laser_shift <= unitless_laser_end) ? __spline_A(t + second_laser_shift) : h_float{};
                 const h_float __B = t <= unitless_laser_end ? __spline_B(t) : h_float{};
-                __temp[i] = add_laser(__A, __B);
+                __temp[i] = momentum_amplitude * add_laser(__A, __B);
             }
         }
 
