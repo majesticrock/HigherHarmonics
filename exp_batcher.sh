@@ -10,7 +10,7 @@ numbers=(0 0.5 1 2 3 4 6)  # You can change these values as needed
 current_date=$(date +"%Y%m%d_%H%M%S")
 
 # Create output directory
-output_dir="autogen_${current_date}"
+output_dir="auto_generated_${current_date}"
 mkdir -p "$output_dir"
 
 # Loop over each number
