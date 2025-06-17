@@ -55,13 +55,7 @@ namespace HHG::Systems {
             lattice_constant(sqrt_3 * hbar * _v_F / (_photon_energy * _band_width)),
             inverse_decay_time((1e15 * hbar) / (_decay_time * _photon_energy))
     {
-        //gauss::precompute<40>();
-        //gauss::precompute<80>();
-        //gauss::precompute<120>();
-        //gauss::precompute<160>();
-        //gauss::precompute<240>();
-        //gauss::precompute<480>();
-        //gauss::precompute<960>();
+        //gauss::precompute<192>();
         //abort();
     }
 
