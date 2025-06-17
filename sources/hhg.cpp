@@ -198,7 +198,6 @@ int main(int argc, char** argv) {
     {
         laser_function[i] = dispatcher->laser->laser_function(dispatcher->time_config.t_begin + i * dispatcher->time_config.measure_every());
     }
-
     // We do not need to output the zero padding
     std::vector<h_float> current_density_time_output(current_density_time.begin(), current_density_time.begin() + N + 1);
     nlohmann::json data_json {

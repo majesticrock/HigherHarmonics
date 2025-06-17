@@ -3,44 +3,66 @@
 
 namespace HHG::Laser {
     ExperimentalLaser::ExperimentalLaser(h_float _photon_energy, h_float _E_0, h_float model_ratio, h_float _second_laser_shift, Active _active_laser/* = Active::Both */)
-        : Laser(_photon_energy * exp_photon_energy, _E_0, model_ratio, 0, (laser_end + std::abs(_second_laser_shift)) * (_photon_energy * exp_photon_energy / (1e12 * hbar)), true), 
+        : Laser(_photon_energy * exp_photon_energy, 
+            _E_0, 
+            model_ratio, 
+            0, 
+            unified_t_max * (_photon_energy * exp_photon_energy / (1e12 * hbar)), //(laser_end + std::abs(_second_laser_shift)) * (_photon_energy * exp_photon_energy / (1e12 * hbar)), 
+            true), 
         second_laser_shift{_second_laser_shift * (_photon_energy * exp_photon_energy / (1e12 * hbar))},
         active_laser{_active_laser}
     {
         this->compute_spline();
     }
 
-    std::array<h_float, ExperimentalLaser::N_experiment + ExperimentalLaser::N_extra> vector_potential(const std::array<h_float, ExperimentalLaser::N_experiment>& electric_field, h_float dt) {
-        std::array<h_float, ExperimentalLaser::N_experiment + ExperimentalLaser::N_extra> ret;
-        ret[0] = -electric_field[0] * dt;
+    std::array<h_float, ExperimentalLaser::N_experiment + 2 * ExperimentalLaser::N_extra> vector_potential(const std::array<h_float, ExperimentalLaser::N_experiment>& electric_field, h_float dt) {
+        std::array<h_float, ExperimentalLaser::N_experiment + 2 * ExperimentalLaser::N_extra> ret;
+        ret[ExperimentalLaser::N_extra] = -electric_field[0] * dt;
         for (size_t i = 1U; i < ExperimentalLaser::N_experiment; ++i) {
-            ret[i] = ret[i - 1] - electric_field[i] * dt; // A = - 1/c int_0^t E(t') dt'. The factor 1/c cancels in the Peierls substitution   
+            ret[ExperimentalLaser::N_extra + i] = ret[ExperimentalLaser::N_extra + i - 1] - electric_field[i] * dt; // A = - 1/c int_0^t E(t') dt'. The factor 1/c cancels in the Peierls substitution   
         }
 
-        const h_float prime = -electric_field.back();
-        const h_float primeprime = 0.5 * (electric_field[ExperimentalLaser::N_experiment - 2] - electric_field.back()) / dt;
+        {
+            const h_float prime = -electric_field.front();
+            const h_float primeprime = -0.5 * (electric_field[1] - electric_field.front()) / dt;
 
-        const h_float __end = (ExperimentalLaser::N_extra - 1) * dt;
-        const h_float third = -4 * (primeprime / (2 * __end) + (3 * prime) / (4 * __end * __end) + ret[ExperimentalLaser::N_experiment - 1] / (__end * __end * __end));
-        const h_float fourth = - 0.25 * (3 * third / __end + 2 * primeprime / (__end * __end) + prime / (__end * __end * __end));
+            const h_float __end = -(ExperimentalLaser::N_extra - 1) * dt;
+            const h_float third = -4 * (primeprime / (2 * __end) + (3 * prime) / (4 * __end * __end) + ret[ExperimentalLaser::N_extra] / (__end * __end * __end));
+            const h_float fourth = -0.25 * (3 * third / __end + 2 * primeprime / (__end * __end) + prime / (__end * __end * __end));
 
-        auto pol = [&](h_float t) {
-            return ret[ExperimentalLaser::N_experiment - 1] + prime * t + primeprime * t*t + third * t*t*t + fourth * t*t*t*t;
-        };
+            auto pol = [&](h_float t) {
+                return ret[ExperimentalLaser::N_extra] + prime * t + primeprime * t*t + third * t*t*t + fourth * t*t*t*t;
+            };
 
-        for (int i = 0; i < (ExperimentalLaser::N_extra - 1); ++i) {
-            ret[ExperimentalLaser::N_experiment + i] = pol((i+1)*dt);
-            //std::cout << ret[ExperimentalLaser::N_experiment + i] << std::endl;
+            for (int i = 1; i <= ExperimentalLaser::N_extra; ++i) {
+                ret[ExperimentalLaser::N_extra - i] = pol(-i*dt);
+            }
+            ret.front() = h_float{};
         }
-        ret.back() = h_float{};
-        //std::cout << "#####" << std::endl;
 
+        {
+            const h_float prime = -electric_field.back();
+            const h_float primeprime = 0.5 * (electric_field[ExperimentalLaser::N_experiment - 2] - electric_field.back()) / dt;
+
+            const h_float __end = (ExperimentalLaser::N_extra - 1) * dt;
+            const h_float third = -4 * (primeprime / (2 * __end) + (3 * prime) / (4 * __end * __end) + ret[ExperimentalLaser::N_extra + ExperimentalLaser::N_experiment - 1] / (__end * __end * __end));
+            const h_float fourth = - 0.25 * (3 * third / __end + 2 * primeprime / (__end * __end) + prime / (__end * __end * __end));
+
+            auto pol = [&](h_float t) {
+                return ret[ExperimentalLaser::N_extra + ExperimentalLaser::N_experiment - 1] + prime * t + primeprime * t*t + third * t*t*t + fourth * t*t*t*t;
+            };
+
+            for (int i = 0; i < (ExperimentalLaser::N_extra - 1); ++i) {
+                ret[ExperimentalLaser::N_extra + ExperimentalLaser::N_experiment + i] = pol((i+1)*dt);
+            }
+            ret.back() = h_float{};
+        }
         return ret;
     }
 
     void ExperimentalLaser::compute_spline()
     {
-        constexpr int N = N_experiment + N_extra;
+        constexpr int N = N_experiment + 2 * N_extra;
         const h_float dt = this->photon_energy * (exp_dt / (1e12 * hbar)); // unitless
         const h_float unitless_laser_end = this->photon_energy * (laser_end / (1e12 * hbar));
 
@@ -61,9 +83,9 @@ namespace HHG::Laser {
                 return A_B;
         };
 
-        const int N_temp = N + int(second_laser_shift / dt) + 1;
-        std::vector<h_float> __temp(N_temp);
-        for(int i = 0; i < N_temp; ++i) {
+        const int N_temp = t_end / dt + 1;//N + int(second_laser_shift / dt) + 1;
+        std::vector<h_float> __temp(N_temp + 1);
+        for(int i = 0; i <= N_temp; ++i) {
             const h_float t = t_begin + (dt * i);
             //__temp[i] = __spline_A(t) + __spline_B(t);
             if (second_laser_shift >= 0) {
@@ -78,7 +100,7 @@ namespace HHG::Laser {
             }
         }
 
-        this->laser_spline = Spline(__temp.data(), N_temp, t_begin, dt, 0., 0.);
+        this->laser_spline = Spline(__temp.data(), N_temp + 1, t_begin, dt, 0., 0.);
     }
 
     h_float ExperimentalLaser::envelope(h_float t) const {
