@@ -13,6 +13,8 @@ include_directories(
 
 find_package(OpenMP REQUIRED)
 find_package(MPI REQUIRED)
+find_package(FFTW3 REQUIRED)
+find_library(FFTW3_LIB fftw3)
 find_package(mrock REQUIRED)
 
 if(CLUSTER_BUILD)
