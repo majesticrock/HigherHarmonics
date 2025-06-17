@@ -61,6 +61,7 @@ namespace HHG::Systems {
         //gauss::precompute<160>();
         //gauss::precompute<240>();
         //gauss::precompute<480>();
+        //gauss::precompute<960>();
         //abort();
     }
 
