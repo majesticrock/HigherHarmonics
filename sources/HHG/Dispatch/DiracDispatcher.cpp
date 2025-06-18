@@ -2,6 +2,7 @@
 #include "../Laser/ContinuousLaser.hpp"
 #include "../Laser/CosineLaser.hpp"
 #include "../Laser/ExperimentalLaser.hpp"
+#include "../Laser/QuenchedField.hpp"
 
 #include <iostream>
 #include <chrono>
@@ -39,6 +40,10 @@ HHG::Dispatch::DiracDispatcher::DiracDispatcher(mrock::utility::InputFileReader 
     else if (laser_type == "expB") {
         laser = std::make_unique<Laser::ExperimentalLaser>(photon_energy, E0, 
             system.laser_model_ratio(photon_energy * Laser::ExperimentalLaser::exp_photon_energy), t0_offset, Laser::ExperimentalLaser::Active::B);
+        time_config = {laser->t_begin, laser->t_end, N, 500};
+    }
+    else if (laser_type == "quench") {
+        laser = std::make_unique<Laser::QuenchedField>(photon_energy, E0, system.laser_model_ratio(photon_energy * Laser::ExperimentalLaser::exp_photon_energy), t0_offset);
         time_config = {laser->t_begin, laser->t_end, N, 500};
     }
     else {

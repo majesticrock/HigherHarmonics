@@ -3,6 +3,7 @@
 #include "../Laser/ContinuousLaser.hpp"
 #include "../Laser/CosineLaser.hpp"
 #include "../Laser/ExperimentalLaser.hpp"
+#include "../Laser/QuenchedField.hpp"
 
 #include <chrono>
 
@@ -34,6 +35,10 @@ HHG::Dispatch::PiFluxDispatcher::PiFluxDispatcher(mrock::utility::InputFileReade
     }
     else if (laser_type == "expB") {
         laser = std::make_unique<Laser::ExperimentalLaser>(photon_energy, E0, system.laser_model_ratio(), t0_offset, Laser::ExperimentalLaser::Active::B);
+        time_config = {laser->t_begin, laser->t_end, N, 500};
+    }
+    else if (laser_type == "quench") {
+        laser = std::make_unique<Laser::QuenchedField>(photon_energy, E0, system.laser_model_ratio(), t0_offset);
         time_config = {laser->t_begin, laser->t_end, N, 500};
     }
     else {

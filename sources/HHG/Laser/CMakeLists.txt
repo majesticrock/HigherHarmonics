@@ -3,6 +3,7 @@ set(LASER_SOURCES
     CosineLaser.cpp
     Laser.cpp
     ExperimentalLaser.cpp
+    QuenchedField.cpp
 )
 
 add_library(Laser STATIC ${LASER_SOURCES})
