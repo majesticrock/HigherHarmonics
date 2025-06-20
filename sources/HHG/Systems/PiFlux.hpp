@@ -26,6 +26,7 @@ namespace HHG::Systems {
 
         static constexpr int n_xy_inner = 64;
     public:
+        typedef Eigen::Vector<HHG::h_float, 3> sigma_state_type;
         struct momentum_type {
             h_float cos_x{};
             h_float cos_y{};
@@ -107,6 +108,8 @@ namespace HHG::Systems {
         h_float ic_sigma_x(const momentum_type& k, h_float alpha_beta_diff, h_float alpha_beta_prod, h_float z_epsilon) const noexcept;
         h_float ic_sigma_y(const momentum_type& k, h_float alpha_beta_diff, h_float alpha_beta_prod, h_float z_epsilon) const noexcept;
         h_float ic_sigma_z(const momentum_type& k, h_float alpha_beta_diff, h_float alpha_beta_prod, h_float z_epsilon) const noexcept;
+
+        sigma_state_type ic_sigma(const momentum_type& k, h_float alpha_beta_diff, h_float alpha_beta_prod, h_float z_epsilon) const noexcept;
 
         std::vector<h_float> current_density_lattice_sum(Laser::Laser const * const laser, TimeIntegrationConfig const& time_config, 
             const int rank, const int n_ranks, const int n_z) const;

@@ -14,8 +14,7 @@
 #include <boost/numeric/odeint.hpp>
 using namespace boost::numeric::odeint;
 
-typedef Eigen::Vector<HHG::h_float, 3> sigma_state_type;
-typedef runge_kutta_fehlberg78<sigma_state_type> sigma_error_stepper_type;
+typedef runge_kutta_fehlberg78<HHG::Systems::PiFlux::sigma_state_type> sigma_error_stepper_type;
 
 constexpr HHG::h_float abs_error = 1.0e-12;
 constexpr HHG::h_float rel_error = 1.0e-8;
@@ -124,21 +123,26 @@ namespace HHG::Systems {
     {
         assert(!is_zero(dispersion(k)));
         const h_float prefactor = 4 * hopping_element;
+        sigma_state_type equilibrium_state;
 
-        const h_float alpha2 = occupation_a(k);
-        const h_float beta2 = occupation_b(k);
-        const h_float alpha_beta_diff = alpha2 - beta2;
-        const h_float alpha_beta_prod = 2 * sqrt(alpha2 * beta2);
-        const h_float z_epsilon = k.cos_z + dispersion(k);
+        auto update_equilibrium_state = [this, &k, &equilibrium_state](const h_float laser_at_t) {
+            auto shifted_k = k;
+            shifted_k.update_z(k.z - laser_at_t);
+            const h_float alpha2 = occupation_a(shifted_k);
+            const h_float beta2 = occupation_b(shifted_k);
+            const h_float alpha_beta_diff = alpha2 - beta2;
+            const h_float alpha_beta_prod = 2 * sqrt(alpha2 * beta2);
+            const h_float z_epsilon = shifted_k.cos_z + dispersion(shifted_k);
+            equilibrium_state = ic_sigma(shifted_k, alpha_beta_diff, alpha_beta_prod, z_epsilon);
+        };
 
-        sigma_state_type current_state = { ic_sigma_x(k, alpha_beta_diff, alpha_beta_prod, z_epsilon), 
-            ic_sigma_y(k, alpha_beta_diff, alpha_beta_prod, z_epsilon), 
-            ic_sigma_z(k, alpha_beta_diff, alpha_beta_prod, z_epsilon) };
-        const sigma_state_type initial_state = current_state;
+        update_equilibrium_state(laser->laser_function(time_config.t_begin));
+        sigma_state_type current_state = equilibrium_state;
 
-        auto right_side = [this, &k, &laser, &prefactor, &initial_state](const sigma_state_type& state, sigma_state_type& dxdt, const h_float t) {
+        auto right_side = [this, &k, &laser, &prefactor, &equilibrium_state, &update_equilibrium_state](const sigma_state_type& state, sigma_state_type& dxdt, const h_float t) {
             const sigma_state_type m = {k.cos_x, k.cos_y, std::cos(k.z - laser->laser_function(t))};
-            dxdt = prefactor * m.cross(state) - inverse_decay_time * (state - initial_state);
+            update_equilibrium_state(laser->laser_function(t));
+            dxdt = prefactor * m.cross(state) - inverse_decay_time * (state - equilibrium_state);
         };
 
         const h_float measure_every = time_config.measure_every();
@@ -359,6 +363,13 @@ namespace HHG::Systems {
     h_float PiFlux::ic_sigma_z(const momentum_type &k, h_float alpha_beta_diff, h_float alpha_beta_prod, h_float z_epsilon) const noexcept
     {
         return (alpha_beta_diff * k.cos_z * z_epsilon - alpha_beta_prod * k.cos_x * z_epsilon) / (dispersion(k) * z_epsilon);
+    }
+
+    PiFlux::sigma_state_type PiFlux::ic_sigma(const momentum_type &k, h_float alpha_beta_diff, h_float alpha_beta_prod, h_float z_epsilon) const noexcept
+    {
+        return sigma_state_type{ic_sigma_x(k, alpha_beta_diff, alpha_beta_prod, z_epsilon), 
+            ic_sigma_y(k, alpha_beta_diff, alpha_beta_prod, z_epsilon), 
+            ic_sigma_z(k, alpha_beta_diff, alpha_beta_prod, z_epsilon)};
     }
 
     std::vector<h_float> PiFlux::current_density_lattice_sum(Laser::Laser const * const laser, TimeIntegrationConfig const& time_config, 

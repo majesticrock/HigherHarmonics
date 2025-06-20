@@ -84,6 +84,11 @@ namespace HHG::Systems {
         this->set_gamma();
     }
 
+    Honeycomb::momentum_type Honeycomb::momentum_type::shift(h_float x_shift, h_float y_shift) const noexcept
+    {
+        return momentum_type(this->x - x_shift, this->y - y_shift);
+    }
+
     Honeycomb::Honeycomb(h_float temperature, h_float _E_F, h_float _v_F, h_float _band_width, h_float _photon_energy, h_float _decay_time)
         : beta(is_zero(temperature) ? std::numeric_limits<h_float>::infinity() : _photon_energy / (k_B * temperature)), 
             E_F(_E_F / _photon_energy), 
@@ -162,23 +167,31 @@ namespace HHG::Systems {
         const momentum_type& k, const TimeIntegrationConfig& time_config) const
     {
         const h_float prefactor = 2 * hopping_element;
+        sigma_state_type equilibrium_state;
 
-        const h_float alpha2 = occupation_a(k);
-        const h_float beta2 = occupation_b(k);
-        const h_float alpha_beta_diff = alpha2 - beta2;
-        const h_float alpha_beta_prod = 2 * sqrt(alpha2 * beta2);
+        auto update_equilibrium_state = [this, &k, &equilibrium_state](const h_float laser_at_t) {
+            // Something is not quite right - a constant (finite) vector potential currently causes a constant current density.
+            const auto shifted_k = k.shift(cos_theta * laser_at_t, sin_theta * laser_at_t);
+            const h_float alpha2 = occupation_a(shifted_k);
+            const h_float beta2 = occupation_b(shifted_k);
+            const h_float alpha_beta_diff = alpha2 - beta2;
+            const h_float alpha_beta_prod = 2 * sqrt(alpha2 * beta2);
+            equilibrium_state = ic_sigma(shifted_k, alpha_beta_diff, alpha_beta_prod);
+        };
 
-        sigma_state_type current_state = ic_sigma(k, alpha_beta_diff, alpha_beta_prod);
-        const sigma_state_type initial_state = current_state;
-
-        auto right_side = [this, &k, &laser, &prefactor, &initial_state](const sigma_state_type& state, sigma_state_type& dxdt, const h_float t) {
-            const h_complex buffer = k.shifted_gamma(cos_theta * laser->laser_function(t), sin_theta * laser->laser_function(t));
+        auto right_side = [this, &k, &laser, &prefactor, &equilibrium_state, &update_equilibrium_state](const sigma_state_type& state, sigma_state_type& dxdt, const h_float t) {
+            const h_float laser_value = laser->laser_function(t);
+            update_equilibrium_state(laser_value);
+            const h_complex buffer = k.shifted_gamma(cos_theta * laser_value, sin_theta * laser_value);
             dxdt(0) = -prefactor * (state[2] * buffer.imag());
             dxdt(1) = -prefactor * (state[2] * buffer.real());
             dxdt(2) = prefactor * (state[0] * buffer.imag() + state[1] * buffer.real());
 
-            dxdt -= inverse_decay_time * (state - initial_state);
+            dxdt -= inverse_decay_time * (state - equilibrium_state);
         };
+
+        update_equilibrium_state(laser->laser_function(time_config.t_begin));
+        sigma_state_type current_state = equilibrium_state;
 
         const h_float measure_every = time_config.measure_every();
         const h_float dt = time_config.dt();

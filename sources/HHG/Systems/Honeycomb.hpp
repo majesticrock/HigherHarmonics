@@ -51,6 +51,7 @@ namespace HHG::Systems {
                 this->y = -this->y;
                 this->gamma = std::conj(this->gamma);
             }
+            momentum_type shift(h_float x_shift, h_float y_shift) const noexcept;
         };
 
         Honeycomb() = delete;
