@@ -24,12 +24,20 @@ env_A = np.abs(signal_A)
 signal_B = hilbert(B)
 env_B = np.abs(signal_B)
 
-fig, axes = plt.subplots(nrows=3, sharex=True)
+fig, axes = plt.subplots(nrows=3, sharex=True, figsize=(6.8, 6))
+fig.subplots_adjust(hspace=0.0)
+
+def vector_potential(electric_field, time):
+    dt = time[1] - time[0]
+    return -np.cumsum(electric_field) * dt
 
 axes[0].plot(time, A, "-",label="$E$")
 axes[0].plot(time, env_A, "--", label="Envelope")
+axes[0].plot(time, 10 * vector_potential(A, time), label="$10 \\times A$")
+
 axes[1].plot(time, B, "-",label="$E_B$")
 axes[1].plot(time, env_B, "--", label="Envelope")
+axes[1].plot(time, 10 * vector_potential(B, time), label="$10 \\times A$")
 
 axes[2].plot(time, A + B)
 axes[2].axvline(time[FFT_MIN], c='k')
@@ -41,12 +49,11 @@ ampA = np.max(env_A)
 tA = time[np.argmax(env_B)]
 ampA = np.max(env_B)
 
-axes[1].set_xlabel("Time (ps)")
+axes[-1].set_xlabel("Time (ps)")
 axes[0].set_ylabel("$E_A$ (kV/cm)")
 axes[1].set_ylabel("$E_B$ (kV/cm)")
 axes[2].set_ylabel("$E_A + E_B$ (kV/cm)")
-axes[0].legend()
-fig.tight_layout()
+axes[0].legend(loc="upper right")
 
 
 from scipy.fft import rfft, rfftfreq
