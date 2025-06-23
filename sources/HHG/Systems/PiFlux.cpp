@@ -47,12 +47,13 @@ constexpr HHG::h_float rel_error = 1.0e-8;
 //#define DEBUG_INTEGRATE
 
 namespace HHG::Systems {
-    PiFlux::PiFlux(h_float temperature, h_float _E_F, h_float _v_F, h_float _band_width, h_float _photon_energy, h_float _decay_time)
+    PiFlux::PiFlux(h_float temperature, h_float _E_F, h_float _v_F, h_float _band_width, h_float _photon_energy, h_float _diagonal_relaxation_time, h_float _offdiagonal_relaxation_time)
         : beta(is_zero(temperature) ? std::numeric_limits<h_float>::infinity() : _photon_energy / (k_B * temperature)), 
             E_F(_E_F / _photon_energy), 
             hopping_element(_band_width / sqrt_12), 
             lattice_constant(sqrt_3 * hbar * _v_F / (_photon_energy * _band_width)),
-            inverse_decay_time((1e15 * hbar) / (_decay_time * _photon_energy))
+            inverse_diagonal_relaxation_time((1e15 * hbar) / (_diagonal_relaxation_time * _photon_energy)),
+            inverse_offdiagonal_relaxation_time((1e15 * hbar) / (_offdiagonal_relaxation_time * _photon_energy))
     {
         //gauss::precompute<192>();
         //abort();
@@ -119,30 +120,52 @@ namespace HHG::Systems {
         }
     }
 
-    void PiFlux::time_evolution_decay(nd_vector &rhos, Laser::Laser const *const laser, const momentum_type &k, const TimeIntegrationConfig &time_config) const
+    void PiFlux::time_evolution_diagonal_relaxation(nd_vector &rhos, Laser::Laser const * const laser, const momentum_type &k, const TimeIntegrationConfig &time_config) const
     {
         assert(!is_zero(dispersion(k)));
         const h_float prefactor = 4 * hopping_element;
-        sigma_state_type equilibrium_state;
+        
+        h_float alpha2 = occupation_a(k);
+        h_float beta2 = occupation_b(k);
+        h_float alpha_beta_diff = alpha2 - beta2;
+        h_float alpha_beta_prod = 2 * sqrt(alpha2 * beta2);
+        h_float z_epsilon = k.cos_z + dispersion(k);
+        h_float normalization = dispersion(k) * z_epsilon;
+        
+        sigma_state_type relax_to_diagonal;
+        sigma_state_type relax_to_offdiagonal;
 
-        auto update_equilibrium_state = [this, &k, &equilibrium_state](const h_float laser_at_t) {
+        sigma_state_type current_state = ic_sigma(k, alpha_beta_diff, alpha_beta_prod, z_epsilon);;
+
+        auto update_equilibrium_state = [&](const h_float laser_at_t) {
             auto shifted_k = k;
             shifted_k.update_z(k.z - laser_at_t);
-            const h_float alpha2 = occupation_a(shifted_k);
-            const h_float beta2 = occupation_b(shifted_k);
-            const h_float alpha_beta_diff = alpha2 - beta2;
-            const h_float alpha_beta_prod = 2 * sqrt(alpha2 * beta2);
-            const h_float z_epsilon = shifted_k.cos_z + dispersion(shifted_k);
-            equilibrium_state = ic_sigma(shifted_k, alpha_beta_diff, alpha_beta_prod, z_epsilon);
+            alpha2 = occupation_a(shifted_k);
+            beta2 = occupation_b(shifted_k);
+            alpha_beta_diff = alpha2 - beta2;
+            alpha_beta_prod = 2 * sqrt(alpha2 * beta2);
+            z_epsilon = shifted_k.cos_z + dispersion(shifted_k);
+            normalization = dispersion(shifted_k) * z_epsilon;
+
+            relax_to_diagonal(0) = shifted_k.cos_x;
+            relax_to_diagonal(1) = shifted_k.cos_y;
+            relax_to_diagonal(2) = shifted_k.cos_z;
+            relax_to_diagonal *= (alpha_beta_diff * z_epsilon / normalization);
+
+            relax_to_offdiagonal(0) =   shifted_k.cos_y * shifted_k.cos_y + shifted_k.cos_z * z_epsilon;
+            relax_to_offdiagonal(1) = - shifted_k.cos_x + shifted_k.cos_y;
+            relax_to_offdiagonal(2) = - shifted_k.cos_x * z_epsilon;
+            relax_to_offdiagonal *= (alpha_beta_prod / normalization);
         };
 
         update_equilibrium_state(laser->laser_function(time_config.t_begin));
-        sigma_state_type current_state = equilibrium_state;
 
-        auto right_side = [this, &k, &laser, &prefactor, &equilibrium_state, &update_equilibrium_state](const sigma_state_type& state, sigma_state_type& dxdt, const h_float t) {
+        auto right_side = [this, &k, &laser, &prefactor, &update_equilibrium_state, &relax_to_diagonal, &relax_to_offdiagonal](const sigma_state_type& state, sigma_state_type& dxdt, const h_float t) {
             const sigma_state_type m = {k.cos_x, k.cos_y, std::cos(k.z - laser->laser_function(t))};
             update_equilibrium_state(laser->laser_function(t));
-            dxdt = prefactor * m.cross(state) - inverse_decay_time * (state - equilibrium_state);
+            dxdt = prefactor * m.cross(state) 
+                - inverse_diagonal_relaxation_time * (state / 3.0 - relax_to_diagonal) // sigma^z
+                - inverse_offdiagonal_relaxation_time * (state * (2. / 3.) - relax_to_offdiagonal); // sigma^x and sigma^y -> therefore 2*state
         };
 
         const h_float measure_every = time_config.measure_every();
@@ -344,8 +367,8 @@ namespace HHG::Systems {
     void PiFlux::__time_evolution__(nd_vector& rhos, Laser::Laser const * const laser, 
         const momentum_type& k, const TimeIntegrationConfig& time_config) const
     {
-        if (inverse_decay_time > h_float{}) {
-            return time_evolution_decay(rhos, laser, k, time_config);
+        if (inverse_diagonal_relaxation_time > h_float{}) {
+            return time_evolution_diagonal_relaxation(rhos, laser, k, time_config);
         }
         return time_evolution_sigma(rhos, laser, k, time_config);
     }

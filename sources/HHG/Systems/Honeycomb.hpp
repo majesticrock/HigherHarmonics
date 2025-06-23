@@ -55,7 +55,7 @@ namespace HHG::Systems {
         };
 
         Honeycomb() = delete;
-        Honeycomb(h_float temperature, h_float _E_F, h_float _v_F, h_float _band_width, h_float _photon_energy, h_float _decay_time);
+        Honeycomb(h_float temperature, h_float _E_F, h_float _v_F, h_float _band_width, h_float _photon_energy, h_float _diagonal_relaxation_time);
     
         inline h_float laser_model_ratio() const {
             return lattice_constant;
@@ -64,7 +64,7 @@ namespace HHG::Systems {
         void time_evolution_sigma(nd_vector& rho_x, nd_vector& rho_y, Laser::Laser const * const laser, 
             const momentum_type& k, const TimeIntegrationConfig& time_config) const;
 
-        void time_evolution_decay(nd_vector& rho_x, nd_vector& rho_y, Laser::Laser const * const laser, 
+        void time_evolution_diagonal_relaxation(nd_vector& rho_x, nd_vector& rho_y, Laser::Laser const * const laser, 
             const momentum_type& k, const TimeIntegrationConfig& time_config) const;
 
         std::vector<h_float> compute_current_density(Laser::Laser const * const laser, TimeIntegrationConfig const& time_config, 
@@ -84,7 +84,7 @@ namespace HHG::Systems {
         const h_float E_F{}; ///< in units of the photon energy
         const h_float hopping_element{}; ///< in units of the photon energy
         const h_float lattice_constant{}; ///< in 1/m
-        const h_float inverse_decay_time{}; ///< in units of omega_L
+        const h_float inverse_diagonal_relaxation_time{}; ///< in units of omega_L
         const h_float laser_theta{}; ///< Angle between the laser polarization and the x-axis, in radians
         const h_float cos_theta{ std::cos(laser_theta) };
         const h_float sin_theta{ std::sin(laser_theta) };

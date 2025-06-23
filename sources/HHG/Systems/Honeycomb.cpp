@@ -89,12 +89,12 @@ namespace HHG::Systems {
         return momentum_type(this->x - x_shift, this->y - y_shift);
     }
 
-    Honeycomb::Honeycomb(h_float temperature, h_float _E_F, h_float _v_F, h_float _band_width, h_float _photon_energy, h_float _decay_time)
+    Honeycomb::Honeycomb(h_float temperature, h_float _E_F, h_float _v_F, h_float _band_width, h_float _photon_energy, h_float _diagonal_relaxation_time)
         : beta(is_zero(temperature) ? std::numeric_limits<h_float>::infinity() : _photon_energy / (k_B * temperature)), 
             E_F(_E_F / _photon_energy), 
             hopping_element(_band_width / 6), 
             lattice_constant(4 * hbar * _v_F / (_photon_energy * _band_width)),
-            inverse_decay_time((1e15 * hbar) / (_decay_time * _photon_energy))
+            inverse_diagonal_relaxation_time((1e15 * hbar) / (_diagonal_relaxation_time * _photon_energy))
     {}
 
     std::string Honeycomb::get_property_in_SI_units(const std::string &property, const h_float photon_energy) const
@@ -163,7 +163,7 @@ namespace HHG::Systems {
         }
     }
 
-    void Honeycomb::time_evolution_decay(nd_vector& rho_x, nd_vector& rho_y, Laser::Laser const * const laser, 
+    void Honeycomb::time_evolution_diagonal_relaxation(nd_vector& rho_x, nd_vector& rho_y, Laser::Laser const * const laser, 
         const momentum_type& k, const TimeIntegrationConfig& time_config) const
     {
         const h_float prefactor = 2 * hopping_element;
@@ -187,7 +187,7 @@ namespace HHG::Systems {
             dxdt(1) = -prefactor * (state[2] * buffer.real());
             dxdt(2) = prefactor * (state[0] * buffer.imag() + state[1] * buffer.real());
 
-            dxdt -= inverse_decay_time * (state - equilibrium_state);
+            dxdt -= inverse_diagonal_relaxation_time * (state - equilibrium_state);
         };
 
         update_equilibrium_state(laser->laser_function(time_config.t_begin));
@@ -215,8 +215,8 @@ namespace HHG::Systems {
     void Honeycomb::__time_evolution__(nd_vector& rho_x, nd_vector& rho_y, Laser::Laser const * const laser, 
         const momentum_type& k, const TimeIntegrationConfig& time_config) const
     {
-        if (inverse_decay_time > h_float{}) {
-            return time_evolution_decay(rho_x, rho_y, laser, k, time_config);
+        if (inverse_diagonal_relaxation_time > h_float{}) {
+            return time_evolution_diagonal_relaxation(rho_x, rho_y, laser, k, time_config);
         }
         return time_evolution_sigma(rho_x, rho_y, laser, k, time_config);
     }

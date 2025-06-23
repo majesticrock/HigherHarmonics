@@ -11,17 +11,19 @@ include_directories(
     $ENV{HOME}/usr/local/include
 )
 
+if(CLUSTER_BUILD)
+    set(Boost_DIR /usr/lib64/openmpi/lib/cmake/Boost-1.78.0)# the cluster needs help finding the correct version of boost
+    include(${CMAKE_SOURCE_DIR}/cmake/ClusterCompilerFlags.cmake)
+else()
+    include(${CMAKE_SOURCE_DIR}/cmake/DefaultCompilerFlags.cmake)
+endif()
+
 find_package(OpenMP REQUIRED)
 find_package(MPI REQUIRED)
 find_package(FFTW3 REQUIRED)
 find_library(FFTW3_LIB fftw3)
 find_package(mrock REQUIRED)
 
-if(CLUSTER_BUILD)
-    include(${CMAKE_SOURCE_DIR}/cmake/ClusterCompilerFlags.cmake)
-else()
-    include(${CMAKE_SOURCE_DIR}/cmake/DefaultCompilerFlags.cmake)
-endif()
 include(${CMAKE_CURRENT_SOURCE_DIR}/../../PhdUtility/cmake/mrock-information.cmake)
 
 add_subdirectory(sources/HHG/Dispatch)

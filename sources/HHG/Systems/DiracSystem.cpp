@@ -49,14 +49,14 @@ namespace HHG::Systems {
         max_kappa_compare { band_width * band_width }  // in units of (hbar omega_L)^2
     {  }
 
-    DiracSystem::DiracSystem(h_float temperature, h_float _E_F, h_float _v_F, h_float _band_width, h_float _photon_energy, h_float _decay_time)
+    DiracSystem::DiracSystem(h_float temperature, h_float _E_F, h_float _v_F, h_float _band_width, h_float _photon_energy, h_float _diagonal_relaxation_time)
         : beta { is_zero(temperature) ? std::numeric_limits<h_float>::infinity() : _photon_energy / (k_B * temperature) },
         E_F{ _E_F / _photon_energy }, 
         v_F{ _v_F },
         band_width{ _band_width },
         max_k { band_width }, // in units of hbar omega_L
         max_kappa_compare { band_width * band_width },  // in units of (hbar omega_L)^2
-        inverse_decay_time { (1e15 * hbar) / (_decay_time * _photon_energy) }
+        inverse_diagonal_relaxation_time { (1e15 * hbar) / (_diagonal_relaxation_time * _photon_energy) }
     {  }
 
     void DiracSystem::time_evolution(nd_vector& rhos, Laser::Laser const * const laser, 
@@ -190,7 +190,7 @@ namespace HHG::Systems {
         }
     }
 
-    void DiracSystem::time_evolution_decay(nd_vector &rhos, Laser::Laser const *const laser, h_float k_z, h_float kappa, const TimeIntegrationConfig &time_config) const
+    void DiracSystem::time_evolution_diagonal_relaxation(nd_vector &rhos, Laser::Laser const *const laser, h_float k_z, h_float kappa, const TimeIntegrationConfig &time_config) const
     {
         const h_float magnitude_k = norm(k_z, kappa);
         const h_float alpha_0 = fermi_function(E_F + dispersion(k_z, kappa), beta);
@@ -204,9 +204,9 @@ namespace HHG::Systems {
             const h_float m_x = vector_potential * 2.0 * kappa / magnitude_k;
             const h_float m_z = 2.0 * (magnitude_k - vector_potential * k_z / magnitude_k);
 
-            dxdt[0] = m_z * state[1]                  - (state[0] - initial_state[0]) * inverse_decay_time;
-            dxdt[1] = m_x * state[2] - state[0] * m_z - (state[1] - initial_state[1]) * inverse_decay_time;
-            dxdt[2] = -m_x * state[1]                 - (state[2] - initial_state[2]) * inverse_decay_time;
+            dxdt[0] = m_z * state[1]                  - (state[0] - initial_state[0]) * inverse_diagonal_relaxation_time;
+            dxdt[1] = m_x * state[2] - state[0] * m_z - (state[1] - initial_state[1]) * inverse_diagonal_relaxation_time;
+            dxdt[2] = -m_x * state[1]                 - (state[2] - initial_state[2]) * inverse_diagonal_relaxation_time;
         };
 
         const h_float measure_every = time_config.measure_every();
@@ -334,7 +334,7 @@ namespace HHG::Systems {
         return time_evolutions_std;
     }
 
-    std::vector<h_float> DiracSystem::compute_current_density_decay(Laser::Laser const *const laser, TimeIntegrationConfig const &time_config,
+    std::vector<h_float> DiracSystem::compute_current_density_diagonal_relaxation(Laser::Laser const *const laser, TimeIntegrationConfig const &time_config,
          const int rank, const int n_ranks, const int n_z, const int n_kappa, const h_float kappa_threshold) const
     {
         nd_vector rhos_buffer = nd_vector::Zero(time_config.n_measurements + 1);
@@ -371,7 +371,7 @@ namespace HHG::Systems {
                 }
                 else {
                     //time_evolution_sigma(rhos_buffer, laser, k_z, kappa, time_config);
-                    time_evolution_decay(rhos_buffer, laser, k_z, kappa, time_config);
+                    time_evolution_diagonal_relaxation(rhos_buffer, laser, k_z, kappa, time_config);
                     //time_evolution(rhos_buffer, laser, k_z, kappa, time_config);
                     rhos_buffer *= integration_weight(k_z, kappa);
                 }
@@ -390,7 +390,7 @@ namespace HHG::Systems {
         return current_density_time;
     }
 
-    std::array<std::vector<h_float>, n_debug_points> DiracSystem::compute_current_density_decay_debug(Laser::Laser const * const laser, TimeIntegrationConfig const& time_config,
+    std::array<std::vector<h_float>, n_debug_points> DiracSystem::compute_current_density_diagonal_relaxation_debug(Laser::Laser const * const laser, TimeIntegrationConfig const& time_config,
         const int n_z, const int n_kappa/*  = 20 */, const h_float kappa_threshold/*  = 1e-3 */) const 
     {
         auto integration_weight = [](h_float k_z, h_float kappa) {
@@ -408,7 +408,7 @@ namespace HHG::Systems {
 
         for (int i = 0; i < n_debug_points; ++i) {
             picked[i] = (i + 1) * picked_kappa_max / (n_debug_points + 1);
-            time_evolution_decay(time_evolutions[i], laser, (picked_z - n_z / 2) * delta_z, picked[i], time_config);
+            time_evolution_diagonal_relaxation(time_evolutions[i], laser, (picked_z - n_z / 2) * delta_z, picked[i], time_config);
             time_evolutions[i] *= integration_weight((picked_z - n_z / 2) * delta_z, picked[i]);
         }
         // end debug setup

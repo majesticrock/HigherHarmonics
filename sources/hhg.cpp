@@ -61,7 +61,8 @@ int main(int argc, char** argv) {
     const h_float band_width = input.getDouble("band_width");
     const h_float E0 = input.getDouble("field_amplitude");
     const h_float photon_energy = input.getDouble("photon_energy");
-    const h_float decay_time = input.getDouble("decay_time"); // in fs
+    const h_float diagonal_relaxation_time = input.getDouble("diagonal_relaxation_time"); // in fs
+    const h_float offdiagonal_relaxation_time = input.getDouble("offdiagonal_relaxation_time"); // in fs
 
     const std::string laser_type = input.getString("laser_type");
     const int n_laser_cylces = input.getInt("n_laser_cycles");
@@ -108,7 +109,9 @@ int main(int argc, char** argv) {
         + "/band_width=" + improved_string(band_width)
         + "/field_amplitude=" + improved_string(E0)
         + "/photon_energy=" + improved_string(photon_energy) 
-        + "/decay_time=" + improved_string(decay_time > 0 ? decay_time : -1)
+        + "/tau_diag=" + improved_string(diagonal_relaxation_time > 0 ? diagonal_relaxation_time : -1)
+        + "/tau_offdiag=" + improved_string(offdiagonal_relaxation_time > 0 ? offdiagonal_relaxation_time : -1)
+        + "/t0=" + improved_string(t0_offset)
         + "/";
     const std::string output_dir = BASE_DATA_DIR + data_subdir;
     std::filesystem::create_directories(output_dir);
@@ -218,7 +221,8 @@ int main(int argc, char** argv) {
         { "field_amplitude",                    E0 },
         { "photon_energy",                      dispatcher->laser->photon_energy },
         { "laser_type",                         laser_type },
-        { "decay_time",                         decay_time },
+        { "diagonal_relaxation_time",           diagonal_relaxation_time },
+        { "offdiagonal_relaxation_time",        offdiagonal_relaxation_time },
         { "frequencies",                        frequencies },
         { "zero_padding",                       zero_padding },
         { "system_type",                        system_type },

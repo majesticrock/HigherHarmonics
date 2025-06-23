@@ -11,8 +11,8 @@ constexpr double target_kappa_error = 1e-3;
 constexpr int n_kappa = 10;
 
 HHG::Dispatch::DiracDispatcher::DiracDispatcher(mrock::utility::InputFileReader &input, int N, h_float t0_offset/* = h_float{} */)
-    : Dispatcher(N, input.getDouble("decay_time")),
-    system(input.getDouble("T"), input.getDouble("E_F"), input.getDouble("v_F"), input.getDouble("band_width"), input.getDouble("photon_energy"), input.getDouble("decay_time"))
+    : Dispatcher(N, input.getDouble("diagonal_relaxation_time")),
+    system(input.getDouble("T"), input.getDouble("E_F"), input.getDouble("v_F"), input.getDouble("band_width"), input.getDouble("photon_energy"), input.getDouble("diagonal_relaxation_time"))
 {
     const h_float E0 = input.getDouble("field_amplitude");
     const h_float photon_energy = input.getDouble("photon_energy");
@@ -56,8 +56,8 @@ void HHG::Dispatch::DiracDispatcher::compute(int rank, int n_ranks, int n_z)
     std::chrono::high_resolution_clock::time_point begin = std::chrono::high_resolution_clock::now();
     std::cout << "Computing the k integrals..." << std::endl;
 
-    if (decay_time > 0) {
-        current_density_time = system.compute_current_density_decay(laser.get(), time_config, rank, n_ranks, n_z, n_kappa, target_kappa_error);
+    if (diagonal_relaxation_time > 0) {
+        current_density_time = system.compute_current_density_diagonal_relaxation(laser.get(), time_config, rank, n_ranks, n_z, n_kappa, target_kappa_error);
     }
     else {
         current_density_time = system.compute_current_density(laser.get(), time_config, rank, n_ranks, n_z, n_kappa, target_kappa_error);
@@ -72,8 +72,8 @@ void HHG::Dispatch::DiracDispatcher::debug(int n_z)
     std::chrono::high_resolution_clock::time_point begin = std::chrono::high_resolution_clock::now();
     std::cout << "Computing the debug data sets..." << std::endl;
 
-    if (decay_time > 0) {
-        time_evolutions = system.compute_current_density_decay_debug(laser.get(), time_config, n_z, n_kappa, target_kappa_error);
+    if (diagonal_relaxation_time > 0) {
+        time_evolutions = system.compute_current_density_diagonal_relaxation_debug(laser.get(), time_config, n_z, n_kappa, target_kappa_error);
     }
     else {
         time_evolutions = system.compute_current_density_debug(laser.get(), time_config, n_z, n_kappa, target_kappa_error);

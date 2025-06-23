@@ -14,8 +14,10 @@ TOKENS=(
   [T]="T"
   [5]="E_F"
   [E]="E_F"
-  [6]="decay_time"
-  [t]="decay_time"
+  [6]="diagonal_relaxation_time"
+  [t]="diagonal_relaxation_time"
+  [7]="offdiagonal_relaxation_time"
+  [o]="offdiagonal_relaxation_time"
 )
 
 echo "Select the parameter that is to be varied:"
@@ -24,7 +26,8 @@ echo "2 / W: band_width (W)"
 echo "3 / A: field_amplitude (E_0)"
 echo "4 / T: T (Temperature)"
 echo "5 / E: E_F (Fermi Energy)"
-echo "6 / t: decay_time (tau)"
+echo "6 / t: diagonal_relaxation_time (tau_D)"
+echo "7 / o: offdiagonal_relaxation_time (tau_C)"
 read -p "Enter your choice: " choice
 TOKEN=${TOKENS[$choice]}
 

@@ -25,7 +25,7 @@ namespace HHG::Systems {
          * @param _photon_energy hbar omega_L in meV
          */
         DiracSystem(h_float temperature, h_float _E_F, h_float _v_F, h_float _band_width, h_float _photon_energy);
-        DiracSystem(h_float temperature, h_float _E_F, h_float _v_F, h_float _band_width, h_float _photon_energy, h_float _decay_time);
+        DiracSystem(h_float temperature, h_float _E_F, h_float _v_F, h_float _band_width, h_float _photon_energy, h_float _diagonal_relaxation_time);
 
         inline h_float laser_model_ratio(h_float photon_energy) const {
             return hbar * v_F / photon_energy;
@@ -43,7 +43,7 @@ namespace HHG::Systems {
         void time_evolution_magnus(nd_vector& rhos, Laser::Laser const * const laser, 
             h_float k_z, h_float kappa, const TimeIntegrationConfig& time_config) const;
 
-        void time_evolution_decay(nd_vector& rhos, Laser::Laser const * const laser, 
+        void time_evolution_diagonal_relaxation(nd_vector& rhos, Laser::Laser const * const laser, 
             h_float k_z, h_float kappa, const TimeIntegrationConfig& time_config) const;
 
         std::string info() const;
@@ -61,10 +61,10 @@ namespace HHG::Systems {
         std::array<std::vector<h_float>, n_debug_points> compute_current_density_debug(Laser::Laser const * const laser, TimeIntegrationConfig const& time_config,
             const int n_z, const int n_kappa = 20, const h_float kappa_threshold = 1e-3) const;
 
-        std::vector<h_float> compute_current_density_decay(Laser::Laser const * const laser, TimeIntegrationConfig const& time_config,
+        std::vector<h_float> compute_current_density_diagonal_relaxation(Laser::Laser const * const laser, TimeIntegrationConfig const& time_config,
             const int rank, const int n_ranks, const int n_z, const int n_kappa = 20, const h_float kappa_threshold = 1e-3) const;
 
-        std::array<std::vector<h_float>, n_debug_points> compute_current_density_decay_debug(Laser::Laser const * const laser, TimeIntegrationConfig const& time_config,
+        std::array<std::vector<h_float>, n_debug_points> compute_current_density_diagonal_relaxation_debug(Laser::Laser const * const laser, TimeIntegrationConfig const& time_config,
             const int n_z, const int n_kappa = 20, const h_float kappa_threshold = 1e-3) const;
     private:
         const h_float beta{}; ///< in units of the 1 / photon energy
@@ -73,7 +73,7 @@ namespace HHG::Systems {
         const h_float band_width{}; ///< in units of the photon energy
         const h_float max_k{}; ///< in units of omega_L / v_F
         const h_float max_kappa_compare{}; ///< in units of (omega_L / v_F)^2
-        const h_float inverse_decay_time{}; ///< in units of omega_L
+        const h_float inverse_diagonal_relaxation_time{}; ///< in units of omega_L
 
         h_float max_kappa(h_float k_z) const;
 

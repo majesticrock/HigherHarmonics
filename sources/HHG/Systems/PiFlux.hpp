@@ -59,7 +59,7 @@ namespace HHG::Systems {
         };
 
         PiFlux() = delete;
-        PiFlux(h_float temperature, h_float _E_F, h_float _v_F, h_float _band_width, h_float _photon_energy, h_float _decay_time);
+        PiFlux(h_float temperature, h_float _E_F, h_float _v_F, h_float _band_width, h_float _photon_energy, h_float _diagonal_relaxation_time, h_float _offdiagonal_relaxation_time);
 
         inline h_float laser_model_ratio() const {
             return lattice_constant;
@@ -68,7 +68,7 @@ namespace HHG::Systems {
         void time_evolution_sigma(nd_vector& rhos, Laser::Laser const * const laser, 
             const momentum_type& k, const TimeIntegrationConfig& time_config) const;
 
-        void time_evolution_decay(nd_vector& rhos, Laser::Laser const * const laser, 
+        void time_evolution_diagonal_relaxation(nd_vector& rhos, Laser::Laser const * const laser, 
             const momentum_type& k, const TimeIntegrationConfig& time_config) const;
 
         void time_evolution_magnus(nd_vector& rhos, Laser::Laser const * const laser, 
@@ -89,7 +89,8 @@ namespace HHG::Systems {
         const h_float E_F{}; ///< in units of the photon energy
         const h_float hopping_element{}; ///< in units of the photon energy
         const h_float lattice_constant{}; ///< in 1/m
-        const h_float inverse_decay_time{}; ///< in units of omega_L
+        const h_float inverse_diagonal_relaxation_time{}; ///< in units of omega_L
+        const h_float inverse_offdiagonal_relaxation_time{}; ///< in units of omega_L
 
         h_float occupation_a(const momentum_type& k) const;
         h_float occupation_b(const momentum_type& k) const;
