@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Set architecture: "IceLake" or "CascadeLake"
+arch="IceLake"
+
 sbatch slurm/experimentA.slurm
 sbatch slurm/experimentB.slurm
 
@@ -14,13 +17,12 @@ for num in "${shifts[@]}"; do
     sed -e "s|^t0_offset .*|t0_offset ${num}|" \
         params/cl1_experiment.config > "$config_path"
 
-
     slurm_path="${output_dir}/${num}.slurm"
     sed -e "s|^#SBATCH --job-name=exp|#SBATCH --job-name=exp_${current_date}|" \
         -e "s|^#SBATCH --output=.*/output_exp.txt|#SBATCH --output=/home/althueser/phd/cpp/HigherHarmonics/output_exp_${current_date}.txt|" \
-        -e "s|mpirun ./build_cluster/hhg .*|mpirun ./build_cluster/hhg ${config_path}|" \
+        -e "s|^#SBATCH --constraint=.*|#SBATCH --constraint=${arch}|" \
+        -e "s|mpirun ./build_.*/hhg .*|mpirun ./build_${arch}/hhg ${config_path}|" \
         slurm/experiment.slurm > "$slurm_path"
     
     sbatch "$slurm_path"
 done
-

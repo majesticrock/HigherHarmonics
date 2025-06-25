@@ -11,13 +11,7 @@ include_directories(
     $ENV{HOME}/usr/local/include
 )
 
-if(CLUSTER_BUILD)
-    set(Boost_DIR /usr/lib64/openmpi/lib/cmake/Boost-1.78.0)# the cluster needs help finding the correct version of boost
-    #include(${CMAKE_SOURCE_DIR}/cmake/CascadelakeCompilerFlags.cmake)
-    include(${CMAKE_SOURCE_DIR}/cmake/IcelakeCompilerFlags.cmake)
-else()
-    include(${CMAKE_SOURCE_DIR}/cmake/DefaultCompilerFlags.cmake)
-endif()
+include(${CMAKE_SOURCE_DIR}/cmake/SelectClusterBuildOptions.cmake)
 
 find_package(OpenMP REQUIRED)
 find_package(MPI REQUIRED)

@@ -1,4 +1,8 @@
 #!/bin/bash
+
+# Set architecture: "IceLake" or "CascadeLake"
+arch="IceLake"
+
 input_file="params/for_auto.txt"
 readarray -t NEW_VALUES < "${input_file}"
 
@@ -43,27 +47,30 @@ mkdir -p auto_generated_${CURRENT_TIME}
 
 for NEW_VALUE in "${NEW_VALUES[@]}"; do
   NEW_NAME=$(echo "$NEW_VALUE" | sed 's/ /_/g')
-  # Loop through each line in the config file
+
+  # Replace the config value
   while read line; do
     if [[ $line == \#* ]]; then
       continue
     fi
 
-    # Split the line into token and value
     TOKEN_NAME=$(echo "$line" | awk '{print $1}')
     TOKEN_VALUE=$(echo "$line" | cut -d' ' -f2-)
 
     if [[ "$TOKEN_NAME" == "$TOKEN" ]]; then
-      # replace the value with the new one
       sed "s/$TOKEN_NAME $TOKEN_VALUE/$TOKEN_NAME $NEW_VALUE/" params/cluster.config > auto_generated_${CURRENT_TIME}/$NEW_NAME.config
       break
     fi
   done < params/cluster.config
-  cp slurm/hhg.slurm auto_generated_${CURRENT_TIME}/$NEW_NAME.slurm
-  sed -i "s|#SBATCH --job-name=hhg|#SBATCH --job-name=${CURRENT_TIME}_$NEW_NAME|" auto_generated_${CURRENT_TIME}/$NEW_NAME.slurm
-  sed -i "s|#SBATCH --output=/home/althueser/phd/cpp/HigherHarmonics/output.txt|#SBATCH --output=/home/althueser/phd/cpp/HigherHarmonics/${CURRENT_TIME}_output_$NEW_NAME.txt|" auto_generated_${CURRENT_TIME}/$NEW_NAME.slurm
-  sed -i "s|mpirun ./build_cluster/hhg params/cluster.config|mpirun ./build_cluster/hhg auto_generated_${CURRENT_TIME}/$NEW_NAME.config|" auto_generated_${CURRENT_TIME}/$NEW_NAME.slurm
 
-  # Execute the program
-  sbatch auto_generated_${CURRENT_TIME}/$NEW_NAME.slurm
+  # Create the slurm file with modifications
+  slurm_path="auto_generated_${CURRENT_TIME}/$NEW_NAME.slurm"
+  sed -e "s|#SBATCH --job-name=hhg|#SBATCH --job-name=${CURRENT_TIME}_$NEW_NAME|" \
+      -e "s|#SBATCH --output=/home/althueser/phd/cpp/HigherHarmonics/output.txt|#SBATCH --output=/home/althueser/phd/cpp/HigherHarmonics/${CURRENT_TIME}_output_$NEW_NAME.txt|" \
+      -e "s|^#SBATCH --constraint=.*|#SBATCH --constraint=${arch}|" \
+      -e "s|mpirun ./build_.*/hhg .*|mpirun ./build_${arch}/hhg auto_generated_${CURRENT_TIME}/$NEW_NAME.config|" \
+      slurm/hhg.slurm > "$slurm_path"
+
+  # Submit the job
+  sbatch "$slurm_path"
 done

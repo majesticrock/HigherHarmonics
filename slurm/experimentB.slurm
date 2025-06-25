@@ -21,7 +21,7 @@
 
 ## Optional:
 #SBATCH --hint=nomultithread    ## deactivate Hyperthreading (recommended); for Hyperthreading comment out this line
-#SBATCH --constraint=IceLake       ## chose a specific feature, e.g., only nodes with Haswell-architecture
+#SBATCH --constraint=IceLake    ## chose a specific feature, e.g., only nodes with Haswell-architecture
                                 ## Feature-Output by "cat /etc/slurm/slurm.conf | grep Feature"
 module purge
 module load mpi
