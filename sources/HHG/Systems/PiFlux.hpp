@@ -12,8 +12,13 @@
 #define __Z 448
 #define __C 32
 #else
+#ifdef MROCK_CL1_CASCADE
+#define __Z 240
+#define __C 16
+#else
 #define __Z 32
 #define __C 4
+#endif
 #endif
 
 namespace HHG::Systems {
