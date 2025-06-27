@@ -4,13 +4,13 @@
 ## or look up the slurm documentation under https://slurm.schedmed.com/sbatch.html
 
 ## Mandatory:
-#SBATCH --job-name=expB
-#SBATCH --output=/home/althueser/phd/cpp/HigherHarmonics/output_expB.txt
+#SBATCH --job-name=CexpA
+#SBATCH --output=/home/althueser/phd/cpp/HigherHarmonics/output_CexpA.txt
 #SBATCH --time=48:00:00         ## maximum runtime; hours:minutes:seconds
 #SBATCH --partition=long        ## choose queue
 
-#SBATCH --ntasks=224            ## sets number of total mpi processes
-#SBATCH --tasks-per-node=56     ## mpi processes spawned per node
+#SBATCH --ntasks=120            ## sets number of total mpi processes
+#SBATCH --tasks-per-node=40     ## mpi processes spawned per node
 #SBATCH --cpus-per-task=1       ## logical cores used per mpi process: should be 1, except if you want to combine OpenMP with$
 
 ##SBATCH --mem=40gb             ## sets maximum allowed memory per node
@@ -21,17 +21,17 @@
 
 ## Optional:
 #SBATCH --hint=nomultithread    ## deactivate Hyperthreading (recommended); for Hyperthreading comment out this line
-#SBATCH --constraint=IceLake    ## chose a specific feature, e.g., only nodes with Haswell-architecture
+#SBATCH --constraint=CascadeLake    ## chose a specific feature, e.g., only nodes with Haswell-architecture
                                 ## Feature-Output by "cat /etc/slurm/slurm.conf | grep Feature"
 module purge
-module load mpi
+module load gcc/11.3.0-full mpi/openmpi3-x86_64 boost/1.71.0 cmake/3.23.2
 cd /home/althueser/phd/cpp/HigherHarmonics/        ## go to working directory
 
 date
 echo "--- START ---"
 
 ## execute binary using mpirun on the allocated computation resource; the number of cores is $
-mpirun ./build_cluster/hhg params/cl1_experiment_B.config
+mpirun ./build_CascadeLake/hhg params/cl1_experiment_A.config
 
 echo "--- END ---"
 date

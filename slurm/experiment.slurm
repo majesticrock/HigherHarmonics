@@ -24,20 +24,7 @@
 #SBATCH --constraint=IceLake    ## chose a specific feature, e.g., only nodes with Haswell-architecture
                                 ## Feature-Output by "cat /etc/slurm/slurm.conf | grep Feature"
 module purge
-
-cpu_family=$(grep -m1 "cpu family" /proc/cpuinfo | awk '{print $4}')
-cpu_model=$(grep -m1 "model[^ name]" /proc/cpuinfo | awk '{print $3}')
-
-if [[ "$cpu_family" == "6" && "$cpu_model" == "85" ]]; then
-    echo "Cascade Lake detected"
-    module load gcc/11.3.0-full mpi/openmpi3-x86_64 boost/1.71.0 cmake/3.23.2
-elif [[ "$cpu_family" == "6" && "$cpu_model" == "106" ]]; then
-    echo "Ice Lake Server detected"
-    module load mpi
-else
-    echo "Unknown microarchitecture (family $cpu_family, model $cpu_model)"
-fi
-
+module load mpi
 cd /home/althueser/phd/cpp/HigherHarmonics/        ## go to working directory
 
 date
