@@ -55,7 +55,10 @@ namespace HHG::Systems {
             inverse_diagonal_relaxation_time((1e15 * hbar) / (_diagonal_relaxation_time * _photon_energy)),
             inverse_offdiagonal_relaxation_time((1e15 * hbar) / (_offdiagonal_relaxation_time * _photon_energy))
     {
-        //gauss::precompute<896>();
+        gauss::precompute<168>();
+        gauss::precompute<336>();
+        gauss::precompute<504>();
+        gauss::precompute<672>();
         //abort();
     }
 

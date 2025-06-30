@@ -9,8 +9,8 @@
 #include <random>
 
 #ifdef MROCK_CL1
-#define __Z 448
-#define __C 32
+#define __Z 336
+#define __C 16
 #else
 #ifdef MROCK_CL1_CASCADE
 #define __Z 240

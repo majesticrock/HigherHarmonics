@@ -9,7 +9,7 @@
 #SBATCH --time=48:00:00         ## maximum runtime; hours:minutes:seconds
 #SBATCH --partition=long        ## choose queue
 
-#SBATCH --ntasks=224            ## sets number of total mpi processes
+#SBATCH --ntasks=168            ## sets number of total mpi processes
 #SBATCH --tasks-per-node=56     ## mpi processes spawned per node
 #SBATCH --cpus-per-task=1       ## logical cores used per mpi process: should be 1, except if you want to combine OpenMP with$
 
