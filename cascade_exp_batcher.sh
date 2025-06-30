@@ -15,7 +15,7 @@ mkdir -p "$output_dir"
 for num in "${shifts[@]}"; do
     config_path="${output_dir}/${num}.config"
     sed -e "s|^t0_offset .*|t0_offset ${num}|" \
-        params/cl1_experiment.config > "$config_path"
+        params/cascade_experiment.config > "$config_path"
 
     slurm_path="${output_dir}/${num}.slurm"
     sed -e "s|^#SBATCH --job-name=exp|#SBATCH --job-name=exp_${current_date}_${num}|" \
