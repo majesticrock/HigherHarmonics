@@ -31,7 +31,7 @@ date
 echo "--- START ---"
 
 ## execute binary using mpirun on the allocated computation resource; the number of cores is $
-mpirun ./build_cluster/hhg params/cl1_experiment_B.config
+mpirun ./build_cluster/hhg params/icelake_experiment_B.config
 
 echo "--- END ---"
 date
