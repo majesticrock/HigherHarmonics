@@ -55,10 +55,10 @@ namespace HHG::Systems {
             inverse_diagonal_relaxation_time((1e15 * hbar) / (_diagonal_relaxation_time * _photon_energy)),
             inverse_offdiagonal_relaxation_time((1e15 * hbar) / (_offdiagonal_relaxation_time * _photon_energy))
     {
-        gauss::precompute<168>();
-        gauss::precompute<336>();
-        gauss::precompute<504>();
-        gauss::precompute<672>();
+        //gauss::precompute<168>();
+        //gauss::precompute<336>();
+        //gauss::precompute<504>();
+        //gauss::precompute<672>();
         //abort();
     }
 
@@ -268,6 +268,28 @@ namespace HHG::Systems {
     h_float PiFlux::dispersion(const momentum_type& k) const
     {
         return sqrt(k.cos_x*k.cos_x + k.cos_y*k.cos_y + k.cos_z*k.cos_z);
+    }
+
+    std::string PiFlux::get_property_in_SI_units(const std::string& property, const h_float photon_energy) const
+    {
+        if (property == "E_F") {
+            return std::to_string(E_F * photon_energy) + " meV";
+        }
+        else if (property == "t") {
+            return std::to_string(hopping_element * photon_energy) + " meV";
+        }
+        else if (property == "d") {
+            return std::to_string(1e12 * lattice_constant) + " pm";
+        }
+        else if (property == "beta") {
+            return std::to_string(beta / photon_energy) + " meV^-1";
+        }
+        else if (property == "T") {
+            return std::to_string(photon_energy / (k_B * beta)) + " K";
+        }
+        else {
+            throw std::invalid_argument("Property '" + property + "' is not recognized!");
+        }
     }
 
     h_float PiFlux::occupation_a(const momentum_type& k) const 

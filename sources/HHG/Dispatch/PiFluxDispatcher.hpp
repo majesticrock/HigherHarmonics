@@ -6,10 +6,13 @@
 namespace HHG::Dispatch {
     struct PiFluxDispatcher : public Dispatcher {
         Systems::PiFlux system;
+        h_float photon_energy;
 
         PiFluxDispatcher(mrock::utility::InputFileReader& input, int N, h_float t0_offset = h_float{});
 
         void compute(int rank, int n_ranks, int n_z) final;
         void debug(int n_z) final;
+
+        virtual nlohmann::json special_information() const override;
     };
 }

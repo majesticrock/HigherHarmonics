@@ -89,6 +89,8 @@ namespace HHG::Systems {
 
         h_float dispersion(const momentum_type& k) const;
 
+        std::string get_property_in_SI_units(const std::string& property, const h_float photon_energy) const;
+
     private:
         const h_float beta{}; ///< in units of the 1 / photon energy
         const h_float E_F{}; ///< in units of the photon energy

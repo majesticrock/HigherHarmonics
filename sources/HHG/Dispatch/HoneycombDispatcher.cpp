@@ -9,7 +9,12 @@
 
 HHG::Dispatch::HoneycombDispatcher::HoneycombDispatcher(mrock::utility::InputFileReader &input, int N, h_float t0_offset/* = h_float{} */)
     : Dispatcher(N, input.getDouble("diagonal_relaxation_time")),
-    system(input.getDouble("T"), input.getDouble("E_F"), input.getDouble("v_F"), input.getDouble("band_width"), Dispatcher::get_photon_energy(input), input.getDouble("diagonal_relaxation_time")),
+    system(input.getDouble("T"), 
+        input.getDouble("E_F"), 
+        input.getDouble("v_F"), 
+        input.getDouble("band_width"), 
+        Dispatcher::get_photon_energy(input), 
+        input.getDouble("diagonal_relaxation_time")),
     photon_energy(Dispatcher::get_photon_energy(input))
 {
     const h_float E0 = input.getDouble("field_amplitude");

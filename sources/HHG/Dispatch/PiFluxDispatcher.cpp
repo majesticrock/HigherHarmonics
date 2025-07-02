@@ -15,7 +15,8 @@ HHG::Dispatch::PiFluxDispatcher::PiFluxDispatcher(mrock::utility::InputFileReade
         input.getDouble("band_width"), 
         Dispatcher::get_photon_energy(input), 
         input.getDouble("diagonal_relaxation_time"),
-        input.getDouble("offdiagonal_relaxation_time") > h_float{} ? input.getDouble("offdiagonal_relaxation_time") : input.getDouble("diagonal_relaxation_time"))
+        input.getDouble("offdiagonal_relaxation_time") > h_float{} ? input.getDouble("offdiagonal_relaxation_time") : input.getDouble("diagonal_relaxation_time")),
+    photon_energy(Dispatcher::get_photon_energy(input))
 {
     const h_float E0 = input.getDouble("field_amplitude");
     const h_float photon_energy = input.getDouble("photon_energy");
@@ -50,6 +51,10 @@ HHG::Dispatch::PiFluxDispatcher::PiFluxDispatcher(mrock::utility::InputFileReade
     else {
         throw std::invalid_argument("Laser type '" + laser_type + "' is not recognized!");
     }
+
+    std::cout << "Model parameters:" << std::endl;
+    std::cout << "lattice constant = " << system.get_property_in_SI_units("d", photon_energy) << std::endl;
+    std::cout << "Hopping element = " << system.get_property_in_SI_units("t", photon_energy) << std::endl;
 }
 
 void HHG::Dispatch::PiFluxDispatcher::compute(int rank, int n_ranks, int n_z)
@@ -72,4 +77,12 @@ void HHG::Dispatch::PiFluxDispatcher::debug(int n_z)
 
     std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
 	std::cout << "Runtime = " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "[ms]" << std::endl;
+}
+
+nlohmann::json HHG::Dispatch::PiFluxDispatcher::special_information() const
+{
+    return { 
+        { "lattice_constant", system.get_property_in_SI_units("d", photon_energy)},
+        { "hopping_element", system.get_property_in_SI_units("t", photon_energy)} 
+    };
 }
