@@ -3,14 +3,22 @@
 # Set architecture: "IceLake" or "CascadeLake"
 arch="IceLake"
 
-sbatch slurm/icelake_experimentA.slurm
-sbatch slurm/icelake_experimentB.slurm
-
 shifts=(0)
 current_date=$(date +"%Y%m%d_%H%M%S")
 
 output_dir="auto_generated_${current_date}"
 mkdir -p "$output_dir"
+
+cp params/icelake_experiment_A.config "$output_dir/A.config"
+sed -e "s|mpirun ./build_.*/hhg .*|mpirun ./build_${arch}/hhg ${output_dir}/A.config|" \
+        slurm/icelake_experiment.slurm > "${output_dir}/A.slurm"
+
+cp params/icelake_experiment_B.config "$output_dir/B.config"
+sed -e "s|mpirun ./build_.*/hhg .*|mpirun ./build_${arch}/hhg ${output_dir}/B.config|" \
+        slurm/icelake_experiment.slurm > "${output_dir}/B.slurm"
+
+sbatch "${output_dir}/A.slurm"
+sbatch "${output_dir}/B.slurm"
 
 for num in "${shifts[@]}"; do
     config_path="${output_dir}/${num}.config"
