@@ -13,9 +13,9 @@ values=("$@")
 
 # Loop over each value in the values array
 for value in "${values[@]}"; do
-    sed -i "s/^$name.*/$name $value/" "icelake_experiment_A.config"
-    sed -i "s/^$name.*/$name $value/" "icelake_experiment_B.config"
-    sed -i "s/^$name.*/$name $value/" "icelake_experiment.config"
+    sed -i "s/^$name.*/$name $value/" "params/icelake_experiment_A.config"
+    sed -i "s/^$name.*/$name $value/" "params/icelake_experiment_B.config"
+    sed -i "s/^$name.*/$name $value/" "params/icelake_experiment.config"
 
     ./icelake_batcher.sh
 done
