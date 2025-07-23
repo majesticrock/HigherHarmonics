@@ -18,4 +18,6 @@ for value in "${values[@]}"; do
     sed -i "s/^$name.*/$name $value/" "params/icelake_experiment.config"
 
     ./icelake_batcher.sh
+
+    sleep 1.5
 done
