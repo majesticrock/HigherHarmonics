@@ -21,30 +21,30 @@ HHG::Dispatch::DiracDispatcher::DiracDispatcher(mrock::utility::InputFileReader 
 
     if (laser_type == "continuous") {
         laser = std::make_unique<Laser::ContinuousLaser>(photon_energy, E0, system.laser_model_ratio(photon_energy));
-        time_config = {-n_laser_cylces * HHG::pi, n_laser_cylces * HHG::pi, N, 500};
+        time_config = {-n_laser_cylces * HHG::pi, n_laser_cylces * HHG::pi, N, 50};
     }
     else if (laser_type == "cosine") {
         laser = std::make_unique<Laser::CosineLaser>(photon_energy, E0, system.laser_model_ratio(photon_energy), n_laser_cylces, pi * t0_offset);
-        time_config = {laser->t_begin, laser->t_end, N, 500};
+        time_config = {laser->t_begin, laser->t_end, N, 50};
     }
     else if (laser_type == "exp") {
         laser = std::make_unique<Laser::ExperimentalLaser>(photon_energy, E0, 
             system.laser_model_ratio(photon_energy * Laser::ExperimentalLaser::exp_photon_energy), t0_offset);
-        time_config = {laser->t_begin, laser->t_end, N, 500};
+        time_config = {laser->t_begin, laser->t_end, N, 50};
     }
     else if (laser_type == "expA") {
         laser = std::make_unique<Laser::ExperimentalLaser>(photon_energy, E0, 
             system.laser_model_ratio(photon_energy * Laser::ExperimentalLaser::exp_photon_energy), t0_offset, Laser::ExperimentalLaser::Active::A);
-        time_config = {laser->t_begin, laser->t_end, N, 500};
+        time_config = {laser->t_begin, laser->t_end, N, 50};
     }
     else if (laser_type == "expB") {
         laser = std::make_unique<Laser::ExperimentalLaser>(photon_energy, E0, 
             system.laser_model_ratio(photon_energy * Laser::ExperimentalLaser::exp_photon_energy), t0_offset, Laser::ExperimentalLaser::Active::B);
-        time_config = {laser->t_begin, laser->t_end, N, 500};
+        time_config = {laser->t_begin, laser->t_end, N, 50};
     }
     else if (laser_type == "quench") {
         laser = std::make_unique<Laser::QuenchedField>(photon_energy, E0, system.laser_model_ratio(photon_energy * Laser::ExperimentalLaser::exp_photon_energy), t0_offset);
-        time_config = {laser->t_begin, laser->t_end, N, 500};
+        time_config = {laser->t_begin, laser->t_end, N, 50};
     }
     else {
         throw std::invalid_argument("Laser type '" + laser_type + "' is not recognized!");

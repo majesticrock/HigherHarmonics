@@ -6,7 +6,7 @@ arch="IceLake"
 sbatch slurm/icelake_experimentA.slurm
 sbatch slurm/icelake_experimentB.slurm
 
-shifts=(0 0.25 0.5 1 2 3 4 6)
+shifts=(0)
 current_date=$(date +"%Y%m%d_%H%M%S")
 
 output_dir="auto_generated_${current_date}"
