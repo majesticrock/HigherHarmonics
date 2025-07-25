@@ -137,7 +137,6 @@ int main(int argc, char** argv) {
     if (debug_data != "no") dispatcher->debug(n_z);
 
 #ifndef NO_MPI
-    //std::cout << "#" << rank << ":\t" << dispatcher->current_density_time[100] << std::endl;
     std::vector<h_float> current_density_time(dispatcher->current_density_time.size());
     MPI_Reduce(dispatcher->current_density_time.data(), current_density_time.data(), dispatcher->current_density_time.size(), MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
 #else

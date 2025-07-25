@@ -107,8 +107,7 @@ namespace HHG::Systems {
 
         std::array<std::array<h_float, 3>, 4> magnus_coefficients(const momentum_type& k, h_float delta_t, h_float t_0, Laser::Laser const * const laser) const;
     
-        void __time_evolution__(nd_vector& rhos, Laser::Laser const * const laser, 
-            const momentum_type& k, const TimeIntegrationConfig& time_config) const;
+        void __time_evolution__(nd_vector& rhos, Laser::Laser const * const laser, const momentum_type& k, const TimeIntegrationConfig& time_config) const;
 
         nd_vector xy_integral(momentum_type& k, nd_vector& rhos_buffer, Laser::Laser const * const laser, TimeIntegrationConfig const& time_config) const;
         nd_vector improved_xy_integral(momentum_type& k, nd_vector& rhos_buffer, Laser::Laser const * const laser, TimeIntegrationConfig const& time_config) const;
@@ -121,6 +120,7 @@ namespace HHG::Systems {
 
         std::vector<h_float> current_density_lattice_sum(Laser::Laser const * const laser, TimeIntegrationConfig const& time_config, 
             const int rank, const int n_ranks, const int n_z) const;
+
         std::vector<h_float> current_density_continuum_limit(Laser::Laser const * const laser, TimeIntegrationConfig const& time_config, 
             const int rank, const int n_ranks, const int n_z) const;
 

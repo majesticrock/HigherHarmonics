@@ -41,7 +41,7 @@ typedef runge_kutta_fehlberg78<sigma_state_type> sigma_error_stepper_type;
 
 namespace HHG::Systems {
     DiracSystem::DiracSystem(h_float temperature, h_float _E_F, h_float _v_F, h_float _band_width, h_float _photon_energy)
-        : beta { is_zero(temperature) ? std::numeric_limits<h_float>::infinity() : _photon_energy / (k_B * temperature) },
+        : beta { is_zero(temperature) ? std::numeric_limits<h_float>::max() : _photon_energy / (k_B * temperature) },
         E_F{ _E_F / _photon_energy }, 
         v_F{ _v_F },
         band_width{ _band_width },
@@ -50,7 +50,7 @@ namespace HHG::Systems {
     {  }
 
     DiracSystem::DiracSystem(h_float temperature, h_float _E_F, h_float _v_F, h_float _band_width, h_float _photon_energy, h_float _diagonal_relaxation_time)
-        : beta { is_zero(temperature) ? std::numeric_limits<h_float>::infinity() : _photon_energy / (k_B * temperature) },
+        : beta { is_zero(temperature) ? std::numeric_limits<h_float>::max() : _photon_energy / (k_B * temperature) },
         E_F{ _E_F / _photon_energy }, 
         v_F{ _v_F },
         band_width{ _band_width },
@@ -126,7 +126,7 @@ namespace HHG::Systems {
         h_float k_z, h_float kappa, const TimeIntegrationConfig& time_config) const
     {
         const h_float magnitude_k = norm(k_z, kappa);
-        auto right_side = [this, &laser, &k_z, &kappa, &magnitude_k](const sigma_state_type& state, sigma_state_type& dxdt, const h_float t) {
+        auto right_side = [&laser, &k_z, &kappa, &magnitude_k](const sigma_state_type& state, sigma_state_type& dxdt, const h_float t) {
             const h_float vector_potential = laser->laser_function(t);          
             const h_float m_x = vector_potential * 2.0 * kappa / magnitude_k;
             const h_float m_z = 2.0 * (magnitude_k - vector_potential * k_z / magnitude_k);

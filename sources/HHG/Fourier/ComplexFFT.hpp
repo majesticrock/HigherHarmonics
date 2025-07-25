@@ -1,6 +1,8 @@
 #pragma once
 
 #include "../GlobalDefinitions.hpp"
+#include <vector>
+#include <complex>
 #include <fftw3.h>
 
 namespace HHG::Fourier {

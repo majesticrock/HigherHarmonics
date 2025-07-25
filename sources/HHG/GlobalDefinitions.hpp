@@ -29,7 +29,7 @@ namespace HHG {
     constexpr int n_debug_points = 25;
 
     constexpr h_float fermi_function(h_float energy, h_float beta) noexcept {
-        if (beta == std::numeric_limits<h_float>::infinity()) {
+        if (beta == std::numeric_limits<h_float>::max()) {
             return (energy != 0 ? (energy < 0 ? h_float{1} : h_float{}) : h_float{0.5} );
         }
         return 1. / (1. + std::exp(beta * energy));

@@ -48,17 +48,14 @@ constexpr HHG::h_float rel_error = 1.0e-8;
 
 namespace HHG::Systems {
     PiFlux::PiFlux(h_float temperature, h_float _E_F, h_float _v_F, h_float _band_width, h_float _photon_energy, h_float _diagonal_relaxation_time, h_float _offdiagonal_relaxation_time)
-        : beta(is_zero(temperature) ? std::numeric_limits<h_float>::infinity() : _photon_energy / (k_B * temperature)), 
+        : beta(is_zero(temperature) ? std::numeric_limits<h_float>::max() : _photon_energy / (k_B * temperature)), 
             E_F(_E_F / _photon_energy), 
             hopping_element(_band_width / sqrt_12), 
             lattice_constant(sqrt_3 * hbar * _v_F / (_photon_energy * _band_width)),
             inverse_diagonal_relaxation_time((1e15 * hbar) / (_diagonal_relaxation_time * _photon_energy)),
             inverse_offdiagonal_relaxation_time((1e15 * hbar) / (_offdiagonal_relaxation_time * _photon_energy))
     {
-        //gauss::precompute<168>();
-        //gauss::precompute<336>();
-        //gauss::precompute<504>();
-        //gauss::precompute<672>();
+        //gauss::precompute<100>();
         //abort();
     }
 
@@ -102,7 +99,7 @@ namespace HHG::Systems {
             ic_sigma_y(k, alpha_beta_diff, alpha_beta_prod, z_epsilon), 
             ic_sigma_z(k, alpha_beta_diff, alpha_beta_prod, z_epsilon) };
 
-        auto right_side = [this, &k, &laser, &prefactor](const sigma_state_type& state, sigma_state_type& dxdt, const h_float t) {
+        auto right_side = [&k, &laser, &prefactor](const sigma_state_type& state, sigma_state_type& dxdt, const h_float t) {
             const sigma_state_type m = {k.cos_x, k.cos_y, std::cos(k.z - laser->laser_function(t))};
             dxdt = prefactor * m.cross(state);
         };

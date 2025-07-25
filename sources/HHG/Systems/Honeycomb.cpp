@@ -90,7 +90,7 @@ namespace HHG::Systems {
     }
 
     Honeycomb::Honeycomb(h_float temperature, h_float _E_F, h_float _v_F, h_float _band_width, h_float _photon_energy, h_float _diagonal_relaxation_time)
-        : beta(is_zero(temperature) ? std::numeric_limits<h_float>::infinity() : _photon_energy / (k_B * temperature)), 
+        : beta(is_zero(temperature) ? std::numeric_limits<h_float>::max() : _photon_energy / (k_B * temperature)), 
             E_F(_E_F / _photon_energy), 
             hopping_element(_band_width / 6), 
             lattice_constant(4 * hbar * _v_F / (_photon_energy * _band_width)),
