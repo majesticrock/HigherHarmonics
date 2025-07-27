@@ -19,9 +19,7 @@ namespace HHG::gauss {
 	}
 
 	template<int N>
-	struct container {
-		//static_assert(false);
-	};
+	struct container {};
 
 	template<> struct container<4> {
 		static constexpr std::array<HHG::h_float, 2> abscissa = {
