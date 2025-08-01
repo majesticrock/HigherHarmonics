@@ -84,5 +84,7 @@ print(peak_pos)
 
 ax2.set_xlabel(r"$\hbar \omega$ (meV)")
 ax2.set_ylabel(r"FFT (normalized)")
+ax2.set_yscale('log')
+ax2.set_xlim(0, 30)
 
 plt.show()
