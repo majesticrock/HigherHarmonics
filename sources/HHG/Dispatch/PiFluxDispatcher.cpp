@@ -86,3 +86,16 @@ nlohmann::json HHG::Dispatch::PiFluxDispatcher::special_information() const
         { "hopping_element", system.get_property_in_SI_units("t", photon_energy)} 
     };
 }
+
+std::vector<HHG::OccupationContainer> HHG::Dispatch::PiFluxDispatcher::track_occupation_numbers(int N) const
+{
+    std::chrono::high_resolution_clock::time_point begin = std::chrono::high_resolution_clock::now();
+    std::cout << "Computing occupation numbers..." << std::endl;
+
+    std::vector<OccupationContainer> occupations = system.compute_occupation_numbers(laser.get(), time_config, N);
+
+    std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
+	std::cout << "Runtime = " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "[ms]" << std::endl;
+
+    return occupations;
+}

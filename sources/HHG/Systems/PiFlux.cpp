@@ -45,6 +45,8 @@ constexpr HHG::h_float rel_error = 1.0e-8;
 #endif
 
 //#define DEBUG_INTEGRATE
+constexpr double RESCUE_TRAFO = 1e-4;
+
 
 namespace HHG::Systems {
     PiFlux::PiFlux(h_float temperature, h_float _E_F, h_float _v_F, h_float _band_width, h_float _photon_energy, h_float _diagonal_relaxation_time, h_float _offdiagonal_relaxation_time)
@@ -135,7 +137,7 @@ namespace HHG::Systems {
         sigma_state_type relax_to_diagonal;
         sigma_state_type relax_to_offdiagonal;
 
-        sigma_state_type current_state = ic_sigma(k, alpha_beta_diff, alpha_beta_prod, z_epsilon);;
+        sigma_state_type current_state = ic_sigma(k, alpha_beta_diff, alpha_beta_prod, z_epsilon);
 
         auto update_equilibrium_state = [&](const h_float laser_at_t) {
             auto shifted_k = k;
@@ -291,12 +293,12 @@ namespace HHG::Systems {
 
     h_float PiFlux::occupation_a(const momentum_type& k) const 
     {
-        return fermi_function(E_F + 2 * hopping_element * dispersion(k), beta);
+        return fermi_function(-E_F + 2 * hopping_element * dispersion(k), beta);
     }
 
     h_float PiFlux::occupation_b(const momentum_type& k) const
     {
-        return fermi_function(E_F - 2 * hopping_element * dispersion(k), beta);
+        return fermi_function(-E_F - 2 * hopping_element * dispersion(k), beta);
     }
 
     h_float PiFlux::alpha(const momentum_type &k, h_float t, Laser::Laser const *const laser) const
@@ -700,6 +702,11 @@ namespace HHG::Systems {
             PROGRESS_BAR_UPDATE(z_range);
             momentum_type k;
             k.update_z(pi * z_gauss::abscissa[z]);
+            if (is_zero(dispersion(k) + k.cos_z)) {
+                k.cos_x = RESCUE_TRAFO;
+                k.cos_z = -(1. - 0.5*RESCUE_TRAFO*RESCUE_TRAFO);
+            }
+
             x_buffer = improved_xy_integral(k, rhos_buffer, laser, time_config);
             for (int i = 0; i <= time_config.n_measurements; ++i) {
                 x_buffer[i] *= z_gauss::weights[z] * std::sin(k.z - laser->laser_function(i * time_step + time_config.t_begin));
@@ -710,6 +717,11 @@ namespace HHG::Systems {
             *  -z
             */
             k.update_z(-pi * z_gauss::abscissa[z]);
+            if (is_zero(dispersion(k) + k.cos_z)) {
+                k.cos_x = RESCUE_TRAFO;
+                k.cos_z = -(1. - 0.5*RESCUE_TRAFO*RESCUE_TRAFO);
+            }
+
             x_buffer = improved_xy_integral(k, rhos_buffer, laser, time_config);
             for (int i = 0; i <= time_config.n_measurements; ++i) {
                 x_buffer[i] *= z_gauss::weights[z] * std::sin(k.z - laser->laser_function(i * time_step + time_config.t_begin));
@@ -759,5 +771,116 @@ namespace HHG::Systems {
         }
 #endif
         return current_density_time;
+    }
+
+    std::vector<OccupationContainer> PiFlux::compute_occupation_numbers(Laser::Laser const * const laser, 
+        TimeIntegrationConfig const& time_config, const int N) const
+    {
+        auto k_xy = [N](int x) {
+            return (pi * x) / N;
+        };
+        auto k_z = [N](int z) {
+            return 2. * pi * (z - 0.5 * N) / N;
+        };
+
+        auto occupations = [this](h_float sigma_x, h_float sigma_z, momentum_type const& k) {
+            const h_float norm = 2 * dispersion(k) * (k.cos_z + dispersion(k));
+            const h_float factor_a = (k.cos_z*k.cos_z - k.cos_x*k.cos_x + dispersion(k) * (2 * k.cos_z + dispersion(k))) / norm;
+            const h_float factor_b = 2 * k.cos_x * (k.cos_z + dispersion(k)) / norm;
+
+            const h_float trans_x = factor_a * sigma_x - factor_b * sigma_z;
+            const h_float trans_z = factor_a * sigma_z + factor_b * sigma_x;
+
+            return OccupationContainer::occupation_t{ 
+                std::sqrt( 
+                    0.5 * ( -trans_z + std::sqrt( trans_x*trans_x + trans_z*trans_z ) )
+                ),
+                std::sqrt( 
+                    0.5 * ( trans_z + std::sqrt( trans_x*trans_x + trans_z*trans_z ) )
+                )
+            };
+        };
+
+        const h_float prefactor = 4. * hopping_element;
+        std::vector<OccupationContainer> computed_occupations(time_config.n_measurements + 1, OccupationContainer(N));
+
+        std::vector<int> progresses(omp_get_max_threads(), int{});
+#pragma omp parallel for
+        for (int i = 0; i < N * N; ++i) {
+            PROGRESS_BAR_UPDATE(N*N);
+
+            int x = (i / N) % N;
+            int z = i % N;
+
+            momentum_type k(k_xy(x), 0.5 * pi, k_z(z));
+            if (is_zero(dispersion(k) + k.cos_z)) {
+                k.cos_x = RESCUE_TRAFO;
+                k.cos_z = -(1. - 0.5*RESCUE_TRAFO*RESCUE_TRAFO);
+            }
+
+            h_float alpha2 = occupation_a(k);
+            h_float beta2 = occupation_b(k);
+            h_float alpha_beta_diff = alpha2 - beta2;
+            h_float alpha_beta_prod = 2 * sqrt(alpha2 * beta2);
+            h_float z_epsilon = k.cos_z + dispersion(k);
+            h_float normalization = dispersion(k) * z_epsilon;
+            
+            sigma_state_type relax_to_diagonal;
+            sigma_state_type relax_to_offdiagonal;
+            
+            sigma_state_type current_state = ic_sigma(k, alpha_beta_diff, alpha_beta_prod, z_epsilon);
+            
+            auto update_equilibrium_state = [&](const h_float laser_at_t) {
+                auto shifted_k = k;
+                shifted_k.update_z(k.z - laser_at_t);
+
+                //if (is_zero(dispersion(shifted_k) + shifted_k.cos_z)) {
+                //    shifted_k.cos_x = RESCUE_TRAFO;
+                //    shifted_k.cos_z = -(1. - 0.5*RESCUE_TRAFO*RESCUE_TRAFO);
+                //}
+
+                alpha2 = occupation_a(shifted_k);
+                beta2 = occupation_b(shifted_k);
+                alpha_beta_diff = alpha2 - beta2;
+                alpha_beta_prod = 2 * sqrt(alpha2 * beta2);
+                z_epsilon = shifted_k.cos_z + dispersion(shifted_k);
+                normalization = dispersion(shifted_k) * z_epsilon;
+            
+                relax_to_diagonal(0) = shifted_k.cos_x;
+                relax_to_diagonal(1) = shifted_k.cos_y;
+                relax_to_diagonal(2) = shifted_k.cos_z;
+                relax_to_diagonal *= (alpha_beta_diff * z_epsilon / normalization);
+            
+                relax_to_offdiagonal(0) =   shifted_k.cos_y * shifted_k.cos_y + shifted_k.cos_z * z_epsilon;
+                relax_to_offdiagonal(1) = - shifted_k.cos_x + shifted_k.cos_y;
+                relax_to_offdiagonal(2) = - shifted_k.cos_x * z_epsilon;
+                relax_to_offdiagonal *= (alpha_beta_prod / normalization);
+            };
+        
+            update_equilibrium_state(laser->laser_function(time_config.t_begin));
+        
+            auto right_side = [this, &k, &laser, &prefactor, &update_equilibrium_state, &relax_to_diagonal, &relax_to_offdiagonal](const sigma_state_type& state, sigma_state_type& dxdt, const h_float t) {
+                const sigma_state_type m = {k.cos_x, k.cos_y, std::cos(k.z - laser->laser_function(t))};
+                update_equilibrium_state(laser->laser_function(t));
+                dxdt = prefactor * m.cross(state) 
+                    - inverse_diagonal_relaxation_time * (state / 3.0 - relax_to_diagonal) // sigma^z
+                    - inverse_offdiagonal_relaxation_time * (state * (2. / 3.) - relax_to_offdiagonal); // sigma^x and sigma^y -> therefore 2*state
+            };
+        
+            const h_float measure_every = time_config.measure_every();
+            const h_float dt = time_config.dt();
+            h_float t_begin = time_config.t_begin;
+            h_float t_end = t_begin + measure_every;
+        
+            computed_occupations[0](x, z) = occupations(current_state(0), current_state(2), k);
+        
+            for (int i = 1; i <= time_config.n_measurements; ++i) {
+                integrate_adaptive(make_controlled<sigma_error_stepper_type>(abs_error, rel_error), right_side, current_state, t_begin, t_end, dt);
+                computed_occupations[i](x, z) = occupations(current_state(0), current_state(2), k);
+                t_begin = t_end;
+                t_end += measure_every;
+            }
+        }
+        return computed_occupations;
     }
 }

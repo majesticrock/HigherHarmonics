@@ -71,6 +71,7 @@ int main(int argc, char** argv) {
     
     const std::string system_type = input.getString("system_type");
     const std::string debug_data = input.getString("debug_data"); // yes/no/only
+    const std::string occupations = input.getString("occupations"); // yes/no/only
 
     /** 
      *  DiracSystem: 2^14 is the mininum value to achieve good precision for realistic parameters
@@ -115,6 +116,60 @@ int main(int argc, char** argv) {
         + "/";
     const std::string output_dir = BASE_DATA_DIR + data_subdir;
     std::filesystem::create_directories(output_dir);
+
+    if (occupations != "no") {
+        constexpr int N_time = 32;
+        Dispatch::PiFluxDispatcher piflux_d(input, N_time, t0_offset);
+
+        const auto result = piflux_d.track_occupation_numbers(n_z);
+        std::vector<HHG::two_D_vector<HHG::h_float>> lower_band_data(N_time + int(laser_type != "continuous"));
+        std::vector<HHG::two_D_vector<HHG::h_float>> upper_band_data(N_time + int(laser_type != "continuous"));
+
+        for(size_t t = 0; t < N_time + int(laser_type != "continuous"); ++t) {
+            lower_band_data[t] = result[t].entire_lower_band();
+            upper_band_data[t] = result[t].entire_upper_band();
+        }
+
+        std::vector<HHG::h_float> laser_function(N_time + int(laser_type != "continuous"));
+        for (int i = 0; i < laser_function.size(); i++)
+        {
+            laser_function[i] = piflux_d.laser->laser_function(piflux_d.time_config.t_begin + i * piflux_d.time_config.measure_every());
+        }
+
+        nlohmann::json data_json {
+            { "time", 				                mrock::utility::time_stamp() },
+            { "N",                                  N_time },
+            { "laser_function",                     laser_function },
+            { "t_begin",                            piflux_d.time_config.t_begin },
+            { "t_end",                              piflux_d.time_config.t_end },
+            { "n_laser_cycles",                     n_laser_cylces },
+            { "n_measurements",                     piflux_d.time_config.n_measurements + int(laser_type != "continuous") },
+            { "T",                                  temperature },
+            { "E_F",                                E_F },
+            { "v_F",                                v_F },
+            { "band_width",                         band_width },
+            { "field_amplitude",                    E0 },
+            { "photon_energy",                      piflux_d.laser->photon_energy },
+            { "laser_type",                         laser_type },
+            { "diagonal_relaxation_time",           diagonal_relaxation_time },
+            { "offdiagonal_relaxation_time",        offdiagonal_relaxation_time },
+            { "system_type",                        "PiFlux" },
+            { "n_z",                                n_z },
+            { "t0_offset",                          t0_offset },
+            { "lower_band",                         lower_band_data },
+            { "upper_band",                         upper_band_data } 
+        };
+        data_json.merge_patch(piflux_d.special_information());
+
+         std::cout << "Saving data to " << output_dir << "/occupations.json.gz" << std::endl;
+        mrock::utility::saveString(data_json.dump(4), output_dir + "occupations.json.gz");
+
+        // Generate metadata
+	    nlohmann::json info_json = mrock::utility::generate_json<HigherHarmonics::info>("hhg_");
+	    info_json.update(mrock::utility::generate_json<mrock::info>("mrock_"));
+	    mrock::utility::saveString(info_json.dump(4), output_dir + "occupations_metadata.json.gz");
+    }
+    if (occupations == "only") return EXIT;
 
     /**
      * Starting calculations

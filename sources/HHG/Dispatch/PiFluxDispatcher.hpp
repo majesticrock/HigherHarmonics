@@ -13,6 +13,8 @@ namespace HHG::Dispatch {
         void compute(int rank, int n_ranks, int n_z) final;
         void debug(int n_z) final;
 
+        std::vector<OccupationContainer> track_occupation_numbers(int N) const;
+
         virtual nlohmann::json special_information() const override;
     };
 }

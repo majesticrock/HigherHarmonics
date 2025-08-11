@@ -19,7 +19,8 @@ namespace HHG::Dispatch {
         TimeIntegrationConfig time_config;
 
         virtual ~Dispatcher() = default;
-        Dispatcher(int N, h_float _diagonal_relaxation_time) : diagonal_relaxation_time(_diagonal_relaxation_time), current_density_time(N + 1)
+        Dispatcher(int N, h_float _diagonal_relaxation_time) 
+            : diagonal_relaxation_time(_diagonal_relaxation_time), current_density_time(N + 1)
         {
             time_evolutions.fill(std::vector<h_float>(N + 1));
         }

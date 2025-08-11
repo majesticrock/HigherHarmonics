@@ -2,6 +2,7 @@
 #include "../GlobalDefinitions.hpp"
 #include "../TimeIntegrationConfig.hpp"
 #include "../Laser/Laser.hpp"
+#include "OccupationContainer.hpp"
 
 #include <string>
 #include <array>
@@ -85,6 +86,9 @@ namespace HHG::Systems {
         std::vector<h_float> compute_current_density(Laser::Laser const * const laser, TimeIntegrationConfig const& time_config, 
             const int rank, const int n_ranks, const int n_z) const;
         
+        std::vector<OccupationContainer> compute_occupation_numbers(Laser::Laser const * const laser, 
+            TimeIntegrationConfig const& time_config, const int N) const;
+
         std::string info() const;
 
         h_float dispersion(const momentum_type& k) const;
