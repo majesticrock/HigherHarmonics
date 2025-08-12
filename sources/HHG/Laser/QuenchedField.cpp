@@ -1,4 +1,5 @@
 #include "QuenchedField.hpp"
+#include <iostream>
 
 namespace HHG::Laser {
     QuenchedField::QuenchedField(h_float photon_energy, h_float E_0, h_float model_ratio, h_float duration)

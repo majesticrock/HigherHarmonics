@@ -1,6 +1,7 @@
 #pragma once
 
 #include "GlobalDefinitions.hpp"
+#include <iostream>
 
 namespace HHG {
     struct TimeIntegrationConfig {
@@ -12,4 +13,6 @@ namespace HHG {
         h_float dt() const;
         h_float measure_every() const;
     };
+
+    std::ostream& operator<<(std::ostream& os, TimeIntegrationConfig const& tconfig);
 }

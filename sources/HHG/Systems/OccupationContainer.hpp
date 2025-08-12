@@ -5,18 +5,23 @@
 #include <utility>
 
 namespace HHG {
-    template<class T> using two_D_vector = std::vector<std::vector<T>>;
-
     struct OccupationContainer {
         typedef std::pair<h_float, h_float> occupation_t;
 
         two_D_vector<occupation_t> _data;
+        two_D_vector<h_float> _dispersion;
+
         const size_t N{};
 
         OccupationContainer(size_t _N)
             : _data(
                 _N, std::vector<occupation_t>(
                     _N, occupation_t{0.0, 0.0}
+                )
+            ), 
+            _dispersion(
+                _N, std::vector<h_float>(
+                    _N, h_float{0.0}
                 )
             ), N{_N}
         {}
@@ -59,6 +64,13 @@ namespace HHG {
                 }
             }
             return ret;
+        }
+
+        inline h_float& energy(size_t x, size_t z) {
+            return _dispersion[x][z];
+        }
+        inline h_float energy(size_t x, size_t z) const {
+            return _dispersion[x][z];
         }
     };
 }

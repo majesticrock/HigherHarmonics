@@ -142,6 +142,11 @@ namespace HHG::Systems {
         auto update_equilibrium_state = [&](const h_float laser_at_t) {
             auto shifted_k = k;
             shifted_k.update_z(k.z - laser_at_t);
+            if (is_zero(shifted_k.cos_x) && is_zero(shifted_k.cos_y) && shifted_k.cos_z < h_float{}) {
+                shifted_k.cos_x = shifted_k.cos_z * RESCUE_TRAFO;
+                shifted_k.cos_z *= (1. - 0.5*RESCUE_TRAFO*RESCUE_TRAFO);
+            }
+
             alpha2 = occupation_a(shifted_k);
             beta2 = occupation_b(shifted_k);
             alpha_beta_diff = alpha2 - beta2;
@@ -702,9 +707,9 @@ namespace HHG::Systems {
             PROGRESS_BAR_UPDATE(z_range);
             momentum_type k;
             k.update_z(pi * z_gauss::abscissa[z]);
-            if (is_zero(dispersion(k) + k.cos_z)) {
-                k.cos_x = RESCUE_TRAFO;
-                k.cos_z = -(1. - 0.5*RESCUE_TRAFO*RESCUE_TRAFO);
+            if (is_zero(k.cos_x) && is_zero(k.cos_y) && k.cos_z < h_float{}) {
+                k.cos_x = k.cos_z * RESCUE_TRAFO;
+                k.cos_z *= (1. - 0.5*RESCUE_TRAFO*RESCUE_TRAFO);
             }
 
             x_buffer = improved_xy_integral(k, rhos_buffer, laser, time_config);
@@ -717,9 +722,9 @@ namespace HHG::Systems {
             *  -z
             */
             k.update_z(-pi * z_gauss::abscissa[z]);
-            if (is_zero(dispersion(k) + k.cos_z)) {
-                k.cos_x = RESCUE_TRAFO;
-                k.cos_z = -(1. - 0.5*RESCUE_TRAFO*RESCUE_TRAFO);
+            if (is_zero(k.cos_x) && is_zero(k.cos_y) && k.cos_z < h_float{}) {
+                k.cos_x = k.cos_z * RESCUE_TRAFO;
+                k.cos_z *= (1. - 0.5*RESCUE_TRAFO*RESCUE_TRAFO);
             }
 
             x_buffer = improved_xy_integral(k, rhos_buffer, laser, time_config);
@@ -783,20 +788,15 @@ namespace HHG::Systems {
             return 2. * pi * (z - 0.5 * N) / N;
         };
 
-        auto occupations = [this](h_float sigma_x, h_float sigma_z, momentum_type const& k) {
-            const h_float norm = 2 * dispersion(k) * (k.cos_z + dispersion(k));
-            const h_float factor_a = (k.cos_z*k.cos_z - k.cos_x*k.cos_x + dispersion(k) * (2 * k.cos_z + dispersion(k))) / norm;
-            const h_float factor_b = 2 * k.cos_x * (k.cos_z + dispersion(k)) / norm;
-
-            const h_float trans_x = factor_a * sigma_x - factor_b * sigma_z;
-            const h_float trans_z = factor_a * sigma_z + factor_b * sigma_x;
+        auto occupations = [this](sigma_state_type const& input, momentum_type const& k) {
+            const auto diags = diagonal_sigma(input, k);
 
             return OccupationContainer::occupation_t{ 
                 std::sqrt( 
-                    0.5 * ( -trans_z + std::sqrt( trans_x*trans_x + trans_z*trans_z ) )
+                    0.5 * ( -diags[2] + norm(diags[0], diags[1], diags[2] ) )
                 ),
                 std::sqrt( 
-                    0.5 * ( trans_z + std::sqrt( trans_x*trans_x + trans_z*trans_z ) )
+                    0.5 * ( diags[2] + norm(diags[0], diags[1], diags[2] ) )
                 )
             };
         };
@@ -809,19 +809,21 @@ namespace HHG::Systems {
         for (int i = 0; i < N * N; ++i) {
             PROGRESS_BAR_UPDATE(N*N);
 
-            int x = (i / N) % N;
-            int z = i % N;
+            const int x = i / N;
+            const int z = i % N;
 
             momentum_type k(k_xy(x), 0.5 * pi, k_z(z));
-            if (is_zero(dispersion(k) + k.cos_z)) {
-                k.cos_x = RESCUE_TRAFO;
-                k.cos_z = -(1. - 0.5*RESCUE_TRAFO*RESCUE_TRAFO);
+            if (is_zero(k.cos_x) && is_zero(k.cos_y) && k.cos_z < h_float{}) {
+                k.cos_x = k.cos_z * RESCUE_TRAFO;
+                k.cos_z *= (1. - 0.5*RESCUE_TRAFO*RESCUE_TRAFO);
             }
+            momentum_type shifted_k = k;
 
             h_float alpha2 = occupation_a(k);
             h_float beta2 = occupation_b(k);
             h_float alpha_beta_diff = alpha2 - beta2;
             h_float alpha_beta_prod = 2 * sqrt(alpha2 * beta2);
+            h_float alpha_beta_imag = 2 * sqrt(alpha2 * beta2);
             h_float z_epsilon = k.cos_z + dispersion(k);
             h_float normalization = dispersion(k) * z_epsilon;
             
@@ -830,19 +832,23 @@ namespace HHG::Systems {
             
             sigma_state_type current_state = ic_sigma(k, alpha_beta_diff, alpha_beta_prod, z_epsilon);
             
-            auto update_equilibrium_state = [&](const h_float laser_at_t) {
-                auto shifted_k = k;
+            auto update_equilibrium_state = [&](const h_float laser_at_t, const h_float __t) {
                 shifted_k.update_z(k.z - laser_at_t);
 
-                //if (is_zero(dispersion(shifted_k) + shifted_k.cos_z)) {
-                //    shifted_k.cos_x = RESCUE_TRAFO;
-                //    shifted_k.cos_z = -(1. - 0.5*RESCUE_TRAFO*RESCUE_TRAFO);
-                //}
-
+                if (is_zero(shifted_k.cos_x) && is_zero(shifted_k.cos_y) && shifted_k.cos_z < h_float{}) {
+                    shifted_k.cos_x = shifted_k.cos_z * RESCUE_TRAFO;
+                    shifted_k.cos_z *= (1. - 0.5*RESCUE_TRAFO*RESCUE_TRAFO);
+                }
+                
                 alpha2 = occupation_a(shifted_k);
                 beta2 = occupation_b(shifted_k);
                 alpha_beta_diff = alpha2 - beta2;
-                alpha_beta_prod = 2 * sqrt(alpha2 * beta2);
+
+                const std::array<h_float, 3> sigmas = diagonal_sigma(current_state, k);
+                const h_float xy_length = sqrt(sigmas[0]*sigmas[0] + sigmas[1]*sigmas[1]);
+                alpha_beta_prod = 2 * sqrt(alpha2 * beta2) * ( is_zero(xy_length) ? 1.0 : sigmas[0] / xy_length );
+                alpha_beta_imag = 2 * sqrt(alpha2 * beta2) * ( is_zero(xy_length) ? 0.0 : sigmas[1] / xy_length );
+
                 z_epsilon = shifted_k.cos_z + dispersion(shifted_k);
                 normalization = dispersion(shifted_k) * z_epsilon;
             
@@ -851,17 +857,22 @@ namespace HHG::Systems {
                 relax_to_diagonal(2) = shifted_k.cos_z;
                 relax_to_diagonal *= (alpha_beta_diff * z_epsilon / normalization);
             
-                relax_to_offdiagonal(0) =   shifted_k.cos_y * shifted_k.cos_y + shifted_k.cos_z * z_epsilon;
-                relax_to_offdiagonal(1) = - shifted_k.cos_x + shifted_k.cos_y;
-                relax_to_offdiagonal(2) = - shifted_k.cos_x * z_epsilon;
-                relax_to_offdiagonal *= (alpha_beta_prod / normalization);
+                relax_to_offdiagonal(0) = alpha_beta_prod * (  shifted_k.cos_y * shifted_k.cos_y + shifted_k.cos_z * z_epsilon);
+                relax_to_offdiagonal(1) = alpha_beta_prod * (- shifted_k.cos_x * shifted_k.cos_y);
+                relax_to_offdiagonal(2) = alpha_beta_prod * (- shifted_k.cos_x * z_epsilon);
+
+                relax_to_offdiagonal(0) += alpha_beta_imag * (- shifted_k.cos_x * shifted_k.cos_y); 
+                relax_to_offdiagonal(1) += alpha_beta_imag * (  shifted_k.cos_x * shifted_k.cos_x + shifted_k.cos_z * z_epsilon);
+                relax_to_offdiagonal(2) += alpha_beta_imag * (- shifted_k.cos_y * z_epsilon);
+                relax_to_offdiagonal /= normalization;
             };
-        
-            update_equilibrium_state(laser->laser_function(time_config.t_begin));
-        
+
+            update_equilibrium_state(laser->laser_function(time_config.t_begin), 0.0);
+
             auto right_side = [this, &k, &laser, &prefactor, &update_equilibrium_state, &relax_to_diagonal, &relax_to_offdiagonal](const sigma_state_type& state, sigma_state_type& dxdt, const h_float t) {
                 const sigma_state_type m = {k.cos_x, k.cos_y, std::cos(k.z - laser->laser_function(t))};
-                update_equilibrium_state(laser->laser_function(t));
+                update_equilibrium_state(laser->laser_function(t), t);
+
                 dxdt = prefactor * m.cross(state) 
                     - inverse_diagonal_relaxation_time * (state / 3.0 - relax_to_diagonal) // sigma^z
                     - inverse_offdiagonal_relaxation_time * (state * (2. / 3.) - relax_to_offdiagonal); // sigma^x and sigma^y -> therefore 2*state
@@ -872,15 +883,34 @@ namespace HHG::Systems {
             h_float t_begin = time_config.t_begin;
             h_float t_end = t_begin + measure_every;
         
-            computed_occupations[0](x, z) = occupations(current_state(0), current_state(2), k);
-        
+            computed_occupations[0](x, z) = occupations(current_state, shifted_k);
+            computed_occupations[0].energy(x, z) = dispersion(shifted_k);
+
+            runge_kutta4< sigma_state_type > stepper;
+
             for (int i = 1; i <= time_config.n_measurements; ++i) {
                 integrate_adaptive(make_controlled<sigma_error_stepper_type>(abs_error, rel_error), right_side, current_state, t_begin, t_end, dt);
-                computed_occupations[i](x, z) = occupations(current_state(0), current_state(2), k);
+                //integrate_const(stepper, right_side, current_state, t_begin, t_end, dt);
+                
+                computed_occupations[i](x, z) = occupations(current_state, shifted_k);
+                computed_occupations[i].energy(x, z) = dispersion(shifted_k);
+
                 t_begin = t_end;
                 t_end += measure_every;
             }
         }
         return computed_occupations;
+    }
+
+    std::array<h_float, 3> PiFlux::diagonal_sigma(sigma_state_type const& input, momentum_type const& k) const
+    {
+        const h_float _disp = dispersion(k);
+        const h_float norm = 2 * _disp * (k.cos_z + _disp);
+        const h_float factor_a = (k.cos_z*k.cos_z - k.cos_x*k.cos_x + _disp * (2 * k.cos_z + _disp)) / norm;
+        const h_float factor_b = 2 * k.cos_x * (k.cos_z + _disp) / norm;
+
+        return { factor_a * input(0) - factor_b * input(2),
+            input(1) * (k.cos_x*k.cos_x + (k.cos_z + _disp)*(k.cos_z + _disp)) / norm,
+            factor_a * input(2) + factor_b * input(0) };
     }
 }

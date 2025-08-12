@@ -6,6 +6,8 @@
 #include <complex>
 #include <stdint.h>
 #include <limits>
+#include <utility>
+#include <vector>
 
 namespace HHG {
     using h_float = double;
@@ -18,6 +20,8 @@ namespace HHG {
 
     template<Eigen::Index nrows, Eigen::Index ncols> using complex_matrix = Eigen::Matrix<h_complex, nrows, ncols>;
     template<Eigen::Index nrows> using complex_vector = Eigen::Vector<h_complex, nrows>;
+
+    template<class T> using two_D_vector = std::vector<std::vector<T>>;
 
     constexpr h_complex imaginary_unit{0., 1.};
     constexpr h_float hbar = h_float(6.582119569509065698e-13); // meV s

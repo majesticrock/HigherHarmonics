@@ -130,6 +130,8 @@ namespace HHG::Systems {
 
         std::vector<h_float> current_density_monte_carlo(Laser::Laser const * const laser, TimeIntegrationConfig const& time_config, 
             const int rank, const int n_ranks, const int n_z) const;
+
+        std::array<h_float, 3> diagonal_sigma(sigma_state_type const& input, momentum_type const& k) const;
     };
 }
 

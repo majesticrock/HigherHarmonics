@@ -124,10 +124,12 @@ int main(int argc, char** argv) {
         const auto result = piflux_d.track_occupation_numbers(n_z);
         std::vector<HHG::two_D_vector<HHG::h_float>> lower_band_data(N_time + int(laser_type != "continuous"));
         std::vector<HHG::two_D_vector<HHG::h_float>> upper_band_data(N_time + int(laser_type != "continuous"));
+        std::vector<HHG::two_D_vector<HHG::h_float>> dispersion_data(N_time + int(laser_type != "continuous"));
 
         for(size_t t = 0; t < N_time + int(laser_type != "continuous"); ++t) {
             lower_band_data[t] = result[t].entire_lower_band();
             upper_band_data[t] = result[t].entire_upper_band();
+            dispersion_data[t] = result[t]._dispersion;
         }
 
         std::vector<HHG::h_float> laser_function(N_time + int(laser_type != "continuous"));
@@ -157,7 +159,8 @@ int main(int argc, char** argv) {
             { "n_z",                                n_z },
             { "t0_offset",                          t0_offset },
             { "lower_band",                         lower_band_data },
-            { "upper_band",                         upper_band_data } 
+            { "upper_band",                         upper_band_data },
+            { "dispersion",                         dispersion_data }
         };
         data_json.merge_patch(piflux_d.special_information());
 
