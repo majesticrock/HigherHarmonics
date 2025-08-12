@@ -131,6 +131,7 @@ namespace HHG::Systems {
         h_float beta2 = occupation_b(k);
         h_float alpha_beta_diff = alpha2 - beta2;
         h_float alpha_beta_prod = 2 * sqrt(alpha2 * beta2);
+        h_float alpha_beta_imag{};
         h_float z_epsilon = k.cos_z + dispersion(k);
         h_float normalization = dispersion(k) * z_epsilon;
         
@@ -146,23 +147,32 @@ namespace HHG::Systems {
                 shifted_k.cos_x = shifted_k.cos_z * RESCUE_TRAFO;
                 shifted_k.cos_z *= (1. - 0.5*RESCUE_TRAFO*RESCUE_TRAFO);
             }
-
+            
             alpha2 = occupation_a(shifted_k);
             beta2 = occupation_b(shifted_k);
             alpha_beta_diff = alpha2 - beta2;
-            alpha_beta_prod = 2 * sqrt(alpha2 * beta2);
+
+            const std::array<h_float, 3> sigmas = diagonal_sigma(current_state, k);
+            const h_float xy_length = sqrt(sigmas[0]*sigmas[0] + sigmas[1]*sigmas[1]);
+            alpha_beta_prod = 2 * sqrt(alpha2 * beta2) * ( is_zero(xy_length) ? 1.0 : sigmas[0] / xy_length );
+            alpha_beta_imag = 2 * sqrt(alpha2 * beta2) * ( is_zero(xy_length) ? 0.0 : sigmas[1] / xy_length );
+
             z_epsilon = shifted_k.cos_z + dispersion(shifted_k);
             normalization = dispersion(shifted_k) * z_epsilon;
-
+        
             relax_to_diagonal(0) = shifted_k.cos_x;
             relax_to_diagonal(1) = shifted_k.cos_y;
             relax_to_diagonal(2) = shifted_k.cos_z;
             relax_to_diagonal *= (alpha_beta_diff * z_epsilon / normalization);
+        
+            relax_to_offdiagonal(0) = alpha_beta_prod * (  shifted_k.cos_y * shifted_k.cos_y + shifted_k.cos_z * z_epsilon);
+            relax_to_offdiagonal(1) = alpha_beta_prod * (- shifted_k.cos_x * shifted_k.cos_y);
+            relax_to_offdiagonal(2) = alpha_beta_prod * (- shifted_k.cos_x * z_epsilon);
 
-            relax_to_offdiagonal(0) =   shifted_k.cos_y * shifted_k.cos_y + shifted_k.cos_z * z_epsilon;
-            relax_to_offdiagonal(1) = - shifted_k.cos_x + shifted_k.cos_y;
-            relax_to_offdiagonal(2) = - shifted_k.cos_x * z_epsilon;
-            relax_to_offdiagonal *= (alpha_beta_prod / normalization);
+            relax_to_offdiagonal(0) += alpha_beta_imag * (- shifted_k.cos_x * shifted_k.cos_y); 
+            relax_to_offdiagonal(1) += alpha_beta_imag * (  shifted_k.cos_x * shifted_k.cos_x + shifted_k.cos_z * z_epsilon);
+            relax_to_offdiagonal(2) += alpha_beta_imag * (- shifted_k.cos_y * z_epsilon);
+            relax_to_offdiagonal /= normalization;
         };
 
         update_equilibrium_state(laser->laser_function(time_config.t_begin));
@@ -823,7 +833,7 @@ namespace HHG::Systems {
             h_float beta2 = occupation_b(k);
             h_float alpha_beta_diff = alpha2 - beta2;
             h_float alpha_beta_prod = 2 * sqrt(alpha2 * beta2);
-            h_float alpha_beta_imag = 2 * sqrt(alpha2 * beta2);
+            h_float alpha_beta_imag{};
             h_float z_epsilon = k.cos_z + dispersion(k);
             h_float normalization = dispersion(k) * z_epsilon;
             
@@ -904,13 +914,16 @@ namespace HHG::Systems {
 
     std::array<h_float, 3> PiFlux::diagonal_sigma(sigma_state_type const& input, momentum_type const& k) const
     {
-        const h_float _disp = dispersion(k);
-        const h_float norm = 2 * _disp * (k.cos_z + _disp);
-        const h_float factor_a = (k.cos_z*k.cos_z - k.cos_x*k.cos_x + _disp * (2 * k.cos_z + _disp)) / norm;
-        const h_float factor_b = 2 * k.cos_x * (k.cos_z + _disp) / norm;
+        const h_float z = k.cos_z + dispersion(k);
+        const h_float norm = 2 * dispersion(k) * z;
+        const h_float __xz = 2 * k.cos_x * z;
+        const h_float __yz = 2 * k.cos_y * z;
+        const h_float __xy = 2 * k.cos_x * k.cos_y;
 
-        return { factor_a * input(0) - factor_b * input(2),
-            input(1) * (k.cos_x*k.cos_x + (k.cos_z + _disp)*(k.cos_z + _disp)) / norm,
-            factor_a * input(2) + factor_b * input(0) };
+        return { 
+            (input(0) * (z*z - k.cos_x*k.cos_x + k.cos_y*k.cos_y) - __xy * input(1) - __xz * input(2)) / norm,
+            (input(1) * (z*z + k.cos_x*k.cos_x - k.cos_y*k.cos_y) - __xy * input(0) - __yz * input(2)) / norm,
+            (input(2) * (z*z - k.cos_x*k.cos_x - k.cos_y*k.cos_y) + __xz * input(0) + __yz * input(1)) / norm 
+        };
     }
 }
