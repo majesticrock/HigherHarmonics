@@ -22,6 +22,7 @@ HHG::Dispatch::PiFluxDispatcher::PiFluxDispatcher(mrock::utility::InputFileReade
     const h_float photon_energy = input.getDouble("photon_energy");
     const std::string laser_type = input.getString("laser_type");
     const int n_laser_cylces = input.getInt("n_laser_cycles");
+    const bool occupations = input.getString("occupations") != "no";
 
     if (laser_type == "continuous") {
         laser = std::make_unique<Laser::ContinuousLaser>(photon_energy, E0, system.laser_model_ratio());
@@ -34,15 +35,15 @@ HHG::Dispatch::PiFluxDispatcher::PiFluxDispatcher(mrock::utility::InputFileReade
     }
     else if (laser_type == "exp") {
         laser = std::make_unique<Laser::ExperimentalLaser>(photon_energy, E0, system.laser_model_ratio(), t0_offset);
-        time_config = {laser->t_begin, laser->t_end, N, 50};
+        time_config = {laser->t_begin, occupations ? 0.6 * laser->t_end : laser->t_end, N, 50};
     }
     else if (laser_type == "expA") {
         laser = std::make_unique<Laser::ExperimentalLaser>(photon_energy, E0, system.laser_model_ratio(), t0_offset, Laser::ExperimentalLaser::Active::A);
-        time_config = {laser->t_begin, laser->t_end, N, 50};
+        time_config = {laser->t_begin, occupations ? 0.6 * laser->t_end : laser->t_end, N, 50};
     }
     else if (laser_type == "expB") {
         laser = std::make_unique<Laser::ExperimentalLaser>(photon_energy, E0, system.laser_model_ratio(), t0_offset, Laser::ExperimentalLaser::Active::B);
-        time_config = {laser->t_begin, laser->t_end, N, 50};
+        time_config = {laser->t_begin, occupations ? 0.6 * laser->t_end : laser->t_end, N, 50};
     }
     else if (laser_type == "quench") {
         laser = std::make_unique<Laser::QuenchedField>(photon_energy, E0, system.laser_model_ratio(), t0_offset);

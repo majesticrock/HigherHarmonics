@@ -118,7 +118,7 @@ int main(int argc, char** argv) {
     std::filesystem::create_directories(output_dir);
 
     if (occupations != "no") {
-        constexpr int N_time = 32;
+        constexpr int N_time = 499;
         Dispatch::PiFluxDispatcher piflux_d(input, N_time, t0_offset);
 
         const auto result = piflux_d.track_occupation_numbers(n_z);
