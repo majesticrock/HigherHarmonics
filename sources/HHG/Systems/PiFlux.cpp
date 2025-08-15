@@ -902,7 +902,6 @@ namespace HHG::Systems {
             h_float t_end = t_begin + measure_every;
         
             computed_occupations[0](x, coordinate_shift(z, laser->laser_function(t_begin))) = occupations(current_state, shifted_k);
-            //computed_occupations[0].energy(x, z) = dispersion(shifted_k);
 
             runge_kutta4< sigma_state_type > stepper;
 
@@ -910,7 +909,6 @@ namespace HHG::Systems {
                 integrate_adaptive(make_controlled<sigma_error_stepper_type>(abs_error, rel_error), right_side, current_state, t_begin, t_end, dt);
                 //integrate_const(stepper, right_side, current_state, t_begin, t_end, dt);
                 computed_occupations[i](x, coordinate_shift(z, laser->laser_function(t_begin))) = occupations(current_state, shifted_k);
-                //computed_occupations[i].energy(x, z) = dispersion(shifted_k);
 
                 t_begin = t_end;
                 t_end += measure_every;

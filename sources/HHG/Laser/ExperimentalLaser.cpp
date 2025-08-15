@@ -22,28 +22,6 @@ namespace HHG::Laser {
         for (size_t i = 1U; i < ExperimentalLaser::N_experiment; ++i) {
             ret[ExperimentalLaser::N_extra + i] = ret[ExperimentalLaser::N_extra + i - 1] - electric_field[i] * dt; // A = - 1/c int_0^t E(t') dt'. The factor 1/c cancels in the Peierls substitution   
         }
-
-        //{
-        //    constexpr size_t avg_length = 32U;
-        //    h_float end_avg{};
-        //    for (size_t i = ExperimentalLaser::N_experiment - avg_length; i < ExperimentalLaser::N_experiment; ++i) {
-        //        end_avg += ret[ExperimentalLaser::N_extra + i];
-        //    }
-        //    end_avg /= avg_length;
-        //    for (size_t i = 1U; i < ExperimentalLaser::N_experiment; ++i) {
-        //        ret[ExperimentalLaser::N_extra + i] -= 0.98 * end_avg;
-        //    }
-        //}
-
-        //{
-        //    constexpr size_t true_begin = 36U;
-        //    constexpr h_float b = 3e-3;
-        //    for (size_t i = 0U; i < true_begin; ++i) {
-        //        const h_float x = static_cast<h_float>(i) - static_cast<h_float>(true_begin);
-        //        ret[ExperimentalLaser::N_extra + i] *= std::exp(-b*x*x);
-        //    }
-        //}
-
         {
             const h_float prime = -electric_field.front();
             const h_float primeprime = -0.5 * (electric_field[1] - electric_field.front()) / dt;

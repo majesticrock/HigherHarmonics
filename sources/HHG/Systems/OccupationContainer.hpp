@@ -9,7 +9,6 @@ namespace HHG {
         typedef std::pair<h_float, h_float> occupation_t;
 
         two_D_vector<occupation_t> _data;
-        two_D_vector<h_float> _dispersion;
 
         const size_t N{};
 
@@ -17,11 +16,6 @@ namespace HHG {
             : _data(
                 _N, std::vector<occupation_t>(
                     _N, occupation_t{0.0, 0.0}
-                )
-            ), 
-            _dispersion(
-                _N, std::vector<h_float>(
-                    _N, h_float{0.0}
                 )
             ), N{_N}
         {}
@@ -64,13 +58,6 @@ namespace HHG {
                 }
             }
             return ret;
-        }
-
-        inline h_float& energy(size_t x, size_t z) {
-            return _dispersion[x][z];
-        }
-        inline h_float energy(size_t x, size_t z) const {
-            return _dispersion[x][z];
         }
     };
 }
