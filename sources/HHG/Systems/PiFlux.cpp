@@ -144,7 +144,7 @@ namespace HHG::Systems {
             auto shifted_k = k;
             shifted_k.update_z(k.z - laser_at_t);
             if (is_zero(shifted_k.cos_x) && is_zero(shifted_k.cos_y) && shifted_k.cos_z < h_float{}) {
-                shifted_k.cos_x = shifted_k.cos_z * RESCUE_TRAFO;
+                shifted_k.cos_x = std::abs(shifted_k.cos_z) * RESCUE_TRAFO;
                 shifted_k.cos_z *= (1. - 0.5*RESCUE_TRAFO*RESCUE_TRAFO);
             }
             
@@ -152,7 +152,7 @@ namespace HHG::Systems {
             beta2 = occupation_b(shifted_k);
             alpha_beta_diff = alpha2 - beta2;
 
-            const std::array<h_float, 3> sigmas = diagonal_sigma(current_state, k);
+            const std::array<h_float, 3> sigmas = diagonal_sigma(current_state, shifted_k);
             const h_float xy_length = sqrt(sigmas[0]*sigmas[0] + sigmas[1]*sigmas[1]);
             alpha_beta_prod = 2 * sqrt(alpha2 * beta2) * ( is_zero(xy_length) ? 1.0 : sigmas[0] / xy_length );
             alpha_beta_imag = 2 * sqrt(alpha2 * beta2) * ( is_zero(xy_length) ? 0.0 : sigmas[1] / xy_length );
@@ -718,7 +718,7 @@ namespace HHG::Systems {
             momentum_type k;
             k.update_z(pi * z_gauss::abscissa[z]);
             if (is_zero(k.cos_x) && is_zero(k.cos_y) && k.cos_z < h_float{}) {
-                k.cos_x = k.cos_z * RESCUE_TRAFO;
+                k.cos_x = std::abs(k.cos_z) * RESCUE_TRAFO;
                 k.cos_z *= (1. - 0.5*RESCUE_TRAFO*RESCUE_TRAFO);
             }
 
@@ -733,7 +733,7 @@ namespace HHG::Systems {
             */
             k.update_z(-pi * z_gauss::abscissa[z]);
             if (is_zero(k.cos_x) && is_zero(k.cos_y) && k.cos_z < h_float{}) {
-                k.cos_x = k.cos_z * RESCUE_TRAFO;
+                k.cos_x = std::abs(k.cos_z) * RESCUE_TRAFO;
                 k.cos_z *= (1. - 0.5*RESCUE_TRAFO*RESCUE_TRAFO);
             }
 
@@ -791,11 +791,14 @@ namespace HHG::Systems {
     std::vector<OccupationContainer> PiFlux::compute_occupation_numbers(Laser::Laser const * const laser, 
         TimeIntegrationConfig const& time_config, const int N) const
     {
-        auto k_xy = [N](int x) {
-            return (pi * x) / N;
+        const h_float dx = pi / N;
+        const h_float dz = pi / N;
+        
+        auto k_xy = [dx](int x) {
+            return x * dx;
         };
-        auto k_z = [N](int z) {
-            return 2. * pi * (z - 0.5 * N) / N;
+        auto k_z = [dz](int z) {
+            return dz * z;
         };
 
         auto occupations = [this](sigma_state_type const& input, momentum_type const& k) {
@@ -811,6 +814,11 @@ namespace HHG::Systems {
             };
         };
 
+        auto coordinate_shift = [N, dz](int z, h_float laser_value) -> int {
+            const int shift = static_cast<int>(std::round(laser_value / dz));
+            return (((z - shift) % N) + N) % N;
+        };
+
         const h_float prefactor = 4. * hopping_element;
         std::vector<OccupationContainer> computed_occupations(time_config.n_measurements + 1, OccupationContainer(N));
 
@@ -824,7 +832,7 @@ namespace HHG::Systems {
 
             momentum_type k(k_xy(x), 0.5 * pi, k_z(z));
             if (is_zero(k.cos_x) && is_zero(k.cos_y) && k.cos_z < h_float{}) {
-                k.cos_x = k.cos_z * RESCUE_TRAFO;
+                k.cos_x = std::abs(k.cos_z) * RESCUE_TRAFO;
                 k.cos_z *= (1. - 0.5*RESCUE_TRAFO*RESCUE_TRAFO);
             }
             momentum_type shifted_k = k;
@@ -846,7 +854,7 @@ namespace HHG::Systems {
                 shifted_k.update_z(k.z - laser_at_t);
 
                 if (is_zero(shifted_k.cos_x) && is_zero(shifted_k.cos_y) && shifted_k.cos_z < h_float{}) {
-                    shifted_k.cos_x = shifted_k.cos_z * RESCUE_TRAFO;
+                    shifted_k.cos_x = std::abs(shifted_k.cos_z) * RESCUE_TRAFO;
                     shifted_k.cos_z *= (1. - 0.5*RESCUE_TRAFO*RESCUE_TRAFO);
                 }
                 
@@ -854,7 +862,7 @@ namespace HHG::Systems {
                 beta2 = occupation_b(shifted_k);
                 alpha_beta_diff = alpha2 - beta2;
 
-                const std::array<h_float, 3> sigmas = diagonal_sigma(current_state, k);
+                const std::array<h_float, 3> sigmas = diagonal_sigma(current_state, shifted_k);
                 const h_float xy_length = sqrt(sigmas[0]*sigmas[0] + sigmas[1]*sigmas[1]);
                 alpha_beta_prod = 2 * sqrt(alpha2 * beta2) * ( is_zero(xy_length) ? 1.0 : sigmas[0] / xy_length );
                 alpha_beta_imag = 2 * sqrt(alpha2 * beta2) * ( is_zero(xy_length) ? 0.0 : sigmas[1] / xy_length );
@@ -893,17 +901,16 @@ namespace HHG::Systems {
             h_float t_begin = time_config.t_begin;
             h_float t_end = t_begin + measure_every;
         
-            computed_occupations[0](x, z) = occupations(current_state, shifted_k);
-            computed_occupations[0].energy(x, z) = dispersion(shifted_k);
+            computed_occupations[0](x, coordinate_shift(z, laser->laser_function(t_begin))) = occupations(current_state, shifted_k);
+            //computed_occupations[0].energy(x, z) = dispersion(shifted_k);
 
             runge_kutta4< sigma_state_type > stepper;
 
             for (int i = 1; i <= time_config.n_measurements; ++i) {
                 integrate_adaptive(make_controlled<sigma_error_stepper_type>(abs_error, rel_error), right_side, current_state, t_begin, t_end, dt);
                 //integrate_const(stepper, right_side, current_state, t_begin, t_end, dt);
-                
-                computed_occupations[i](x, z) = occupations(current_state, shifted_k);
-                computed_occupations[i].energy(x, z) = dispersion(shifted_k);
+                computed_occupations[i](x, coordinate_shift(z, laser->laser_function(t_begin))) = occupations(current_state, shifted_k);
+                //computed_occupations[i].energy(x, z) = dispersion(shifted_k);
 
                 t_begin = t_end;
                 t_end += measure_every;

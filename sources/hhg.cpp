@@ -118,7 +118,7 @@ int main(int argc, char** argv) {
     std::filesystem::create_directories(output_dir);
 
     if (occupations != "no") {
-        constexpr int N_time = 499;
+        constexpr int N_time = 129;
         Dispatch::PiFluxDispatcher piflux_d(input, N_time, t0_offset);
 
         const auto result = piflux_d.track_occupation_numbers(n_z);
@@ -159,8 +159,7 @@ int main(int argc, char** argv) {
             { "n_z",                                n_z },
             { "t0_offset",                          t0_offset },
             { "lower_band",                         lower_band_data },
-            { "upper_band",                         upper_band_data },
-            { "dispersion",                         dispersion_data }
+            { "upper_band",                         upper_band_data }//,{ "dispersion",                         dispersion_data }
         };
         data_json.merge_patch(piflux_d.special_information());
 
