@@ -3,6 +3,7 @@
 #include "../Laser/CosineLaser.hpp"
 #include "../Laser/ExperimentalLaser.hpp"
 #include "../Laser/QuenchedField.hpp"
+#include "../Laser/PowerLawField.hpp"
 
 #include <iostream>
 #include <chrono>
@@ -43,7 +44,11 @@ HHG::Dispatch::DiracDispatcher::DiracDispatcher(mrock::utility::InputFileReader 
         time_config = {laser->t_begin, laser->t_end, N, 50};
     }
     else if (laser_type == "quench") {
-        laser = std::make_unique<Laser::QuenchedField>(photon_energy, E0, system.laser_model_ratio(photon_energy * Laser::ExperimentalLaser::exp_photon_energy), t0_offset);
+        laser = std::make_unique<Laser::QuenchedField>(photon_energy, E0, system.laser_model_ratio(photon_energy), t0_offset);
+        time_config = {laser->t_begin, laser->t_end, N, 50};
+    }
+    else if (laser_type.substr(0, powerlaw.size()) == powerlaw) {
+        laser = std::make_unique<Laser::PowerLawField>(photon_energy, E0, system.laser_model_ratio(photon_energy), t0_offset, std::stod(laser_type.substr(powerlaw.size())));
         time_config = {laser->t_begin, laser->t_end, N, 50};
     }
     else {

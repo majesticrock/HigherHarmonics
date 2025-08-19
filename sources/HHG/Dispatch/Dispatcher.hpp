@@ -8,6 +8,7 @@
 #include <vector>
 #include <memory>
 #include <nlohmann/json.hpp>
+#include <string_view>
 
 namespace HHG::Dispatch {
     struct Dispatcher {
@@ -31,5 +32,13 @@ namespace HHG::Dispatch {
         virtual nlohmann::json special_information() const;
 
         static h_float get_photon_energy(mrock::utility::InputFileReader &input);
+
+        static constexpr std::string_view continuous = "continuous";
+        static constexpr std::string_view cosine = "cosine";
+        static constexpr std::string_view exp = "exp";
+        static constexpr std::string_view expA = "expA";
+        static constexpr std::string_view expB = "expB";
+        static constexpr std::string_view quench = "quench";
+        static constexpr std::string_view powerlaw = "powerlaw";
     };
 }

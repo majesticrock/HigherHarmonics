@@ -4,6 +4,7 @@
 #include "../Laser/CosineLaser.hpp"
 #include "../Laser/ExperimentalLaser.hpp"
 #include "../Laser/QuenchedField.hpp"
+#include "../Laser/PowerLawField.hpp"
 
 #include <chrono>
 
@@ -24,29 +25,33 @@ HHG::Dispatch::PiFluxDispatcher::PiFluxDispatcher(mrock::utility::InputFileReade
     const int n_laser_cylces = input.getInt("n_laser_cycles");
     const bool occupations = input.getString("occupations") != "no";
 
-    if (laser_type == "continuous") {
+    if (laser_type == continuous) {
         laser = std::make_unique<Laser::ContinuousLaser>(photon_energy, E0, system.laser_model_ratio());
         time_config = {-n_laser_cylces * HHG::pi, n_laser_cylces * HHG::pi, N, 50};
     }
-    else if (laser_type == "cosine") {
+    else if (laser_type == cosine) {
         laser = std::make_unique<Laser::CosineLaser>(photon_energy, E0, system.laser_model_ratio(), n_laser_cylces, pi * t0_offset);
         // continue time evolution for 1 cycle so that the relaxation can set in
         time_config = {laser->t_begin, laser->t_end + (2. * pi), N, 50};
     }
-    else if (laser_type == "exp") {
+    else if (laser_type == exp) {
         laser = std::make_unique<Laser::ExperimentalLaser>(photon_energy, E0, system.laser_model_ratio(), t0_offset);
         time_config = {laser->t_begin, occupations ? 0.6 * laser->t_end : laser->t_end, N, 50};
     }
-    else if (laser_type == "expA") {
+    else if (laser_type == expA) {
         laser = std::make_unique<Laser::ExperimentalLaser>(photon_energy, E0, system.laser_model_ratio(), t0_offset, Laser::ExperimentalLaser::Active::A);
         time_config = {laser->t_begin, occupations ? 0.6 * laser->t_end : laser->t_end, N, 50};
     }
-    else if (laser_type == "expB") {
+    else if (laser_type == expB) {
         laser = std::make_unique<Laser::ExperimentalLaser>(photon_energy, E0, system.laser_model_ratio(), t0_offset, Laser::ExperimentalLaser::Active::B);
         time_config = {laser->t_begin, occupations ? 0.6 * laser->t_end : laser->t_end, N, 50};
     }
-    else if (laser_type == "quench") {
+    else if (laser_type == quench) {
         laser = std::make_unique<Laser::QuenchedField>(photon_energy, E0, system.laser_model_ratio(), t0_offset);
+        time_config = {laser->t_begin, laser->t_end, N, 50};
+    }
+    else if (laser_type.substr(0, powerlaw.size()) == powerlaw) {
+        laser = std::make_unique<Laser::PowerLawField>(photon_energy, E0, system.laser_model_ratio(), t0_offset, std::stod(laser_type.substr(powerlaw.size())));
         time_config = {laser->t_begin, laser->t_end, N, 50};
     }
     else {
