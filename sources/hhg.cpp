@@ -72,6 +72,7 @@ int main(int argc, char** argv) {
     const std::string system_type = input.getString("system_type");
     const std::string debug_data = input.getString("debug_data"); // yes/no/only
     const std::string occupations = input.getString("occupations"); // yes/no/only
+    const std::string split_current = input.getString("split_current"); //yes/no/only
 
     /** 
      *  DiracSystem: 2^14 is the mininum value to achieve good precision for realistic parameters
@@ -153,7 +154,7 @@ int main(int argc, char** argv) {
             { "laser_type",                         laser_type },
             { "diagonal_relaxation_time",           diagonal_relaxation_time },
             { "offdiagonal_relaxation_time",        offdiagonal_relaxation_time },
-            { "system_type",                        "PiFlux" },
+            { "system_type",                        system_type },
             { "n_z",                                n_z },
             { "t0_offset",                          t0_offset },
             { "lower_band",                         lower_band_data },
@@ -171,6 +172,57 @@ int main(int argc, char** argv) {
     }
     if (occupations == "only") return EXIT;
 
+
+    if (split_current != "no") {
+        const int N_time = N;
+        Dispatch::PiFluxDispatcher piflux_d(input, N_time, t0_offset);
+
+        const auto result = piflux_d.compute_split_current(n_z);
+
+        std::vector<HHG::h_float> laser_function(N_time + int(laser_type != "continuous"));
+        for (int i = 0; i < laser_function.size(); i++)
+        {
+            laser_function[i] = piflux_d.laser->laser_function(piflux_d.time_config.t_begin + i * piflux_d.time_config.measure_every());
+        }
+
+        nlohmann::json data_json {
+            { "time", 				                mrock::utility::time_stamp() },
+            { "N",                                  N_time },
+            { "laser_function",                     laser_function },
+            { "t_begin",                            piflux_d.time_config.t_begin },
+            { "t_end",                              piflux_d.time_config.t_end },
+            { "n_laser_cycles",                     n_laser_cylces },
+            { "n_measurements",                     piflux_d.time_config.n_measurements + int(laser_type != "continuous") },
+            { "T",                                  temperature },
+            { "E_F",                                E_F },
+            { "v_F",                                v_F },
+            { "band_width",                         band_width },
+            { "field_amplitude",                    E0 },
+            { "photon_energy",                      piflux_d.laser->photon_energy },
+            { "laser_type",                         laser_type },
+            { "diagonal_relaxation_time",           diagonal_relaxation_time },
+            { "offdiagonal_relaxation_time",        offdiagonal_relaxation_time },
+            { "system_type",                        system_type },
+            { "n_z",                                n_z },
+            { "t0_offset",                          t0_offset },
+            { "lowest_energy_current",              result[0] },
+            { "low_dirac_current",                  result[1] },
+            { "high_dirac_current",                 result[2] },
+            { "highest_energy_current",             result[3] }
+        };
+        data_json.merge_patch(piflux_d.special_information());
+
+         std::cout << "Saving data to " << output_dir << "/split_current.json.gz" << std::endl;
+        mrock::utility::saveString(data_json.dump(4), output_dir + "split_current.json.gz");
+
+        // Generate metadata
+	    nlohmann::json info_json = mrock::utility::generate_json<HigherHarmonics::info>("hhg_");
+	    info_json.update(mrock::utility::generate_json<mrock::info>("mrock_"));
+	    mrock::utility::saveString(info_json.dump(4), output_dir + "split_current_metadata.json.gz");
+    }
+    if (split_current == "only") return EXIT;
+    
+
     /**
      * Starting calculations
      */
@@ -178,7 +230,7 @@ int main(int argc, char** argv) {
     if (system_type == "Dirac") {
         dispatcher = std::make_unique<Dispatch::DiracDispatcher>(input, N, t0_offset);
     }
-    else if (system_type == "PiFlux") {
+    else if (system_type == "PiFlux" || system_type == "ModifiedPiFlux") {
         dispatcher = std::make_unique<Dispatch::PiFluxDispatcher>(input, N, t0_offset);
     }
     else if (system_type == "Honeycomb") {

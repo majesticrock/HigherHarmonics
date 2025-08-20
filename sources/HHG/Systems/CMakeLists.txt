@@ -2,6 +2,7 @@ set(SYSTEMS_SOURCES
     DiracSystem.cpp
     DiracDetail/MagnusMatrix.cpp
     PiFlux.cpp
+    ModifiedPiFlux.cpp
     Honeycomb.cpp
 )
 

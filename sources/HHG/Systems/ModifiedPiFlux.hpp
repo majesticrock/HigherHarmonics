@@ -7,7 +7,6 @@
 #include <string>
 #include <array>
 #include <Eigen/Dense>
-#include <random>
 
 #ifdef MROCK_CL1
 #define __Z 336
@@ -23,7 +22,7 @@
 #endif
 
 namespace HHG::Systems {
-    class PiFlux {
+    class ModifiedPiFlux {
     private:
         static constexpr int z_range = __Z;
 
@@ -34,22 +33,13 @@ namespace HHG::Systems {
     public:
         typedef Eigen::Vector<HHG::h_float, 3> sigma_state_type;
         struct momentum_type {
-            h_float cos_x{};
-            h_float cos_y{};
-            h_float cos_z{};
+            h_float C_x{};
+            h_float C_y{};
+            h_float C_z{};
             h_float z{};
 
             momentum_type() = default;
             momentum_type(h_float x, h_float y, h_float z) noexcept;
-
-            // Abused the symmetry; x -> -x and y -> -y yields the same result because everything depends only on cos x and cos y
-            static momentum_type SymmetrizedRandom();
-            template<typename Generator>
-            static momentum_type SymmetrizedRandom(Generator& gen) {
-                static std::uniform_real_distribution<h_float> dist_z(0.0, pi);
-                static std::uniform_real_distribution<h_float> dist_xy(0.0, 0.5 * pi);
-                return momentum_type(dist_xy(gen), dist_xy(gen), dist_z(gen));
-            };
 
             void update(h_float x, h_float y, h_float z) noexcept;
             void update_x(h_float val) noexcept;
@@ -64,15 +54,15 @@ namespace HHG::Systems {
             }
 
             inline bool is_dirac_point() const noexcept {
-                return (is_zero(cos_x) && is_zero(cos_y) && is_zero(cos_z));
+                return (is_zero(C_x) && is_zero(C_y) && is_zero(C_z));
             }
             inline void invert() noexcept {
                 this->z = -this->z;
             }
         };
 
-        PiFlux() = delete;
-        PiFlux(h_float temperature, h_float _E_F, h_float _v_F, h_float _band_width, h_float _photon_energy, h_float _diagonal_relaxation_time, h_float _offdiagonal_relaxation_time);
+        ModifiedPiFlux() = delete;
+        ModifiedPiFlux(h_float temperature, h_float _E_F, h_float _v_F, h_float _band_width, h_float _photon_energy, h_float _diagonal_relaxation_time, h_float _offdiagonal_relaxation_time);
 
         inline h_float laser_model_ratio() const {
             return lattice_constant;
@@ -84,22 +74,13 @@ namespace HHG::Systems {
         void time_evolution_diagonal_relaxation(nd_vector& rhos, Laser::Laser const * const laser, 
             const momentum_type& k, const TimeIntegrationConfig& time_config) const;
 
-        void time_evolution_magnus(nd_vector& rhos, Laser::Laser const * const laser, 
-            const momentum_type& k, const TimeIntegrationConfig& time_config) const;
-
-        void evolve_occupation_numbers(std::vector<OccupationContainer::occupation_t>& occupations, Laser::Laser const * const laser, 
-            const momentum_type& k, const TimeIntegrationConfig& time_config, bool diagonal = true) const;
-
-        std::array<std::vector<h_float>, n_debug_points> compute_current_density_debug(Laser::Laser const * const laser, 
-            TimeIntegrationConfig const& time_config, const int n_z) const;
-
         std::vector<h_float> compute_current_density(Laser::Laser const * const laser, TimeIntegrationConfig const& time_config, 
             const int rank, const int n_ranks, const int n_z) const;
         
         std::vector<OccupationContainer> compute_occupation_numbers(Laser::Laser const * const laser, 
             TimeIntegrationConfig const& time_config, const int N) const;
 
-        std::array<std::vector<h_float>, 4> current_per_energy(Laser::Laser const * const laser, 
+        std::pair<std::vector<h_float>, std::vector<h_float>> current_per_energy(Laser::Laser const * const laser, 
             TimeIntegrationConfig const& time_config, const int N) const;
 
         std::string info() const;
@@ -119,14 +100,8 @@ namespace HHG::Systems {
         h_float occupation_a(const momentum_type& k) const;
         h_float occupation_b(const momentum_type& k) const;
 
-        h_float alpha(const momentum_type &k, h_float t, Laser::Laser const * const laser) const;
-        h_float xi(const momentum_type& k, h_float t, Laser::Laser const * const laser) const;
-
-        std::array<std::array<h_float, 3>, 4> magnus_coefficients(const momentum_type& k, h_float delta_t, h_float t_0, Laser::Laser const * const laser) const;
-    
         void __time_evolution__(nd_vector& rhos, Laser::Laser const * const laser, const momentum_type& k, const TimeIntegrationConfig& time_config) const;
 
-        nd_vector xy_integral(momentum_type& k, nd_vector& rhos_buffer, Laser::Laser const * const laser, TimeIntegrationConfig const& time_config) const;
         nd_vector improved_xy_integral(momentum_type& k, nd_vector& rhos_buffer, Laser::Laser const * const laser, TimeIntegrationConfig const& time_config) const;
 
         h_float ic_sigma_x(const momentum_type& k, h_float alpha_beta_diff, h_float alpha_beta_prod, h_float z_epsilon) const noexcept;
@@ -135,13 +110,7 @@ namespace HHG::Systems {
 
         sigma_state_type ic_sigma(const momentum_type& k, h_float alpha_beta_diff, h_float alpha_beta_prod, h_float z_epsilon) const noexcept;
 
-        std::vector<h_float> current_density_lattice_sum(Laser::Laser const * const laser, TimeIntegrationConfig const& time_config, 
-            const int rank, const int n_ranks, const int n_z) const;
-
         std::vector<h_float> current_density_continuum_limit(Laser::Laser const * const laser, TimeIntegrationConfig const& time_config, 
-            const int rank, const int n_ranks, const int n_z) const;
-
-        std::vector<h_float> current_density_monte_carlo(Laser::Laser const * const laser, TimeIntegrationConfig const& time_config, 
             const int rank, const int n_ranks, const int n_z) const;
 
         std::array<h_float, 3> diagonal_sigma(sigma_state_type const& input, momentum_type const& k) const;

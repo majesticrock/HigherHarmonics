@@ -8,6 +8,7 @@
 #include <numeric>
 #include <random>
 #include <omp.h>
+#include <functional> 
 
 #include <mrock/utility/progress_bar.hpp>
 
@@ -200,6 +201,106 @@ namespace HHG::Systems {
             t_end += measure_every;
         }
     }
+
+    void PiFlux::evolve_occupation_numbers(std::vector<OccupationContainer::occupation_t>& occupations, Laser::Laser const * const laser, 
+            const momentum_type& k, const TimeIntegrationConfig& time_config, bool diagonal /*= true*/) const
+    {
+        auto compute_occupations = [this, diagonal](sigma_state_type const& input, momentum_type const& k) {
+            if (diagonal) {
+                const auto diags = diagonal_sigma(input, k);
+                return OccupationContainer::occupation_t{ 
+                    std::sqrt( 
+                        0.5 * ( -diags[2] + norm(diags[0], diags[1], diags[2] ) )
+                    ),
+                    std::sqrt( 
+                        0.5 * ( diags[2] + norm(diags[0], diags[1], diags[2] ) )
+                    )
+                };
+            }
+            return OccupationContainer::occupation_t{ 
+                std::sqrt( 
+                    0.5 * ( -input(2) + norm(input(0), input(1), input(2) ) )
+                ),
+                std::sqrt( 
+                    0.5 * ( input(2) + norm(input(0), input(1), input(2) ) )
+                )
+            };
+        };
+        const h_float prefactor = 4. * hopping_element;
+
+        momentum_type shifted_k = k;
+
+        h_float alpha2 = occupation_a(k);
+        h_float beta2 = occupation_b(k);
+        h_float alpha_beta_diff = alpha2 - beta2;
+        h_float alpha_beta_prod = 2 * sqrt(alpha2 * beta2);
+        h_float alpha_beta_imag{};
+        h_float z_epsilon = k.cos_z + dispersion(k);
+        h_float normalization = dispersion(k) * z_epsilon;
+            
+        sigma_state_type relax_to_diagonal;
+        sigma_state_type relax_to_offdiagonal; 
+        sigma_state_type current_state = ic_sigma(k, alpha_beta_diff, alpha_beta_prod, z_epsilon);
+            
+        auto update_equilibrium_state = [&](const h_float laser_at_t, const h_float __t) {
+            shifted_k.update_z(k.z - laser_at_t);
+
+            if (is_zero(shifted_k.cos_x) && is_zero(shifted_k.cos_y) && shifted_k.cos_z < h_float{}) {
+                shifted_k.cos_x = std::abs(shifted_k.cos_z) * RESCUE_TRAFO;
+                shifted_k.cos_z *= (1. - 0.5*RESCUE_TRAFO*RESCUE_TRAFO);
+            }
+            
+            alpha2 = occupation_a(shifted_k);
+            beta2 = occupation_b(shifted_k);
+            alpha_beta_diff = alpha2 - beta2;
+
+            const std::array<h_float, 3> sigmas = diagonal_sigma(current_state, shifted_k);
+            const h_float xy_length = sqrt(sigmas[0]*sigmas[0] + sigmas[1]*sigmas[1]);
+            alpha_beta_prod = 2 * sqrt(alpha2 * beta2) * ( is_zero(xy_length) ? 1.0 : sigmas[0] / xy_length );
+            alpha_beta_imag = 2 * sqrt(alpha2 * beta2) * ( is_zero(xy_length) ? 0.0 : sigmas[1] / xy_length );
+
+            z_epsilon = shifted_k.cos_z + dispersion(shifted_k);
+            normalization = dispersion(shifted_k) * z_epsilon;
+            
+            relax_to_diagonal(0) = shifted_k.cos_x;
+            relax_to_diagonal(1) = shifted_k.cos_y;
+            relax_to_diagonal(2) = shifted_k.cos_z;
+            relax_to_diagonal *= (alpha_beta_diff * z_epsilon / normalization);
+        
+            relax_to_offdiagonal(0) = alpha_beta_prod * (  shifted_k.cos_y * shifted_k.cos_y + shifted_k.cos_z * z_epsilon);
+            relax_to_offdiagonal(1) = alpha_beta_prod * (- shifted_k.cos_x * shifted_k.cos_y);
+            relax_to_offdiagonal(2) = alpha_beta_prod * (- shifted_k.cos_x * z_epsilon);
+
+            relax_to_offdiagonal(0) += alpha_beta_imag * (- shifted_k.cos_x * shifted_k.cos_y); 
+            relax_to_offdiagonal(1) += alpha_beta_imag * (  shifted_k.cos_x * shifted_k.cos_x + shifted_k.cos_z * z_epsilon);
+            relax_to_offdiagonal(2) += alpha_beta_imag * (- shifted_k.cos_y * z_epsilon);
+            relax_to_offdiagonal /= normalization;
+        };
+
+        update_equilibrium_state(laser->laser_function(time_config.t_begin), 0.0);
+
+        auto right_side = [this, &k, &laser, &prefactor, &update_equilibrium_state, &relax_to_diagonal, &relax_to_offdiagonal](const sigma_state_type& state, sigma_state_type& dxdt, const h_float t) {
+            const sigma_state_type m = {k.cos_x, k.cos_y, std::cos(k.z - laser->laser_function(t))};
+            update_equilibrium_state(laser->laser_function(t), t);
+            dxdt = prefactor * m.cross(state) 
+                - inverse_diagonal_relaxation_time * (state / 3.0 - relax_to_diagonal) // sigma^z
+                - inverse_offdiagonal_relaxation_time * (state * (2. / 3.) - relax_to_offdiagonal); // sigma^x and sigma^y -> therefore 2*state
+        };
+        
+        const h_float measure_every = time_config.measure_every();
+        const h_float dt = time_config.dt();
+        h_float t_begin = time_config.t_begin;
+        h_float t_end = t_begin + measure_every;
+    
+        occupations[0] = compute_occupations(current_state, shifted_k);
+        for (int i = 1; i <= time_config.n_measurements; ++i) {
+            integrate_adaptive(make_controlled<sigma_error_stepper_type>(abs_error, rel_error), right_side, current_state, t_begin, t_end, dt);
+            occupations[i] = compute_occupations(current_state, shifted_k);
+            t_begin = t_end;
+            t_end += measure_every;
+        }
+    }
+
 
     std::array<std::vector<h_float>, n_debug_points> PiFlux::compute_current_density_debug(Laser::Laser const * const laser, 
         TimeIntegrationConfig const& time_config, const int n_z) const
@@ -801,120 +902,139 @@ namespace HHG::Systems {
             return dz * z;
         };
 
-        auto occupations = [this](sigma_state_type const& input, momentum_type const& k) {
-            const auto diags = diagonal_sigma(input, k);
-
-            return OccupationContainer::occupation_t{ 
-                std::sqrt( 
-                    0.5 * ( -diags[2] + norm(diags[0], diags[1], diags[2] ) )
-                ),
-                std::sqrt( 
-                    0.5 * ( diags[2] + norm(diags[0], diags[1], diags[2] ) )
-                )
-            };
-        };
-
         auto coordinate_shift = [N, dz](int z, h_float laser_value) -> int {
             const int shift = static_cast<int>(std::round(laser_value / dz));
             return (((z - shift) % N) + N) % N;
         };
 
-        const h_float prefactor = 4. * hopping_element;
+        const h_float measure_every = time_config.measure_every();
+        std::vector<OccupationContainer::occupation_t> occ_buffer(time_config.n_measurements + 1);
         std::vector<OccupationContainer> computed_occupations(time_config.n_measurements + 1, OccupationContainer(N));
 
         std::vector<int> progresses(omp_get_max_threads(), int{});
-#pragma omp parallel for
+#pragma omp parallel for firstprivate(occ_buffer)
         for (int i = 0; i < N * N; ++i) {
             PROGRESS_BAR_UPDATE(N*N);
 
             const int x = i / N;
             const int z = i % N;
-
             momentum_type k(k_xy(x), 0.5 * pi, k_z(z));
             if (is_zero(k.cos_x) && is_zero(k.cos_y) && k.cos_z < h_float{}) {
                 k.cos_x = std::abs(k.cos_z) * RESCUE_TRAFO;
                 k.cos_z *= (1. - 0.5*RESCUE_TRAFO*RESCUE_TRAFO);
             }
-            momentum_type shifted_k = k;
 
-            h_float alpha2 = occupation_a(k);
-            h_float beta2 = occupation_b(k);
-            h_float alpha_beta_diff = alpha2 - beta2;
-            h_float alpha_beta_prod = 2 * sqrt(alpha2 * beta2);
-            h_float alpha_beta_imag{};
-            h_float z_epsilon = k.cos_z + dispersion(k);
-            h_float normalization = dispersion(k) * z_epsilon;
-            
-            sigma_state_type relax_to_diagonal;
-            sigma_state_type relax_to_offdiagonal;
-            
-            sigma_state_type current_state = ic_sigma(k, alpha_beta_diff, alpha_beta_prod, z_epsilon);
-            
-            auto update_equilibrium_state = [&](const h_float laser_at_t, const h_float __t) {
-                shifted_k.update_z(k.z - laser_at_t);
+            evolve_occupation_numbers(occ_buffer, laser, k, time_config);
 
-                if (is_zero(shifted_k.cos_x) && is_zero(shifted_k.cos_y) && shifted_k.cos_z < h_float{}) {
-                    shifted_k.cos_x = std::abs(shifted_k.cos_z) * RESCUE_TRAFO;
-                    shifted_k.cos_z *= (1. - 0.5*RESCUE_TRAFO*RESCUE_TRAFO);
-                }
-                
-                alpha2 = occupation_a(shifted_k);
-                beta2 = occupation_b(shifted_k);
-                alpha_beta_diff = alpha2 - beta2;
-
-                const std::array<h_float, 3> sigmas = diagonal_sigma(current_state, shifted_k);
-                const h_float xy_length = sqrt(sigmas[0]*sigmas[0] + sigmas[1]*sigmas[1]);
-                alpha_beta_prod = 2 * sqrt(alpha2 * beta2) * ( is_zero(xy_length) ? 1.0 : sigmas[0] / xy_length );
-                alpha_beta_imag = 2 * sqrt(alpha2 * beta2) * ( is_zero(xy_length) ? 0.0 : sigmas[1] / xy_length );
-
-                z_epsilon = shifted_k.cos_z + dispersion(shifted_k);
-                normalization = dispersion(shifted_k) * z_epsilon;
-            
-                relax_to_diagonal(0) = shifted_k.cos_x;
-                relax_to_diagonal(1) = shifted_k.cos_y;
-                relax_to_diagonal(2) = shifted_k.cos_z;
-                relax_to_diagonal *= (alpha_beta_diff * z_epsilon / normalization);
-            
-                relax_to_offdiagonal(0) = alpha_beta_prod * (  shifted_k.cos_y * shifted_k.cos_y + shifted_k.cos_z * z_epsilon);
-                relax_to_offdiagonal(1) = alpha_beta_prod * (- shifted_k.cos_x * shifted_k.cos_y);
-                relax_to_offdiagonal(2) = alpha_beta_prod * (- shifted_k.cos_x * z_epsilon);
-
-                relax_to_offdiagonal(0) += alpha_beta_imag * (- shifted_k.cos_x * shifted_k.cos_y); 
-                relax_to_offdiagonal(1) += alpha_beta_imag * (  shifted_k.cos_x * shifted_k.cos_x + shifted_k.cos_z * z_epsilon);
-                relax_to_offdiagonal(2) += alpha_beta_imag * (- shifted_k.cos_y * z_epsilon);
-                relax_to_offdiagonal /= normalization;
-            };
-
-            update_equilibrium_state(laser->laser_function(time_config.t_begin), 0.0);
-
-            auto right_side = [this, &k, &laser, &prefactor, &update_equilibrium_state, &relax_to_diagonal, &relax_to_offdiagonal](const sigma_state_type& state, sigma_state_type& dxdt, const h_float t) {
-                const sigma_state_type m = {k.cos_x, k.cos_y, std::cos(k.z - laser->laser_function(t))};
-                update_equilibrium_state(laser->laser_function(t), t);
-
-                dxdt = prefactor * m.cross(state) 
-                    - inverse_diagonal_relaxation_time * (state / 3.0 - relax_to_diagonal) // sigma^z
-                    - inverse_offdiagonal_relaxation_time * (state * (2. / 3.) - relax_to_offdiagonal); // sigma^x and sigma^y -> therefore 2*state
-            };
-        
-            const h_float measure_every = time_config.measure_every();
-            const h_float dt = time_config.dt();
             h_float t_begin = time_config.t_begin;
             h_float t_end = t_begin + measure_every;
-        
-            computed_occupations[0](x, coordinate_shift(z, laser->laser_function(t_begin))) = occupations(current_state, shifted_k);
-
-            runge_kutta4< sigma_state_type > stepper;
-
-            for (int i = 1; i <= time_config.n_measurements; ++i) {
-                integrate_adaptive(make_controlled<sigma_error_stepper_type>(abs_error, rel_error), right_side, current_state, t_begin, t_end, dt);
-                //integrate_const(stepper, right_side, current_state, t_begin, t_end, dt);
-                computed_occupations[i](x, coordinate_shift(z, laser->laser_function(t_begin))) = occupations(current_state, shifted_k);
+            for (int i = 0; i <= time_config.n_measurements; ++i) {
+                computed_occupations[i](x, coordinate_shift(z, laser->laser_function(t_begin))) = occ_buffer[i];
 
                 t_begin = t_end;
                 t_end += measure_every;
             }
         }
         return computed_occupations;
+    }
+
+    std::array<std::vector<h_float>, 4> PiFlux::current_per_energy(Laser::Laser const * const laser, 
+            TimeIntegrationConfig const& time_config, const int N) const
+    {
+        constexpr h_float energy_cut = 0.5 * sqrt_3;
+
+        const h_float dxy = pi / N;
+        const h_float dz = pi / N;
+        
+        auto k_xy = [dxy](int x) {
+            return x * dxy;
+        };
+        auto k_z = [dz](int z) {
+            return dz * z;
+        };
+
+        const h_float time_step = time_config.measure_every();
+
+        std::vector<OccupationContainer::occupation_t> occ_buffer(time_config.n_measurements + 1);
+
+        std::vector<h_float> current_density_lowest(time_config.n_measurements + 1, h_float{});
+        std::vector<h_float> current_density_dirac_low(time_config.n_measurements + 1, h_float{});
+        std::vector<h_float> current_density_dirac_high(time_config.n_measurements + 1, h_float{});
+        std::vector<h_float> current_density_highest(time_config.n_measurements + 1, h_float{});
+
+        std::vector<int> progresses(omp_get_max_threads(), int{});
+#pragma omp parallel for firstprivate(occ_buffer) reduction(vec_plus:current_density_lowest,current_density_dirac_low, current_density_dirac_high,current_density_highest)
+        for (int i = 0; i < N * N * N; ++i) {
+            PROGRESS_BAR_UPDATE(N*N*N);
+
+            const int z = i / (N * N);
+            const int y = (i / N) % N;
+            const int x = i % N;
+
+            momentum_type k(k_xy(x), k_xy(y), k_z(z));
+            if (is_zero(k.cos_x) && is_zero(k.cos_y) && k.cos_z < h_float{}) {
+                k.cos_x = std::abs(k.cos_z) * RESCUE_TRAFO;
+                k.cos_z *= (1. - 0.5*RESCUE_TRAFO*RESCUE_TRAFO);
+            }
+            
+            if (is_zero(k.cos_x) && is_zero(k.cos_y) && k.cos_z < h_float{}) {
+                k.cos_x = std::abs(k.cos_z) * RESCUE_TRAFO;
+                k.cos_z *= (1. - 0.5*RESCUE_TRAFO*RESCUE_TRAFO);
+            }
+            evolve_occupation_numbers(occ_buffer, laser, k, time_config, false);
+
+            for (int i = 0; i <= time_config.n_measurements; ++i) {
+                const h_float laser_value = laser->laser_function(i * time_step + time_config.t_begin);
+                const h_float instantaneous_energy = dispersion(k.shift_z(laser_value));
+
+                if (instantaneous_energy < energy_cut) {
+                    current_density_dirac_low[i] += occ_buffer[i].first * std::sin(k.z - laser_value);
+                    current_density_dirac_high[i] += occ_buffer[i].second * std::sin(k.z - laser_value);
+                }
+                else {
+                    current_density_lowest[i] += occ_buffer[i].first * std::sin(k.z - laser_value);
+                    current_density_highest[i] += occ_buffer[i].second * std::sin(k.z - laser_value);
+                }
+            }
+            
+
+            /*
+            *  -z
+            */
+            k.invert();
+            if (is_zero(k.cos_x) && is_zero(k.cos_y) && k.cos_z < h_float{}) {
+                k.cos_x = std::abs(k.cos_z) * RESCUE_TRAFO;
+                k.cos_z *= (1. - 0.5*RESCUE_TRAFO*RESCUE_TRAFO);
+            }
+            evolve_occupation_numbers(occ_buffer, laser, k, time_config, false);
+            for (int i = 0; i <= time_config.n_measurements; ++i) {
+                const h_float laser_value = laser->laser_function(i * time_step + time_config.t_begin);
+                const h_float instantaneous_energy = dispersion(k.shift_z(laser_value));
+
+                if (instantaneous_energy < energy_cut) {
+                    current_density_dirac_low[i] += occ_buffer[i].first * std::sin(k.z - laser_value);
+                    current_density_dirac_high[i] += occ_buffer[i].second * std::sin(k.z - laser_value);
+                }
+                else {
+                    current_density_lowest[i] += occ_buffer[i].first * std::sin(k.z - laser_value);
+                    current_density_highest[i] += occ_buffer[i].second * std::sin(k.z - laser_value);
+                }
+            }
+        }
+
+        for (auto& val : current_density_dirac_low) {
+            val /= N;
+        }
+        for (auto& val : current_density_dirac_high) {
+            val /= N;
+        }
+        for (auto& val : current_density_lowest) {
+            val /= N;
+        }
+        for (auto& val : current_density_highest) {
+            val /= N;
+        }
+        return {current_density_lowest, current_density_dirac_low, current_density_dirac_high, current_density_highest};
     }
 
     std::array<h_float, 3> PiFlux::diagonal_sigma(sigma_state_type const& input, momentum_type const& k) const
