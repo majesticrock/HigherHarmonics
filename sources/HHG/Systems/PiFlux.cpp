@@ -24,7 +24,7 @@ constexpr HHG::h_float rel_error = 1.0e-8;
     std::transform(omp_out.begin(), omp_out.end(), omp_in.begin(), omp_out.begin(), std::plus<HHG::h_float>())) \
     initializer(omp_priv = decltype(omp_orig)(omp_orig.size(), decltype(omp_orig)::value_type{}))
 
-#ifdef NO_MPI
+#if defined(NO_MPI) && !defined(MROCK_CL1_CASCADE)
 #define PROGRESS_BAR_UPDATE(z_max) ++(progresses[omp_get_thread_num()]); \
             if (omp_get_thread_num() == 0) { \
                 mrock::utility::progress_bar( \
@@ -959,9 +959,11 @@ namespace HHG::Systems {
 
         std::vector<h_float> current_density_non_dirac(time_config.n_measurements + 1, h_float{});
         std::vector<h_float> current_density_dirac(time_config.n_measurements + 1, h_float{});
-
+        
+#ifndef MROCK_CL1_CASCADE
         std::vector<int> progresses(omp_get_max_threads(), int{});
-#pragma omp parallel for private(rhos_buffer) reduction(vec_plus:current_density_dirac,current_density_non_dirac)
+#endif
+#pragma omp parallel for private(rhos_buffer) reduction(vec_plus:current_density_dirac,current_density_non_dirac) schedule(dynamic)
         for (int i = 0; i < N * N * N; ++i) {
             PROGRESS_BAR_UPDATE(N*N*N);
 
