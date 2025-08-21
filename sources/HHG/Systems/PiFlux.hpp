@@ -99,7 +99,7 @@ namespace HHG::Systems {
         std::vector<OccupationContainer> compute_occupation_numbers(Laser::Laser const * const laser, 
             TimeIntegrationConfig const& time_config, const int N) const;
 
-        std::array<std::vector<h_float>, 4> current_per_energy(Laser::Laser const * const laser, 
+        std::array<std::vector<h_float>, 2> current_per_energy(Laser::Laser const * const laser, 
             TimeIntegrationConfig const& time_config, const int N) const;
 
         std::string info() const;

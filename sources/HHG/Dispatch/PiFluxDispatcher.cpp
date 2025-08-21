@@ -159,7 +159,7 @@ std::vector<HHG::OccupationContainer> HHG::Dispatch::PiFluxDispatcher::track_occ
     return occupations;
 }
 
-std::array<std::vector<HHG::h_float>, 4> HHG::Dispatch::PiFluxDispatcher::compute_split_current(int N) const
+std::array<std::vector<HHG::h_float>, 2> HHG::Dispatch::PiFluxDispatcher::compute_split_current(int N) const
 {
     std::chrono::high_resolution_clock::time_point begin = std::chrono::high_resolution_clock::now();
     std::cout << "Computing split current..." << std::endl;

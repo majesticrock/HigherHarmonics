@@ -19,7 +19,7 @@ namespace HHG::Dispatch {
 
         std::vector<OccupationContainer> track_occupation_numbers(int N) const;
 
-        std::array<std::vector<h_float>, 4> compute_split_current(int N) const;
+        std::array<std::vector<h_float>, 2> compute_split_current(int N) const;
 
         virtual nlohmann::json special_information() const override;
     };

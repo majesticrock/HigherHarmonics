@@ -205,10 +205,8 @@ int main(int argc, char** argv) {
             { "system_type",                        system_type },
             { "n_z",                                n_z },
             { "t0_offset",                          t0_offset },
-            { "lowest_energy_current",              result[0] },
-            { "low_dirac_current",                  result[1] },
-            { "high_dirac_current",                 result[2] },
-            { "highest_energy_current",             result[3] }
+            { "dirac_current",                      result[0] },
+            { "non_dirac_current",                  result[1] }
         };
         data_json.merge_patch(piflux_d.special_information());
 

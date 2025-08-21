@@ -938,7 +938,7 @@ namespace HHG::Systems {
         return computed_occupations;
     }
 
-    std::array<std::vector<h_float>, 4> PiFlux::current_per_energy(Laser::Laser const * const laser, 
+    std::array<std::vector<h_float>, 2> PiFlux::current_per_energy(Laser::Laser const * const laser, 
             TimeIntegrationConfig const& time_config, const int N) const
     {
         constexpr h_float energy_cut = 0.5 * sqrt_3;
@@ -955,15 +955,13 @@ namespace HHG::Systems {
 
         const h_float time_step = time_config.measure_every();
 
-        std::vector<OccupationContainer::occupation_t> occ_buffer(time_config.n_measurements + 1);
+        nd_vector rhos_buffer;
 
-        std::vector<h_float> current_density_lowest(time_config.n_measurements + 1, h_float{});
-        std::vector<h_float> current_density_dirac_low(time_config.n_measurements + 1, h_float{});
-        std::vector<h_float> current_density_dirac_high(time_config.n_measurements + 1, h_float{});
-        std::vector<h_float> current_density_highest(time_config.n_measurements + 1, h_float{});
+        std::vector<h_float> current_density_non_dirac(time_config.n_measurements + 1, h_float{});
+        std::vector<h_float> current_density_dirac(time_config.n_measurements + 1, h_float{});
 
         std::vector<int> progresses(omp_get_max_threads(), int{});
-#pragma omp parallel for firstprivate(occ_buffer) reduction(vec_plus:current_density_lowest,current_density_dirac_low, current_density_dirac_high,current_density_highest)
+#pragma omp parallel for private(rhos_buffer) reduction(vec_plus:current_density_dirac,current_density_non_dirac)
         for (int i = 0; i < N * N * N; ++i) {
             PROGRESS_BAR_UPDATE(N*N*N);
 
@@ -981,19 +979,17 @@ namespace HHG::Systems {
                 k.cos_x = std::abs(k.cos_z) * RESCUE_TRAFO;
                 k.cos_z *= (1. - 0.5*RESCUE_TRAFO*RESCUE_TRAFO);
             }
-            evolve_occupation_numbers(occ_buffer, laser, k, time_config, false);
+            __time_evolution__(rhos_buffer, laser, k, time_config);
 
             for (int i = 0; i <= time_config.n_measurements; ++i) {
                 const h_float laser_value = laser->laser_function(i * time_step + time_config.t_begin);
                 const h_float instantaneous_energy = dispersion(k.shift_z(laser_value));
 
                 if (instantaneous_energy < energy_cut) {
-                    current_density_dirac_low[i] += occ_buffer[i].first * std::sin(k.z - laser_value);
-                    current_density_dirac_high[i] += occ_buffer[i].second * std::sin(k.z - laser_value);
+                    current_density_dirac[i] += rhos_buffer(i) * std::sin(k.z - laser_value);
                 }
                 else {
-                    current_density_lowest[i] += occ_buffer[i].first * std::sin(k.z - laser_value);
-                    current_density_highest[i] += occ_buffer[i].second * std::sin(k.z - laser_value);
+                    current_density_non_dirac[i] += rhos_buffer(i) * std::sin(k.z - laser_value);
                 }
             }
             
@@ -1006,35 +1002,27 @@ namespace HHG::Systems {
                 k.cos_x = std::abs(k.cos_z) * RESCUE_TRAFO;
                 k.cos_z *= (1. - 0.5*RESCUE_TRAFO*RESCUE_TRAFO);
             }
-            evolve_occupation_numbers(occ_buffer, laser, k, time_config, false);
+            __time_evolution__(rhos_buffer, laser, k, time_config);
             for (int i = 0; i <= time_config.n_measurements; ++i) {
                 const h_float laser_value = laser->laser_function(i * time_step + time_config.t_begin);
                 const h_float instantaneous_energy = dispersion(k.shift_z(laser_value));
 
                 if (instantaneous_energy < energy_cut) {
-                    current_density_dirac_low[i] += occ_buffer[i].first * std::sin(k.z - laser_value);
-                    current_density_dirac_high[i] += occ_buffer[i].second * std::sin(k.z - laser_value);
+                    current_density_dirac[i] += rhos_buffer(i) * std::sin(k.z - laser_value);
                 }
                 else {
-                    current_density_lowest[i] += occ_buffer[i].first * std::sin(k.z - laser_value);
-                    current_density_highest[i] += occ_buffer[i].second * std::sin(k.z - laser_value);
+                    current_density_non_dirac[i] += rhos_buffer(i) * std::sin(k.z - laser_value);
                 }
             }
         }
 
-        for (auto& val : current_density_dirac_low) {
-            val /= N;
+        for (auto& val : current_density_dirac) {
+            val /= N*N*N;
         }
-        for (auto& val : current_density_dirac_high) {
-            val /= N;
+        for (auto& val : current_density_non_dirac) {
+            val /= N*N*N;
         }
-        for (auto& val : current_density_lowest) {
-            val /= N;
-        }
-        for (auto& val : current_density_highest) {
-            val /= N;
-        }
-        return {current_density_lowest, current_density_dirac_low, current_density_dirac_high, current_density_highest};
+        return {current_density_dirac, current_density_non_dirac};
     }
 
     std::array<h_float, 3> PiFlux::diagonal_sigma(sigma_state_type const& input, momentum_type const& k) const
