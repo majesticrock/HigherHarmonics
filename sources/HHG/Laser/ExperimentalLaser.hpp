@@ -12,7 +12,7 @@ namespace HHG::Laser {
         constexpr static int N_experiment = 201;
         constexpr static h_float laser_end{ 6.67111 + 2 * (N_extra - 1) * exp_dt }; ///< in ps [measured data ends at the first number, the second summand is the buffer for a smooth approach to 0]
         constexpr static h_float exp_photon_energy{ 5.889401182228545 }; ///< in meV [obtained by FFT of the measured electric field]
-        constexpr static h_float unified_t_max{ 2. * laser_end }; ///< in ps; I just assume that I'll never use t0 > 0.5 * laser_end
+        constexpr static h_float unified_t_max{ 1.5 * laser_end }; ///< in ps; I just assume that I'll never use t0 > 0.5 * laser_end
 
         const h_float second_laser_shift{}; ///< in units of hbar omega
 
