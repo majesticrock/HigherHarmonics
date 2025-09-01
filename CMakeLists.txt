@@ -13,6 +13,17 @@ include_directories(
 
 include(${CMAKE_SOURCE_DIR}/cmake/SelectClusterBuildOptions.cmake)
 
+add_executable(hhg 
+    sources/hhg.cpp
+)
+target_sources(hhg PRIVATE
+    sources/HHG/GeneralMagnus.cpp
+    sources/HHG/TimeIntegrationConfig.cpp
+    sources/HHG/GreensFunction.cpp
+)
+
+SET_COMPILER_FLAGS(hhg)
+
 find_package(OpenMP REQUIRED)
 find_package(MPI REQUIRED)
 find_package(FFTW3 REQUIRED)
@@ -25,17 +36,6 @@ add_subdirectory(sources/HHG/Dispatch)
 add_subdirectory(sources/HHG/Fourier)
 add_subdirectory(sources/HHG/Systems)
 add_subdirectory(sources/HHG/Laser)
-
-add_executable(hhg 
-    sources/hhg.cpp
-)
-target_sources(hhg PRIVATE
-    sources/HHG/GeneralMagnus.cpp
-    sources/HHG/TimeIntegrationConfig.cpp
-    sources/HHG/GreensFunction.cpp
-)
-
-SET_COMPILER_FLAGS(hhg)
 
 if(NOT CMAKE_BUILD_TYPE STREQUAL "NO_MPI")
     target_link_libraries(hhg PRIVATE MPI::MPI_CXX)
