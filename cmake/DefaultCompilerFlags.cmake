@@ -15,7 +15,7 @@ function(SET_COMPILER_FLAGS TARGET)
                 target_compile_definitions(${TARGET} PRIVATE NDEBUG)
             endif()
             if(CMAKE_BUILD_TYPE STREQUAL "NO_MPI")
-                    execute_process(
+                execute_process(
                     COMMAND hostname
                     OUTPUT_VARIABLE HOSTNAME
                     OUTPUT_STRIP_TRAILING_WHITESPACE
@@ -23,7 +23,6 @@ function(SET_COMPILER_FLAGS TARGET)
                 message(STATUS "Building on host: ${HOSTNAME}")
                 if(HOSTNAME STREQUAL "gw9.cluster.cl1")
                     message(STATUS "Applying special compiler flags for gw9.cluster.cl1")
-                    set(Boost_DIR /usr/lib64/openmpi/lib/cmake/Boost-1.78.0)# the new cluster needs help finding the correct version of boost
                     target_compile_options(${TARGET} PRIVATE -Wall -Wno-sign-compare -fopenmp -march=cascadelake -O3 -ffast-math)
                     target_compile_definitions(${TARGET} PRIVATE NDEBUG MROCK_CL1_CASCADE NO_MPI)
                 else()
