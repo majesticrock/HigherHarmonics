@@ -15,7 +15,7 @@ function(SET_COMPILER_FLAGS TARGET)
                 target_compile_definitions(${TARGET} PRIVATE NDEBUG)
             endif()
             if(CMAKE_BUILD_TYPE STREQUAL "NO_MPI")
-                    execute_process(
+                execute_process(
                     COMMAND hostname
                     OUTPUT_VARIABLE HOSTNAME
                     OUTPUT_STRIP_TRAILING_WHITESPACE
