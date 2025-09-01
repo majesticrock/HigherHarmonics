@@ -27,7 +27,7 @@ for num in "${shifts[@]}"; do
 
     slurm_path="${output_dir}/${num}.slurm"
     sed -e "s|^#SBATCH --job-name=exp|#SBATCH --job-name=exp_${current_date}_${num}|" \
-        -e "s|^#SBATCH --output=.*/output_exp.txt|#SBATCH --output=/home/althueser/phd/cpp/HigherHarmonics/output_exp_${current_date}_${num}.txt|" \
+        -e "s|^#SBATCH --output=.*/output_Cexp.txt|#SBATCH --output=/home/althueser/phd/cpp/HigherHarmonics/output_exp_${current_date}_${num}.txt|" \
         -e "s|^#SBATCH --constraint=.*|#SBATCH --constraint=${arch}|" \
         -e "s|mpirun ./build_.*/hhg .*|mpirun ./build_${arch}/hhg ${config_path}|" \
         slurm/cascade_experiment.slurm > "$slurm_path"
