@@ -24,7 +24,7 @@
 #SBATCH --constraint=IceLake    ## chose a specific feature, e.g., only nodes with Haswell-architecture
                                 ## Feature-Output by "cat /etc/slurm/slurm.conf | grep Feature"
 module purge
-mload
+module load mpi
 cd /home/althueser/phd/cpp/HigherHarmonics/        ## go to working directory
 
 date

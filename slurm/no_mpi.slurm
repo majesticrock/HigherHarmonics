@@ -24,7 +24,6 @@
 #SBATCH --constraint=CascadeLake    ## chose a specific feature, e.g., only nodes with Haswell-architecture
                                 ## Feature-Output by "cat /etc/slurm/slurm.conf | grep Feature"
 module purge
-mload
 cd /home/althueser/phd/cpp/HigherHarmonics/        ## go to working directory
 
 date
