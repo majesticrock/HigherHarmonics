@@ -14,7 +14,7 @@ set_property(CACHE CLUSTER_BUILD PROPERTY STRINGS "default" "cascadelake" "icela
 if(CLUSTER_BUILD STREQUAL "default")
     include(${CMAKE_SOURCE_DIR}/cmake/DefaultCompilerFlags.cmake)
 elseif(CLUSTER_BUILD STREQUAL "cascadelake")
-    #set(Boost_DIR /usr/lib64/openmpi/lib/cmake/Boost-1.78.0)# the new cluster needs help finding the correct version of boost
+    set(Boost_DIR /usr/lib64/openmpi/lib/cmake/Boost-1.78.0)# the new cluster needs help finding the correct version of boost
     include(${CMAKE_SOURCE_DIR}/cmake/CascadelakeCompilerFlags.cmake)
 elseif(CLUSTER_BUILD STREQUAL "icelake")
     set(Boost_DIR /usr/lib64/openmpi/lib/cmake/Boost-1.78.0)# the new cluster needs help finding the correct version of boost
