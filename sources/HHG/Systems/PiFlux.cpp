@@ -140,10 +140,11 @@ namespace HHG::Systems {
         sigma_state_type relax_to_offdiagonal;
 
         sigma_state_type current_state = ic_sigma(k, alpha_beta_diff, alpha_beta_prod, z_epsilon);
+        momentum_type shifted_k = k;
 
         auto update_equilibrium_state = [&](const h_float laser_at_t) {
-            auto shifted_k = k;
             shifted_k.update_z(k.z - laser_at_t);
+
             if (is_zero(shifted_k.cos_x) && is_zero(shifted_k.cos_y) && shifted_k.cos_z < h_float{}) {
                 shifted_k.cos_x = std::abs(shifted_k.cos_z) * RESCUE_TRAFO;
                 shifted_k.cos_z *= (1. - 0.5*RESCUE_TRAFO*RESCUE_TRAFO);
@@ -160,7 +161,7 @@ namespace HHG::Systems {
 
             z_epsilon = shifted_k.cos_z + dispersion(shifted_k);
             normalization = dispersion(shifted_k) * z_epsilon;
-        
+            
             relax_to_diagonal(0) = shifted_k.cos_x;
             relax_to_diagonal(1) = shifted_k.cos_y;
             relax_to_diagonal(2) = shifted_k.cos_z;
@@ -242,7 +243,7 @@ namespace HHG::Systems {
         sigma_state_type relax_to_offdiagonal; 
         sigma_state_type current_state = ic_sigma(k, alpha_beta_diff, alpha_beta_prod, z_epsilon);
             
-        auto update_equilibrium_state = [&](const h_float laser_at_t, const h_float __t) {
+        auto update_equilibrium_state = [&](const h_float laser_at_t) {
             shifted_k.update_z(k.z - laser_at_t);
 
             if (is_zero(shifted_k.cos_x) && is_zero(shifted_k.cos_y) && shifted_k.cos_z < h_float{}) {
@@ -277,11 +278,11 @@ namespace HHG::Systems {
             relax_to_offdiagonal /= normalization;
         };
 
-        update_equilibrium_state(laser->laser_function(time_config.t_begin), 0.0);
+        update_equilibrium_state(laser->laser_function(time_config.t_begin));
 
         auto right_side = [this, &k, &laser, &prefactor, &update_equilibrium_state, &relax_to_diagonal, &relax_to_offdiagonal](const sigma_state_type& state, sigma_state_type& dxdt, const h_float t) {
             const sigma_state_type m = {k.cos_x, k.cos_y, std::cos(k.z - laser->laser_function(t))};
-            update_equilibrium_state(laser->laser_function(t), t);
+            update_equilibrium_state(laser->laser_function(t));
             dxdt = prefactor * m.cross(state) 
                 - inverse_diagonal_relaxation_time * (state / 3.0 - relax_to_diagonal) // sigma^z
                 - inverse_offdiagonal_relaxation_time * (state * (2. / 3.) - relax_to_offdiagonal); // sigma^x and sigma^y -> therefore 2*state
@@ -893,13 +894,13 @@ namespace HHG::Systems {
         TimeIntegrationConfig const& time_config, const int N) const
     {
         const h_float dx = pi / N;
-        const h_float dz = pi / N;
+        const h_float dz = 2 * pi / N;
         
         auto k_xy = [dx](int x) {
             return x * dx;
         };
         auto k_z = [dz](int z) {
-            return dz * z;
+            return dz * z - pi;
         };
 
         auto coordinate_shift = [N, dz](int z, h_float laser_value) -> int {
