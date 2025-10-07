@@ -106,6 +106,8 @@ namespace HHG::Systems {
 
         h_float dispersion(const momentum_type& k) const;
 
+        h_float partial_z_dispersion(const momentum_type& k) const;
+
         std::string get_property_in_SI_units(const std::string& property, const h_float photon_energy) const;
 
     private:
@@ -126,7 +128,6 @@ namespace HHG::Systems {
     
         void __time_evolution__(nd_vector& rhos, Laser::Laser const * const laser, const momentum_type& k, const TimeIntegrationConfig& time_config) const;
 
-        nd_vector xy_integral(momentum_type& k, nd_vector& rhos_buffer, Laser::Laser const * const laser, TimeIntegrationConfig const& time_config) const;
         nd_vector improved_xy_integral(momentum_type& k, nd_vector& rhos_buffer, Laser::Laser const * const laser, TimeIntegrationConfig const& time_config) const;
 
         h_float ic_sigma_x(const momentum_type& k, h_float alpha_beta_diff, h_float alpha_beta_prod, h_float z_epsilon) const noexcept;

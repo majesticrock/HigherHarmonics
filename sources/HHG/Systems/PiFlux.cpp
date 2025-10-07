@@ -128,6 +128,15 @@ namespace HHG::Systems {
         assert(!is_zero(dispersion(k)));
         const h_float prefactor = 4 * hopping_element;
         
+        auto compute_occupation_difference = [this](sigma_state_type const& input, momentum_type const& k) {
+            const auto diags = diagonal_sigma(input, k);
+            return std::sqrt( 
+                    0.5 * ( -diags[2] + norm(diags[0], diags[1], diags[2] ) )
+                ) - std::sqrt( 
+                    0.5 * ( diags[2] + norm(diags[0], diags[1], diags[2] ) )
+                );
+        };
+
         h_float alpha2 = occupation_a(k);
         h_float beta2 = occupation_b(k);
         h_float alpha_beta_diff = alpha2 - beta2;
@@ -193,11 +202,11 @@ namespace HHG::Systems {
         h_float t_end = t_begin + measure_every;
 
         rhos.resize(time_config.n_measurements + 1);
-        rhos[0] = current_state(2);
+        rhos[0] = partial_z_dispersion(shifted_k) * compute_occupation_difference(current_state, shifted_k);
 
         for (int i = 1; i <= time_config.n_measurements; ++i) {
             integrate_adaptive(make_controlled<sigma_error_stepper_type>(abs_error, rel_error), right_side, current_state, t_begin, t_end, dt);
-            rhos[i] = current_state(2);
+            rhos[i] = partial_z_dispersion(shifted_k) * compute_occupation_difference(current_state, shifted_k);
             t_begin = t_end;
             t_end += measure_every;
         }
@@ -384,6 +393,11 @@ namespace HHG::Systems {
     h_float PiFlux::dispersion(const momentum_type& k) const
     {
         return sqrt(k.cos_x*k.cos_x + k.cos_y*k.cos_y + k.cos_z*k.cos_z);
+    }
+
+    h_float PiFlux::partial_z_dispersion(const momentum_type &k) const
+    {
+        return -k.cos_z * std::sin(k.z) / dispersion(k);
     }
 
     std::string PiFlux::get_property_in_SI_units(const std::string& property, const h_float photon_energy) const
@@ -646,24 +660,6 @@ namespace HHG::Systems {
         return current_density_time;
     }
 
-    nd_vector PiFlux::xy_integral(momentum_type& k, nd_vector& rhos_buffer, Laser::Laser const * const laser, TimeIntegrationConfig const& time_config) const {
-        typedef gauss::container<2 * n_xy_inner> xy_inner;
-
-        nd_vector x_buffer = nd_vector::Zero(time_config.n_measurements + 1);
-
-        for (int i = 0; i < n_xy_inner; ++i) {
-            k.update_x(0.5 * pi * xy_inner::abscissa[i]);
-
-            for (int j = 0; j < n_xy_inner; ++j) {
-                k.update_y(0.5 * pi * xy_inner::abscissa[j]);
-                __time_evolution__(rhos_buffer, laser, k, time_config);
-
-                x_buffer += xy_inner::weights[i] * xy_inner::weights[j] * rhos_buffer;
-            }
-        }
-        return x_buffer;
-    }
-
     nd_vector PiFlux::improved_xy_integral(momentum_type& k, nd_vector& rhos_buffer, Laser::Laser const * const laser, TimeIntegrationConfig const& time_config) const {
         constexpr h_float edge = 0.35 * pi;
         
@@ -802,7 +798,7 @@ namespace HHG::Systems {
         nd_vector x_buffer;
         std::vector<h_float> current_density_time(time_config.n_measurements + 1, h_float{});
 
-        const h_float time_step = time_config.measure_every();
+        //const h_float time_step = time_config.measure_every();
 #ifdef NO_MPI
         std::vector<int> progresses(omp_get_max_threads(), int{});
 #pragma omp parallel for private(rhos_buffer, x_buffer) reduction(vec_plus:current_density_time)
@@ -826,7 +822,7 @@ namespace HHG::Systems {
 
             x_buffer = improved_xy_integral(k, rhos_buffer, laser, time_config);
             for (int i = 0; i <= time_config.n_measurements; ++i) {
-                x_buffer[i] *= z_gauss::weights[z] * std::sin(k.z - laser->laser_function(i * time_step + time_config.t_begin));
+                x_buffer[i] *= z_gauss::weights[z];// * std::sin(k.z - laser->laser_function(i * time_step + time_config.t_begin))
             }
             std::transform(current_density_time.begin(), current_density_time.end(), x_buffer.begin(), current_density_time.begin(), std::plus<>());
         
@@ -841,7 +837,7 @@ namespace HHG::Systems {
 
             x_buffer = improved_xy_integral(k, rhos_buffer, laser, time_config);
             for (int i = 0; i <= time_config.n_measurements; ++i) {
-                x_buffer[i] *= z_gauss::weights[z] * std::sin(k.z - laser->laser_function(i * time_step + time_config.t_begin));
+                x_buffer[i] *= z_gauss::weights[z];// * std::sin(k.z - laser->laser_function(i * time_step + time_config.t_begin))
             }
             std::transform(current_density_time.begin(), current_density_time.end(), x_buffer.begin(), current_density_time.begin(), std::plus<>());
         }
@@ -989,10 +985,10 @@ namespace HHG::Systems {
                 const h_float instantaneous_energy = dispersion(k.shift_z(laser_value));
 
                 if (instantaneous_energy < energy_cut) {
-                    current_density_dirac[i] += rhos_buffer(i) * std::sin(k.z - laser_value);
+                    current_density_dirac[i] += rhos_buffer(i);// * std::sin(k.z - laser_value)
                 }
                 else {
-                    current_density_non_dirac[i] += rhos_buffer(i) * std::sin(k.z - laser_value);
+                    current_density_non_dirac[i] += rhos_buffer(i);// * std::sin(k.z - laser_value)
                 }
             }
             
@@ -1011,10 +1007,10 @@ namespace HHG::Systems {
                 const h_float instantaneous_energy = dispersion(k.shift_z(laser_value));
 
                 if (instantaneous_energy < energy_cut) {
-                    current_density_dirac[i] += rhos_buffer(i) * std::sin(k.z - laser_value);
+                    current_density_dirac[i] += rhos_buffer(i);// * std::sin(k.z - laser_value)
                 }
                 else {
-                    current_density_non_dirac[i] += rhos_buffer(i) * std::sin(k.z - laser_value);
+                    current_density_non_dirac[i] += rhos_buffer(i);// * std::sin(k.z - laser_value)
                 }
             }
         }
