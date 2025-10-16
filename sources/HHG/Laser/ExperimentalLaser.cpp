@@ -10,17 +10,21 @@ namespace HHG::Laser {
             unified_t_max * (_photon_energy * exp_photon_energy / (1e12 * hbar)), //(laser_end + std::abs(_second_laser_shift)) * (_photon_energy * exp_photon_energy / (1e12 * hbar)), 
             true), 
         second_laser_shift{_second_laser_shift * (_photon_energy * exp_photon_energy / (1e12 * hbar))},
+        lattice_constant{model_ratio},
         active_laser{_active_laser}
     {
         this->compute_spline();
     }
 
-    std::array<h_float, ExperimentalLaser::N_experiment + 2 * ExperimentalLaser::N_extra> vector_potential(const std::array<h_float, ExperimentalLaser::N_experiment>& electric_field, h_float dt) 
+    typedef std::array<h_float, ExperimentalLaser::N_experiment + 2 * ExperimentalLaser::N_extra> A_arr;
+
+    A_arr vector_potential(const std::array<h_float, ExperimentalLaser::N_experiment>& electric_field, h_float dt) 
     {
-        std::array<h_float, ExperimentalLaser::N_experiment + 2 * ExperimentalLaser::N_extra> ret;
+        A_arr ret;
         ret[ExperimentalLaser::N_extra] = -electric_field[0] * dt;
         for (size_t i = 1U; i < ExperimentalLaser::N_experiment; ++i) {
-            ret[ExperimentalLaser::N_extra + i] = ret[ExperimentalLaser::N_extra + i - 1] - electric_field[i] * dt; // A = - 1/c int_0^t E(t') dt'. The factor 1/c cancels in the Peierls substitution   
+             // A = - c int_0^t E(t') dt'. The factor c cancels in the Peierls substitution
+            ret[ExperimentalLaser::N_extra + i] = ret[ExperimentalLaser::N_extra + i - 1] - electric_field[i] * dt;
         }
         {
             const h_float prime = -electric_field.front();
@@ -71,8 +75,12 @@ namespace HHG::Laser {
         // Experimental data in MV/cm [measured]
         constexpr std::array<h_float, N_experiment> E_B = { -2.89152e-3, -2.0304e-3, 0.06384e-3, 2.33424e-3, 4.02384e-3, 4.99344e-3, 4.95648e-3, 4.07136e-3, 2.6232e-3, 0.18384e-3, -1.07424e-3, -1.30944e-3, -3.4824e-3, -2.44992e-3, -3.16272e-3, -4.13904e-3, -3.62064e-3, -3.64944e-3, -2.40672e-3, -2.2488e-3, -0.94848e-3, -0.4896e-3, 1.61856e-3, 2.02896e-3, 3.22416e-3, 2.37504e-3, 2.2656e-3, 2.60688e-3, 1.66128e-3, 1.31856e-3, 1.13136e-3, 2.076e-3, 3.10464e-3, 3.78624e-3, 3.88464e-3, 4.29696e-3, 2.03184e-3, 1.17504e-3, -1.39296e-3, -2.99136e-3, -2.91072e-3, -2.77056e-3, -2.19456e-3, -0.33168e-3, 1.71264e-3, 2.93904e-3, 3.15072e-3, 2.71968e-3, 0.82608e-3, -1.53504e-3, -3.80208e-3, -7.18128e-3, -10.90176e-3, -14.62752e-3, -16.93536e-3, -20.98656e-3, -25.18032e-3, -29.35344e-3, -33.63696e-3, -40.9176e-3, -46.9464e-3, -52.05312e-3, -57.47424e-3, -61.1784e-3, -62.55936e-3, -61.89072e-3, -58.7088e-3, -49.87632e-3, -39.12816e-3, -21.95664e-3, 0.3288e-3, 32.1336e-3, 65.65056e-3, 107.80848e-3, 155.69184e-3, 206.0256e-3, 250.992e-3, 299.1e-3, 329.27952e-3, 344.52528e-3, 334.83072e-3, 292.75824e-3, 216.2976e-3, 87.13968e-3, -60.76896e-3, -213.16272e-3, -381.44928e-3, -550.64592e-3, -668.63328e-3, -697.77456e-3, -614.68416e-3, -474.13776e-3, -295.02624e-3, -101.68176e-3, 77.6952e-3, 229.9536e-3, 325.01232e-3, 366.3264e-3, 347.13792e-3, 286.46496e-3, 190.91664e-3, 87.9312e-3, 3.15264e-3, -52.75632e-3, -73.94208e-3, -69.7128e-3, -44.42496e-3, -15.6192e-3, 9.04512e-3, 18.3912e-3, 11.7744e-3, -3.59952e-3, -24.15888e-3, -37.5696e-3, -40.3272e-3, -32.69184e-3, -14.71968e-3, 10.49088e-3, 31.34592e-3, 44.9976e-3, 49.40496e-3, 41.9376e-3, 26.91168e-3, 6.828e-3, -12.80208e-3, -27.65088e-3, -33.31008e-3, -33.5112e-3, -27.49104e-3, -20.3928e-3, -12.38784e-3, -7.29312e-3, -4.30176e-3, -4.9032e-3, -6.6192e-3, -5.38032e-3, -2.08416e-3, 4.74816e-3, 13.29168e-3, 24.12864e-3, 33.80832e-3, 39.65472e-3, 41.70384e-3, 37.39728e-3, 28.0104e-3, 14.1456e-3, -0.42528e-3, -14.8632e-3, -25.93872e-3, -32.73024e-3, -35.59632e-3, -33.16224e-3, -26.81424e-3, -15.35616e-3, -3.79344e-3, 7.71312e-3, 17.02512e-3, 20.75664e-3, 21.26784e-3, 18.18288e-3, 10.12464e-3, 1.44624e-3, -6.43872e-3, -11.79696e-3, -15.60672e-3, -15.07008e-3, -11.30304e-3, -6.09888e-3, -0.54e-3, 3.9984e-3, 5.51328e-3, 7.15632e-3, 5.95824e-3, 3.05376e-3, 0.89424e-3, -0.03504e-3, 1.70256e-3, 4.47936e-3, 3.20112e-3, 4.31088e-3, 3.30192e-3, -1.64208e-3, -6.57648e-3, -14.65632e-3, -21.73104e-3, -26.52048e-3, -28.66992e-3, -25.71216e-3, -19.25712e-3, -10.89264e-3, -2.78688e-3, 8.28048e-3, 14.63712e-3, 19.45968e-3, 20.5056e-3, 19.42896e-3, 17.1672e-3, 13.2096e-3, 9.61536e-3, 6.31152e-3, 2.26608e-3 };
 
-        Spline __spline_A(vector_potential(E_A, dt).data(), N, t_begin, dt, h_float{}, h_float{});
-        Spline __spline_B(vector_potential(E_B, dt).data(), N, t_begin, dt, h_float{}, h_float{});
+        // Vector potential is given in [A/c] -> ((MV / cm) * ps) = 10^{-4} Vs/m
+        // Multiplied by d*e/hbar for Peierls = d * 1.5192674478786 * 10^{15} 1 / (Vs)
+        //      = d * 1.5192674478786 * 10^{11} 1/m
+        // with d in pm         = 0.15192674478786 * d
+        Spline __spline_A(vector_potential(E_A, exp_dt).data(), N, t_begin, dt, h_float{}, h_float{});
+        Spline __spline_B(vector_potential(E_B, exp_dt).data(), N, t_begin, dt, h_float{}, h_float{});
 
         auto add_laser = [this](const h_float A_A, const h_float A_B) -> h_float {
             if (this->active_laser == Active::Both)
@@ -91,12 +99,15 @@ namespace HHG::Laser {
             if (second_laser_shift >= 0) {
                 const h_float __A = t <= unitless_laser_end ? __spline_A(t) : h_float{};
                 const h_float __B = (t - second_laser_shift >= 0 && t - second_laser_shift <= unitless_laser_end) ? __spline_B(t - second_laser_shift) : h_float{};
-                __temp[i] = momentum_amplitude * add_laser(__A, __B);
+                __temp[i] = 0.15192674478786e11 * lattice_constant * add_laser(__A, __B);
+                // See above for the reason of 0.15192674478786e11
+
+                std::cout << t << ":\t" << __temp[i] << std::endl;
             }
             else {
                 const h_float __A = (t + second_laser_shift >= 0 && t + second_laser_shift <= unitless_laser_end) ? __spline_A(t + second_laser_shift) : h_float{};
                 const h_float __B = t <= unitless_laser_end ? __spline_B(t) : h_float{};
-                __temp[i] = momentum_amplitude * add_laser(__A, __B);
+                __temp[i] = 0.15192674478786e11 * lattice_constant * add_laser(__A, __B);
             }
         }
 
@@ -104,6 +115,6 @@ namespace HHG::Laser {
     }
 
     h_float ExperimentalLaser::envelope(h_float t) const {
-        throw std::runtime_error("Enevelope of the experimental pulse should never be called!");
+        throw std::runtime_error("Envelope of the experimental pulse should never be called!");
     }
 }

@@ -15,7 +15,8 @@ namespace HHG::Laser {
         constexpr static h_float unified_t_max{ 1.5 * laser_end }; ///< in ps; I just assume that I'll never use t0 > 0.5 * laser_end
 
         const h_float second_laser_shift{}; ///< in units of hbar omega
-
+        const h_float lattice_constant{}; ///< in 1/m
+        
         // photon_energy and E_0 should be given in units of the experimental input
         // That is, they merely rescale the experimental data
         ExperimentalLaser(h_float _photon_energy, h_float _E_0, h_float model_ratio, h_float _second_laser_shift, Active _active_laser = Active::Both);
