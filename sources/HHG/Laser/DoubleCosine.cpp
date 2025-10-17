@@ -38,7 +38,6 @@ namespace HHG::Laser {
                 return A_B;
         };
 
-        std::cout << second_laser_shift << std::endl;
         std::vector<h_float> __temp(N);
         for(int i = 0; i < N; ++i) {
             const h_float t = i * dt;
@@ -46,6 +45,8 @@ namespace HHG::Laser {
             const h_float __B = laserB.laser_function(t - second_laser_shift);
             __temp[i] = add_laser(__A, __B);
         }
+
+        std::cout << "Max shift = " << std::ranges::max(__temp, [](double l, double r){return std::abs(l) < std::abs(r);}) << std::endl;
 
         this->laser_spline = Spline(__temp.data(), N, t_begin, dt, h_float{}, h_float{});
     }

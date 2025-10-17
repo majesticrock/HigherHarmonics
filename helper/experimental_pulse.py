@@ -3,6 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import hilbert
 
+HBAR = 6.582119569509065698e-1 # meV ps
+
 def print_fit_params(opt, cov):
     for i in range(len(opt)):
         print("i:", opt[i], "+/-", np.sqrt(cov[i][i]))
@@ -31,13 +33,26 @@ def vector_potential(electric_field, time):
     dt = time[1] - time[0]
     return -np.cumsum(electric_field) * dt
 
+def dirac_shift(vector_potential):
+    # v_F [m/s] * hbar [meV ps] * e [C] / hbar [meV ps] * (A / c) [kV ps / cm]
+    # = v_F [m/s] * e [C] * (A/c) [V s / m] * 10^{-7} = # [CV]
+    # = v_F [m/s] * (A/c) [kV ps / cm] * 10^{-7} eV
+    return 1.5e6 * 1e-7 * vector_potential
+
+def momentum_shift(vector_potential):
+    # d [m] * e [C] / hbar [meV ps] * (A/c) [kV ps / cm] = # [C kV / (cm meV)]
+    # = d [m] * (A/c) [kV ps / cm] / hbar [meV ps] * 10^8
+    return 1e-9 * 1e8 / HBAR * vector_potential
+
 axes[0].plot(time, A, "-",label="$E$")
 axes[0].plot(time, env_A, "--", label="Envelope")
-axes[0].plot(time, 10 * vector_potential(A, time), label="$10 \\times A$")
+#axes[0].plot(time, 100 * dirac_shift(vector_potential(A, time)), label=r"$\tilde{A}$ [eV / 100]")
+axes[0].plot(time, 100 / np.pi * momentum_shift(vector_potential(A, time)), label=r"$100 \tilde{A} / \pi$")
 
 axes[1].plot(time, B, "-",label="$E_B$")
 axes[1].plot(time, env_B, "--", label="Envelope")
-axes[1].plot(time, 10 * vector_potential(B, time), label="$10 \\times A$")
+#axes[1].plot(time, 100 * dirac_shift(vector_potential(B, time)), label=r"$\tilde{A}$ [eV / 100]")
+axes[1].plot(time, 100 / np.pi * momentum_shift(vector_potential(B, time)), label=r"$100\tilde{A} / \pi$")
 
 axes[2].plot(time, A + B)
 axes[2].axvline(time[FFT_MIN], c='k')
@@ -57,7 +72,6 @@ axes[0].legend(loc="upper right")
 
 
 from scipy.fft import rfft, rfftfreq
-HBAR = 6.582119569509065698e-1 # meV ps
 PAD = 8
 fftA = np.abs(rfft(A, n=PAD*N))
 fftB = np.abs(rfft(B, n=PAD*N))
