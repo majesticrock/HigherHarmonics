@@ -12,7 +12,7 @@ shift
 values=("$@")
 
 # Path to the params.config file
-config_file="params/experiment.config"
+config_file="params/dcos.config"
 
 # Ensure that the params.config file exists
 if [ ! -f "$config_file" ]; then
@@ -25,11 +25,11 @@ for value in "${values[@]}"; do
     sed -i "s/^$name.*/$name $value/" "$config_file"
 
     sed -i "s/^laser_type.*/laser_type dcosA/" "$config_file"
-    ./build_no_mpi/hhg params/experiment.config
+    ./build_no_mpi/hhg $config_file
 
     sed -i "s/^laser_type.*/laser_type dcosB/" "$config_file"
-    ./build_no_mpi/hhg params/experiment.config
+    ./build_no_mpi/hhg $config_file
 
     sed -i "s/^laser_type.*/laser_type dcos/" "$config_file"
-    ./build_no_mpi/hhg params/experiment.config
+    ./build_no_mpi/hhg $config_file
 done
