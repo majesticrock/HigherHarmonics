@@ -100,11 +100,11 @@ HHG::Dispatch::PiFluxDispatcher::PiFluxDispatcher(
 
     std::cout << "Model parameters:" << std::endl;
     std::cout << "lattice constant = " << std::visit(
-            [&](auto& sys){ return sys.get_property_in_SI_units("d", photon_energy); },
+            [&](auto& sys){ return sys.get_property_in_SI_units("d", laser->photon_energy); },
             system
         ) << std::endl;
     std::cout << "Hopping element = " << std::visit(
-            [&](auto& sys){ return sys.get_property_in_SI_units("t", photon_energy); },
+            [&](auto& sys){ return sys.get_property_in_SI_units("t", laser->photon_energy); },
             system
         ) << std::endl;
 }
