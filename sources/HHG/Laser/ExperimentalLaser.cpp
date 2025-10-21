@@ -109,6 +109,9 @@ namespace HHG::Laser {
                 __temp[i] = (0.1 / HHG::hbar) * lattice_constant * add_laser(__A, __B);
             }
         }
+        std::cout << "Maximum shift = " 
+            << std::ranges::max(__temp, [](const double lhs, const double rhs) {return std::abs(lhs) < std::abs(rhs);}) 
+            << std::endl;
 
         this->laser_spline = Spline(__temp.data(), N_temp + 1, t_begin, dt, h_float{}, h_float{});
     }
