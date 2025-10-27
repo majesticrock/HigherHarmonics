@@ -1,4 +1,6 @@
 #include "ExperimentalLaser.hpp"
+#include "ExperimentParams.hpp"
+
 #include <iostream>
 
 namespace HHG::Laser {
@@ -16,48 +18,48 @@ namespace HHG::Laser {
         this->compute_spline();
     }
 
-    typedef std::array<h_float, ExperimentalLaser::N_experiment + 2 * ExperimentalLaser::N_extra> A_arr;
+    typedef std::array<h_float, N_experiment + 2 * N_extra> A_arr;
 
-    A_arr vector_potential(const std::array<h_float, ExperimentalLaser::N_experiment>& electric_field, h_float dt) 
+    A_arr vector_potential(const std::array<h_float, N_experiment>& electric_field, h_float dt) 
     {
         A_arr ret;
-        ret[ExperimentalLaser::N_extra] = -electric_field[0] * dt;
-        for (size_t i = 1U; i < ExperimentalLaser::N_experiment; ++i) {
+        ret[N_extra] = -electric_field[0] * dt;
+        for (size_t i = 1U; i < N_experiment; ++i) {
              // A = - c int_0^t E(t') dt'. The factor c cancels in the Peierls substitution
-            ret[ExperimentalLaser::N_extra + i] = ret[ExperimentalLaser::N_extra + i - 1] - electric_field[i] * dt;
+            ret[N_extra + i] = ret[N_extra + i - 1] - electric_field[i] * dt;
         }
         {
             const h_float prime = -electric_field.front();
             const h_float primeprime = -0.5 * (electric_field[1] - electric_field.front()) / dt;
 
-            const h_float __end = -(ExperimentalLaser::N_extra - 1) * dt;
-            const h_float third = -4 * (primeprime / (2 * __end) + (3 * prime) / (4 * __end * __end) + ret[ExperimentalLaser::N_extra] / (__end * __end * __end));
+            const h_float __end = -(N_extra - 1) * dt;
+            const h_float third = -4 * (primeprime / (2 * __end) + (3 * prime) / (4 * __end * __end) + ret[N_extra] / (__end * __end * __end));
             const h_float fourth = -0.25 * (3 * third / __end + 2 * primeprime / (__end * __end) + prime / (__end * __end * __end));
 
             auto pol = [&](h_float t) {
-                return ret[ExperimentalLaser::N_extra] + prime * t + primeprime * t*t + third * t*t*t + fourth * t*t*t*t;
+                return ret[N_extra] + prime * t + primeprime * t*t + third * t*t*t + fourth * t*t*t*t;
             };
 
-            for (int i = 1; i <= ExperimentalLaser::N_extra; ++i) {
-                ret[ExperimentalLaser::N_extra - i] = pol(-i*dt);
+            for (int i = 1; i <= N_extra; ++i) {
+                ret[N_extra - i] = pol(-i*dt);
             }
             ret.front() = h_float{};
         }
 
         {
             const h_float prime = -electric_field.back();
-            const h_float primeprime = 0.5 * (electric_field[ExperimentalLaser::N_experiment - 2] - electric_field.back()) / dt;
+            const h_float primeprime = 0.5 * (electric_field[N_experiment - 2] - electric_field.back()) / dt;
 
-            const h_float __end = (ExperimentalLaser::N_extra - 1) * dt;
-            const h_float third = -4 * (primeprime / (2 * __end) + (3 * prime) / (4 * __end * __end) + ret[ExperimentalLaser::N_extra + ExperimentalLaser::N_experiment - 1] / (__end * __end * __end));
+            const h_float __end = (N_extra - 1) * dt;
+            const h_float third = -4 * (primeprime / (2 * __end) + (3 * prime) / (4 * __end * __end) + ret[N_extra + N_experiment - 1] / (__end * __end * __end));
             const h_float fourth = - 0.25 * (3 * third / __end + 2 * primeprime / (__end * __end) + prime / (__end * __end * __end));
 
             auto pol = [&](h_float t) {
-                return ret[ExperimentalLaser::N_extra + ExperimentalLaser::N_experiment - 1] + prime * t + primeprime * t*t + third * t*t*t + fourth * t*t*t*t;
+                return ret[N_extra + N_experiment - 1] + prime * t + primeprime * t*t + third * t*t*t + fourth * t*t*t*t;
             };
 
-            for (int i = 0; i < (ExperimentalLaser::N_extra - 1); ++i) {
-                ret[ExperimentalLaser::N_extra + ExperimentalLaser::N_experiment + i] = pol((i+1)*dt);
+            for (int i = 0; i < (N_extra - 1); ++i) {
+                ret[N_extra + N_experiment + i] = pol((i+1)*dt);
             }
             ret.back() = h_float{};
         }

@@ -43,5 +43,9 @@ namespace HHG::Dispatch {
         static constexpr std::string_view dcos          = "dcos";
         static constexpr std::string_view dcosA         = "dcosA";
         static constexpr std::string_view dcosB         = "dcosB";
+        static constexpr std::string_view gauss         = "gauss";
+        static constexpr std::string_view dgauss        = "dgauss";
+        static constexpr std::string_view dgaussA       = "dgaussA";
+        static constexpr std::string_view dgaussB       = "dgaussB";
     };
 }

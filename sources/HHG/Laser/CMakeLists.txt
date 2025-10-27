@@ -5,7 +5,8 @@ set(LASER_SOURCES
     ExperimentalLaser.cpp
     QuenchedField.cpp
     PowerLawField.cpp
-    DoubleCosine.cpp
+    GaussLaser.cpp
+    #DoubleCosine.cpp
 )
 
 add_library(Laser STATIC ${LASER_SOURCES})

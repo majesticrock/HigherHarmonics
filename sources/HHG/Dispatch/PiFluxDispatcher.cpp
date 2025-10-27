@@ -5,7 +5,8 @@
 #include "../Laser/ExperimentalLaser.hpp"
 #include "../Laser/QuenchedField.hpp"
 #include "../Laser/PowerLawField.hpp"
-#include "../Laser/DoubleCosine.hpp"
+#include "../Laser/GaussLaser.hpp"
+#include "../Laser/DoubleLaser.hpp"
 
 #include <chrono>
 
@@ -83,15 +84,31 @@ HHG::Dispatch::PiFluxDispatcher::PiFluxDispatcher(
         time_config = {laser->t_begin, laser->t_end, N, 50};
     }
     else if (laser_type == dcos) {
-        laser = std::make_unique<Laser::DoubleCosine>(photon_energy, E0, laser_model_ratio, n_laser_cycles, t0_offset);
+        laser = std::make_unique<Laser::DoubleLaser<Laser::CosineLaser>>(photon_energy, E0, laser_model_ratio, n_laser_cycles, t0_offset);
         time_config = {laser->t_begin, reduced_duration ? 0.75 * laser->t_end : laser->t_end, N, 50};
     }
     else if (laser_type == dcosA) {
-        laser = std::make_unique<Laser::DoubleCosine>(photon_energy, E0, laser_model_ratio, n_laser_cycles, t0_offset, Laser::DoubleCosine::Active::A);
+        laser = std::make_unique<Laser::DoubleLaser<Laser::CosineLaser>>(photon_energy, E0, laser_model_ratio, n_laser_cycles, t0_offset, Laser::DoubleLaser<Laser::CosineLaser>::Active::A);
         time_config = {laser->t_begin, reduced_duration ? 0.75 * laser->t_end : laser->t_end, N, 50};
     }
     else if (laser_type == dcosB) {
-        laser = std::make_unique<Laser::DoubleCosine>(photon_energy, E0, laser_model_ratio, n_laser_cycles, t0_offset, Laser::DoubleCosine::Active::B);
+        laser = std::make_unique<Laser::DoubleLaser<Laser::CosineLaser>>(photon_energy, E0, laser_model_ratio, n_laser_cycles, t0_offset, Laser::DoubleLaser<Laser::CosineLaser>::Active::B);
+        time_config = {laser->t_begin, reduced_duration ? 0.75 * laser->t_end : laser->t_end, N, 50};
+    }
+    else if (laser_type == gauss) {
+        laser = std::make_unique<Laser::GaussLaser>(photon_energy, E0, laser_model_ratio, n_laser_cycles, t0_offset);
+        time_config = {laser->t_begin, reduced_duration ? 0.75 * laser->t_end : laser->t_end, N, 50};
+    }
+    else if (laser_type == dgauss) {
+        laser = std::make_unique<Laser::DoubleLaser<Laser::GaussLaser>>(photon_energy, E0, laser_model_ratio, n_laser_cycles, t0_offset);
+        time_config = {laser->t_begin, reduced_duration ? 0.75 * laser->t_end : laser->t_end, N, 50};
+    }
+    else if (laser_type == dgaussA) {
+        laser = std::make_unique<Laser::DoubleLaser<Laser::GaussLaser>>(photon_energy, E0, laser_model_ratio, n_laser_cycles, t0_offset, Laser::DoubleLaser<Laser::GaussLaser>::Active::A);
+        time_config = {laser->t_begin, reduced_duration ? 0.75 * laser->t_end : laser->t_end, N, 50};
+    }
+    else if (laser_type == dgaussB) {
+        laser = std::make_unique<Laser::DoubleLaser<Laser::GaussLaser>>(photon_energy, E0, laser_model_ratio, n_laser_cycles, t0_offset, Laser::DoubleLaser<Laser::GaussLaser>::Active::B);
         time_config = {laser->t_begin, reduced_duration ? 0.75 * laser->t_end : laser->t_end, N, 50};
     }
     else {

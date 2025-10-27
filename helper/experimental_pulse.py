@@ -71,11 +71,11 @@ axes[2].set_ylabel("$E_A + E_B$ (kV/cm)")
 axes[0].legend(loc="upper right")
 
 
-from scipy.fft import rfft, rfftfreq
+from scipy.fft import rfft, rfftfreq, irfft
 PAD = 8
-fftA = np.abs(rfft(A, n=PAD*N))
-fftB = np.abs(rfft(B, n=PAD*N))
-fft_total = np.abs(rfft((A+B)[FFT_MIN:FFT_MAX], n=PAD*N))
+fftA = rfft(A, n=PAD*N)
+fftB = rfft(B, n=PAD*N)
+fft_total = rfft((A+B), n=PAD*N)#[FFT_MIN:FFT_MAX]
 
 dt = 0
 for i in range(N - 1):
@@ -85,11 +85,12 @@ dt /= N
 freq = 2 * np.pi * HBAR * rfftfreq(PAD*N, dt)
 
 fig2, ax2 = plt.subplots()
-ax2.plot(freq, fftA / np.max(fftA), label="A")
-ax2.plot(freq, fftB / np.max(fftB), label="B")
-ax2.plot(freq, fft_total / np.max(fft_total), label="A+B")
+ax2.plot(freq, np.abs(fftA) / np.max(np.abs(fftA)), label="A")
+ax2.plot(freq, np.abs(fftB) / np.max(np.abs(fftB)), label="B")
+ax2.plot(freq, np.abs(fft_total) / np.max(np.abs(fft_total)), label="A+B")
+ax2.legend()
 
-peak_pos = freq[np.argmax(fft_total)]
+peak_pos = freq[np.argmax(np.abs(fft_total))]
 ax2.axvline(peak_pos, ls="--", c="k")
 
 # my analysis: 1.489 THz; Wang: 1.45 THz...?
@@ -100,5 +101,29 @@ ax2.set_xlabel(r"$\hbar \omega$ (meV)")
 ax2.set_ylabel(r"FFT (normalized)")
 ax2.set_yscale('log')
 ax2.set_xlim(0, 30)
+
+def gaussian_filter(omega, omega_0, OMEGA_CUT):
+    sigma = OMEGA_CUT / np.sqrt(-2 * np.log(0.01))
+    return np.exp(-(omega - omega_0)**2 / (2 * sigma**2))
+
+# Calculate sigma such that G(OMEGA_CUT) = 0.01
+OMEGA_CUT = peak_pos  # or whatever cutoff you want
+
+# Apply Gaussian filter centered at zero
+fft_filtered = fft_total * gaussian_filter(freq, 0, OMEGA_CUT)
+
+# Plot the filter shape on the FFT plot
+ax2.plot(freq, gaussian_filter(freq, peak_pos, OMEGA_CUT), '--', color='gray', alpha=0.5, label='Gaussian filter')
+ax2.axvline(OMEGA_CUT, ls=':', color='gray', alpha=0.5, label=r'$\omega_\mathrm{cut}$')
+
+reconstructed = irfft(fft_filtered, n=PAD * N)
+
+fig3, ax3 = plt.subplots()
+ax3.plot(np.arange(N) * dt, reconstructed[:N], label=f"reconstructed", lw=1)
+ax3.plot(time, (A + B), label="original (A + B)", alpha=0.8)
+ax3.set_xlabel("Time (ps)")
+ax3.set_ylabel("Field (kV/cm)")
+ax3.legend()
+ax3.set_title("Inverse FFT after Gaussian filtering")
 
 plt.show()
