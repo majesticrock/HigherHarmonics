@@ -3,7 +3,8 @@
 # Set architecture: "IceLake" or "CascadeLake"
 arch="CascadeLake"
 
-shifts=(0 0.07 0.14 0.21 0.28 0.35 0.42 0.49 0.56 0.63 0.7)
+shifts=(0)
+# 0.07 0.14 0.21 0.28 0.35 0.42 0.49 0.56 0.63 0.7
 current_date=$(date +"%Y%m%d_%H%M%S")
 
 output_dir="auto_generated_${current_date}"
