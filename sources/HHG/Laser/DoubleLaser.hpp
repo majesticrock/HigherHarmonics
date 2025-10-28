@@ -17,6 +17,7 @@ namespace HHG::Laser {
         constexpr static h_float uniteless_to_ps(h_float unitless) {
             return unitless * (1e12 * hbar) / exp_photon_energy;
         }
+        constexpr static h_float second_laser_phase_shift = 0.0;
 
         const h_float unified_t_max; // 1.5 * the duration of one pulse
         const h_float second_laser_shift{}; ///< in units of hbar omega
@@ -29,7 +30,7 @@ namespace HHG::Laser {
             second_laser_shift{photon_energy * ps_to_uniteless(_second_laser_shift)},
             active_laser{_active_laser},
             laserA(exp_photon_energy * photon_energy, E_0 * 1.6, model_ratio, n_cycles),
-            laserB(exp_photon_energy * photon_energy, E_0 * 0.7, model_ratio, n_cycles)
+            laserB(exp_photon_energy * photon_energy, E_0 * 0.7, model_ratio, n_cycles, second_laser_phase_shift)
         {
             this->compute_spline();
         };
@@ -62,7 +63,7 @@ namespace HHG::Laser {
             for(int i = 0; i < N; ++i) {
                 const h_float t = i * dt;
                 const h_float __A = laserA.laser_function(t);
-                const h_float __B = laserB.laser_function(t - second_laser_shift);
+                const h_float __B = laserB.laser_function(t - second_laser_shift + second_laser_phase_shift);
                 __temp[i] = add_laser(__A, __B);
             }
 

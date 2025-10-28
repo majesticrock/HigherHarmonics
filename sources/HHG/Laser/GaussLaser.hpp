@@ -15,7 +15,7 @@ namespace HHG::Laser {
             return 2.0 * HHG::pi * EXTEND * n_cycles;
         }
     private:
-        const h_float sigma;
         const h_float center;
+        const h_float sigma;
     };
 }
