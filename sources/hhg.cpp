@@ -78,7 +78,7 @@ int main(int argc, char** argv) {
      *  DiracSystem: 2^14 is the mininum value to achieve good precision for realistic parameters
      *  PiFlux: 2^10 is the minimum for v_F = 1.5e3 m/s - but the band width is also very imporant; large band width is apparently good
      */
-    constexpr int measurements_per_cycle = 1 << 10; 
+    constexpr int measurements_per_cycle = 1 << 8; 
     const int N = n_laser_cylces * measurements_per_cycle;
 
     /**

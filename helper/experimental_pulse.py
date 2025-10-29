@@ -17,8 +17,8 @@ A = data[:, 1]
 B = data[:, 2]
 
 N = len(time)
-FFT_MIN = int(0.25 * N)
-FFT_MAX = int(0.65 * N)
+FFT_MIN = int(0. * N)
+FFT_MAX = int(1 * N)
 
 signal_A = hilbert(A)
 env_A = np.abs(signal_A)
@@ -56,7 +56,7 @@ axes[1].plot(time, 100 / np.pi * momentum_shift(vector_potential(B, time)), labe
 
 axes[2].plot(time, A + B)
 axes[2].axvline(time[FFT_MIN], c='k')
-axes[2].axvline(time[FFT_MAX], c='k')
+axes[2].axvline(time[FFT_MAX - 1], c='k')
 
 tA = time[np.argmax(env_A)]
 ampA = np.max(env_A)
@@ -72,15 +72,13 @@ axes[0].legend(loc="upper right")
 
 
 from scipy.fft import rfft, rfftfreq, irfft
-PAD = 8
-fftA = rfft(A, n=PAD*N)
-fftB = rfft(B, n=PAD*N)
-fft_total = rfft((A+B), n=PAD*N)#[FFT_MIN:FFT_MAX]
+from scipy.ndimage import gaussian_filter1d
+PAD = 1
+fftA = rfft(A[FFT_MIN:FFT_MAX], n=PAD*N)
+fftB = rfft(B[FFT_MIN:FFT_MAX], n=PAD*N)
+fft_total = rfft((A+B)[FFT_MIN:FFT_MAX], n=PAD*N)
 
-dt = 0
-for i in range(N - 1):
-    dt += time[i + 1] - time[i]
-dt /= N
+dt = np.average(np.diff(time))
 
 freq = 2 * np.pi * HBAR * rfftfreq(PAD*N, dt)
 
@@ -102,28 +100,56 @@ ax2.set_ylabel(r"FFT (normalized)")
 ax2.set_yscale('log')
 ax2.set_xlim(0, 30)
 
-def gaussian_filter(omega, omega_0, OMEGA_CUT):
-    sigma = OMEGA_CUT / np.sqrt(-2 * np.log(0.01))
-    return np.exp(-(omega - omega_0)**2 / (2 * sigma**2))
 
-# Calculate sigma such that G(OMEGA_CUT) = 0.01
-OMEGA_CUT = peak_pos  # or whatever cutoff you want
+fig3, axes3 = plt.subplots(nrows=3, sharex=True, figsize=(6.8, 6))
+fig3.subplots_adjust(hspace=0.0)
 
-# Apply Gaussian filter centered at zero
-fft_filtered = fft_total * gaussian_filter(freq, 0, OMEGA_CUT)
+fig4, axes4 = plt.subplots(nrows=3, sharex=True, sharey=True, figsize=(6.8, 6))
+fig4.subplots_adjust(hspace=0.0)
 
-# Plot the filter shape on the FFT plot
-ax2.plot(freq, gaussian_filter(freq, peak_pos, OMEGA_CUT), '--', color='gray', alpha=0.5, label='Gaussian filter')
-ax2.axvline(OMEGA_CUT, ls=':', color='gray', alpha=0.5, label=r'$\omega_\mathrm{cut}$')
+cut = 2 * peak_pos
 
-reconstructed = irfft(fft_filtered, n=PAD * N)
+for ax, ax_fft, signal, fft_in in zip(axes3, axes4, [A, B, A+B], [fftA, fftB, fft_total]):
+    ax.set_ylabel("Field (kV/cm)")
+    ax_fft.set_ylabel("FFT")
+    
+    cut_f_signal = fft_in.copy()
+    cut_f_signal[freq > cut] = 0
+    # smooth magnitude of the FFT while preserving phase
+    amp = np.abs(cut_f_signal)
+    phase = np.angle(cut_f_signal)
 
-fig3, ax3 = plt.subplots()
-ax3.plot(np.arange(N) * dt, reconstructed[:N], label=f"reconstructed", lw=1)
-ax3.plot(time, (A + B), label="original (A + B)", alpha=0.8)
-ax3.set_xlabel("Time (ps)")
-ax3.set_ylabel("Field (kV/cm)")
-ax3.legend()
-ax3.set_title("Inverse FFT after Gaussian filtering")
+    # smoothing width: use 10% of the main peak (converted to bins)
+    df = freq[1] - freq[0]
+    sigma_freq = max(peak_pos * 0.1, df)
+    sigma_bins = max(1.0, sigma_freq / df)
+
+    smooth_amp = gaussian_filter1d(amp, sigma_bins)
+
+    # reconstruct complex spectrum and lightly attenuate very high frequencies
+    cut_f_signal = smooth_amp * np.exp(1j * phase)
+    cut_f_signal *= np.exp(-0.5 * (freq / cut)**2)
+
+    filtered_pulse = irfft(cut_f_signal, N)
+
+    ax.plot(time, filtered_pulse, label="Filtered")
+    ax.plot(time, signal, label="Original", ls="--")
+    
+    N = len(filtered_pulse)
+    filter_freq = 2 * np.pi * HBAR * rfftfreq(PAD*N, dt)
+    filter_fft = rfft(filtered_pulse, n=PAD*N)
+    
+    ax_fft.plot(filter_freq, np.abs(filter_fft) / np.max(np.abs(filter_fft)), label="Filtered")
+    ax_fft.plot(freq, np.abs(fft_in) / np.max(np.abs(fft_in)), label="Original", ls="--")
+    ax_fft.set_ylabel(r"FFT (normalized)")
+    
+    print(1e-3 * filtered_pulse)
+    
+ax.legend()
+axes3[-1].set_xlabel("Time (ps)")
+
+axes4[-1].set_xlabel(r"$\hbar \omega$ (meV)")
+axes4[0].set_yscale('log')
+axes4[0].set_xlim(0, 30)
 
 plt.show()
