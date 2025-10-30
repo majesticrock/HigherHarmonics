@@ -645,24 +645,6 @@ namespace HHG::Systems {
         return current_density_time;
     }
 
-    nd_vector PiFlux::xy_integral(momentum_type& k, nd_vector& rhos_buffer, Laser::Laser const * const laser, TimeIntegrationConfig const& time_config) const {
-        typedef gauss::container<2 * n_xy_inner> xy_inner;
-
-        nd_vector x_buffer = nd_vector::Zero(time_config.n_measurements + 1);
-
-        for (int i = 0; i < n_xy_inner; ++i) {
-            k.update_x(0.5 * pi * xy_inner::abscissa[i]);
-
-            for (int j = 0; j < n_xy_inner; ++j) {
-                k.update_y(0.5 * pi * xy_inner::abscissa[j]);
-                __time_evolution__(rhos_buffer, laser, k, time_config);
-
-                x_buffer += xy_inner::weights[i] * xy_inner::weights[j] * rhos_buffer;
-            }
-        }
-        return x_buffer;
-    }
-
     nd_vector PiFlux::improved_xy_integral(momentum_type& k, nd_vector& rhos_buffer, Laser::Laser const * const laser, TimeIntegrationConfig const& time_config) const {
         constexpr h_float edge = 0.35 * pi;
         
