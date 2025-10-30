@@ -5,6 +5,8 @@
 #include "../Laser/ExperimentalLaser.hpp"
 #include "../Laser/QuenchedField.hpp"
 #include "../Laser/PowerLawField.hpp"
+#include "../Laser/GaussLaser.hpp"
+#include "../Laser/DoubleLaser.hpp"
 
 #include <chrono>
 
@@ -47,17 +49,17 @@ HHG::Dispatch::PiFluxDispatcher::PiFluxDispatcher(
     const h_float E0 = input.getDouble("field_amplitude");
     const h_float photon_energy = input.getDouble("photon_energy");
     const std::string laser_type = input.getString("laser_type");
-    const int n_laser_cylces = input.getInt("n_laser_cycles");
+    const int n_laser_cycles = input.getInt("n_laser_cycles");
 
     const h_float laser_model_ratio = std::visit([](auto& sys) { return sys.laser_model_ratio(); }, system);
     const bool reduced_duration = input.getString("occupations") != "no" || input.getString("split_current") != "no";
 
     if (laser_type == continuous) {
         laser = std::make_unique<Laser::ContinuousLaser>(photon_energy, E0, laser_model_ratio);
-        time_config = {-n_laser_cylces * HHG::pi, n_laser_cylces * HHG::pi, N, 50};
+        time_config = {-n_laser_cycles * HHG::pi, n_laser_cycles * HHG::pi, N, 50};
     }
     else if (laser_type == cosine) {
-        laser = std::make_unique<Laser::CosineLaser>(photon_energy, E0, laser_model_ratio, n_laser_cylces, pi * t0_offset);
+        laser = std::make_unique<Laser::CosineLaser>(photon_energy, E0, laser_model_ratio, n_laser_cycles, pi * t0_offset);
         // continue time evolution for 1 cycle so that the relaxation can set in
         time_config = {laser->t_begin, laser->t_end + (2. * pi), N, 50};
     }
@@ -81,17 +83,45 @@ HHG::Dispatch::PiFluxDispatcher::PiFluxDispatcher(
         laser = std::make_unique<Laser::PowerLawField>(photon_energy, E0, laser_model_ratio, t0_offset, std::stod(laser_type.substr(powerlaw.size())));
         time_config = {laser->t_begin, laser->t_end, N, 50};
     }
+    else if (laser_type == dcos) {
+        laser = std::make_unique<Laser::DoubleLaser<Laser::CosineLaser>>(photon_energy, E0, laser_model_ratio, n_laser_cycles, t0_offset);
+        time_config = {laser->t_begin, reduced_duration ? 0.75 * laser->t_end : laser->t_end, N, 50};
+    }
+    else if (laser_type == dcosA) {
+        laser = std::make_unique<Laser::DoubleLaser<Laser::CosineLaser>>(photon_energy, E0, laser_model_ratio, n_laser_cycles, t0_offset, Laser::DoubleLaser<Laser::CosineLaser>::Active::A);
+        time_config = {laser->t_begin, reduced_duration ? 0.75 * laser->t_end : laser->t_end, N, 50};
+    }
+    else if (laser_type == dcosB) {
+        laser = std::make_unique<Laser::DoubleLaser<Laser::CosineLaser>>(photon_energy, E0, laser_model_ratio, n_laser_cycles, t0_offset, Laser::DoubleLaser<Laser::CosineLaser>::Active::B);
+        time_config = {laser->t_begin, reduced_duration ? 0.75 * laser->t_end : laser->t_end, N, 50};
+    }
+    else if (laser_type == gauss) {
+        laser = std::make_unique<Laser::GaussLaser>(photon_energy, E0, laser_model_ratio, n_laser_cycles, t0_offset);
+        time_config = {laser->t_begin, reduced_duration ? 0.75 * laser->t_end : laser->t_end, N, 50};
+    }
+    else if (laser_type == dgauss) {
+        laser = std::make_unique<Laser::DoubleLaser<Laser::GaussLaser>>(photon_energy, E0, laser_model_ratio, n_laser_cycles, t0_offset);
+        time_config = {laser->t_begin, reduced_duration ? 0.75 * laser->t_end : laser->t_end, N, 50};
+    }
+    else if (laser_type == dgaussA) {
+        laser = std::make_unique<Laser::DoubleLaser<Laser::GaussLaser>>(photon_energy, E0, laser_model_ratio, n_laser_cycles, t0_offset, Laser::DoubleLaser<Laser::GaussLaser>::Active::A);
+        time_config = {laser->t_begin, reduced_duration ? 0.75 * laser->t_end : laser->t_end, N, 50};
+    }
+    else if (laser_type == dgaussB) {
+        laser = std::make_unique<Laser::DoubleLaser<Laser::GaussLaser>>(photon_energy, E0, laser_model_ratio, n_laser_cycles, t0_offset, Laser::DoubleLaser<Laser::GaussLaser>::Active::B);
+        time_config = {laser->t_begin, reduced_duration ? 0.75 * laser->t_end : laser->t_end, N, 50};
+    }
     else {
         throw std::invalid_argument("Laser type '" + laser_type + "' is not recognized!");
     }
 
     std::cout << "Model parameters:" << std::endl;
     std::cout << "lattice constant = " << std::visit(
-            [&](auto& sys){ return sys.get_property_in_SI_units("d", photon_energy); },
+            [&](auto& sys){ return sys.get_property_in_SI_units("d", laser->photon_energy); },
             system
         ) << std::endl;
     std::cout << "Hopping element = " << std::visit(
-            [&](auto& sys){ return sys.get_property_in_SI_units("t", photon_energy); },
+            [&](auto& sys){ return sys.get_property_in_SI_units("t", laser->photon_energy); },
             system
         ) << std::endl;
 }

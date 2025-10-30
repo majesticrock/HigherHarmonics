@@ -33,12 +33,19 @@ namespace HHG::Dispatch {
 
         static h_float get_photon_energy(mrock::utility::InputFileReader &input);
 
-        static constexpr std::string_view continuous = "continuous";
-        static constexpr std::string_view cosine = "cosine";
-        static constexpr std::string_view exp = "exp";
-        static constexpr std::string_view expA = "expA";
-        static constexpr std::string_view expB = "expB";
-        static constexpr std::string_view quench = "quench";
-        static constexpr std::string_view powerlaw = "powerlaw";
+        static constexpr std::string_view continuous    = "continuous";
+        static constexpr std::string_view cosine        = "cosine";
+        static constexpr std::string_view quench        = "quench";
+        static constexpr std::string_view powerlaw      = "powerlaw";
+        static constexpr std::string_view exp           = "exp";
+        static constexpr std::string_view expA          = "expA";
+        static constexpr std::string_view expB          = "expB";
+        static constexpr std::string_view dcos          = "dcos";
+        static constexpr std::string_view dcosA         = "dcosA";
+        static constexpr std::string_view dcosB         = "dcosB";
+        static constexpr std::string_view gauss         = "gauss";
+        static constexpr std::string_view dgauss        = "dgauss";
+        static constexpr std::string_view dgaussA       = "dgaussA";
+        static constexpr std::string_view dgaussB       = "dgaussB";
     };
 }

@@ -16,6 +16,10 @@ namespace HHG::Laser {
      * Then 1e8 hbar v_F E_0 / (photon_energy) is in eV (for the parameters of Wang around 30.09 eV)
      * 
      * => model_ratio = hbar v_F / photon_energy
+     * 
+     * 
+     * For lattice systems:
+     * d * e / hbar * (A/c) = d * e / hbar * (E / omega_L) = d * e * E / (gamma)
      */
     Laser::Laser(h_float photon_energy, h_float E_0, h_float model_ratio)
         : momentum_amplitude{model_ratio * 1e11 * E_0 / photon_energy}, photon_energy{photon_energy}

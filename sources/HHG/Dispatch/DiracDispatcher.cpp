@@ -4,6 +4,7 @@
 #include "../Laser/ExperimentalLaser.hpp"
 #include "../Laser/QuenchedField.hpp"
 #include "../Laser/PowerLawField.hpp"
+#include "../Laser/DoubleLaser.hpp"
 
 #include <iostream>
 #include <chrono>
@@ -30,17 +31,17 @@ HHG::Dispatch::DiracDispatcher::DiracDispatcher(mrock::utility::InputFileReader 
     }
     else if (laser_type == "exp") {
         laser = std::make_unique<Laser::ExperimentalLaser>(photon_energy, E0, 
-            system.laser_model_ratio(photon_energy * Laser::ExperimentalLaser::exp_photon_energy), t0_offset);
+            system.laser_model_ratio(photon_energy * Laser::exp_photon_energy), t0_offset);
         time_config = {laser->t_begin, laser->t_end, N, 50};
     }
     else if (laser_type == "expA") {
         laser = std::make_unique<Laser::ExperimentalLaser>(photon_energy, E0, 
-            system.laser_model_ratio(photon_energy * Laser::ExperimentalLaser::exp_photon_energy), t0_offset, Laser::ExperimentalLaser::Active::A);
+            system.laser_model_ratio(photon_energy * Laser::exp_photon_energy), t0_offset, Laser::ExperimentalLaser::Active::A);
         time_config = {laser->t_begin, laser->t_end, N, 50};
     }
     else if (laser_type == "expB") {
         laser = std::make_unique<Laser::ExperimentalLaser>(photon_energy, E0, 
-            system.laser_model_ratio(photon_energy * Laser::ExperimentalLaser::exp_photon_energy), t0_offset, Laser::ExperimentalLaser::Active::B);
+            system.laser_model_ratio(photon_energy * Laser::exp_photon_energy), t0_offset, Laser::ExperimentalLaser::Active::B);
         time_config = {laser->t_begin, laser->t_end, N, 50};
     }
     else if (laser_type == "quench") {
