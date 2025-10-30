@@ -6,7 +6,6 @@
 
 #include <string>
 #include <array>
-#include <Eigen/Dense>
 #include <random>
 
 #ifdef MROCK_CL1
@@ -32,7 +31,7 @@ namespace HHG::Systems {
 
         static constexpr int n_xy_inner = 64;
     public:
-        typedef Eigen::Vector<HHG::h_float, 3> sigma_state_type;
+        typedef std::array<HHG::h_float, 3> sigma_state_type;
         struct momentum_type {
             h_float cos_x{};
             h_float cos_y{};
@@ -82,9 +81,6 @@ namespace HHG::Systems {
             const momentum_type& k, const TimeIntegrationConfig& time_config) const;
 
         void time_evolution_diagonal_relaxation(nd_vector& rhos, Laser::Laser const * const laser, 
-            const momentum_type& k, const TimeIntegrationConfig& time_config) const;
-
-        void time_evolution_magnus(nd_vector& rhos, Laser::Laser const * const laser, 
             const momentum_type& k, const TimeIntegrationConfig& time_config) const;
 
         void evolve_occupation_numbers(std::vector<OccupationContainer::occupation_t>& occupations, Laser::Laser const * const laser, 

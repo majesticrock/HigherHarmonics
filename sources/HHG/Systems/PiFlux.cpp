@@ -48,6 +48,7 @@ constexpr HHG::h_float rel_error = 1.0e-8;
 //#define DEBUG_INTEGRATE
 constexpr double RESCUE_TRAFO = 1e-4;
 
+#define DDT_J
 
 namespace HHG::Systems {
     PiFlux::PiFlux(h_float temperature, h_float _E_F, h_float _v_F, h_float _band_width, h_float _photon_energy, h_float _diagonal_relaxation_time, h_float _offdiagonal_relaxation_time)
@@ -60,32 +61,6 @@ namespace HHG::Systems {
     {
         //gauss::precompute<100>();
         //abort();
-    }
-
-    void PiFlux::time_evolution_magnus(nd_vector &rhos, Laser::Laser const *const laser, const momentum_type &k, const TimeIntegrationConfig &time_config) const
-    {
-        const h_float alpha_0 = fermi_function(E_F + dispersion(k), beta);
-        const h_float beta_0 = fermi_function(E_F - dispersion(k), beta);
-
-        sigma_state_type current_state = { 2. * alpha_0 * beta_0, h_float{0}, alpha_0 * alpha_0 - beta_0 * beta_0 };
-
-        const h_float measure_every = time_config.measure_every();
-        h_float t_begin = time_config.t_begin;
-        h_float t_end = t_begin + measure_every;
-
-        rhos.conservativeResize(time_config.n_measurements + 1);
-        rhos[0] = current_state(2);
-
-        GeneralMagnus magnus;
-        std::array<std::array<h_float, 3>, 4> expansion_coefficients;
-        for (int i = 1; i <= time_config.n_measurements; ++i) {
-            expansion_coefficients = this->magnus_coefficients(k, measure_every, t_begin, laser);
-            current_state.applyOnTheLeft(magnus.Omega(expansion_coefficients[0], expansion_coefficients[1], expansion_coefficients[2], expansion_coefficients[3]));
-
-            rhos[i] = current_state(2);
-            t_begin = t_end;
-            t_end += measure_every;
-        }
     }
 
     void PiFlux::time_evolution_sigma(nd_vector &rhos, Laser::Laser const *const laser, const momentum_type &k, const TimeIntegrationConfig &time_config) const
@@ -104,7 +79,8 @@ namespace HHG::Systems {
 
         auto right_side = [&k, &laser, &prefactor](const sigma_state_type& state, sigma_state_type& dxdt, const h_float t) {
             const sigma_state_type m = {k.cos_x, k.cos_y, std::cos(k.z - laser->laser_function(t))};
-            dxdt = prefactor * m.cross(state);
+            dxdt = cross_product(m, state);
+            for (auto& d : dxdt) d *= prefactor;
         };
 
         const h_float measure_every = time_config.measure_every();
@@ -113,11 +89,11 @@ namespace HHG::Systems {
         h_float t_end = t_begin + measure_every;
 
         rhos.conservativeResize(time_config.n_measurements + 1);
-        rhos[0] = current_state(2);
+        rhos[0] = current_state[2];
 
         for (int i = 1; i <= time_config.n_measurements; ++i) {
             integrate_adaptive(make_controlled<sigma_error_stepper_type>(abs_error, rel_error), right_side, current_state, t_begin, t_end, dt);
-            rhos[i] = current_state(2);
+            rhos[i] = current_state[2];
             t_begin = t_end;
             t_end += measure_every;
         }
@@ -161,19 +137,19 @@ namespace HHG::Systems {
             z_epsilon = shifted_k.cos_z + dispersion(shifted_k);
             normalization = dispersion(shifted_k) * z_epsilon;
         
-            relax_to_diagonal(0) = shifted_k.cos_x;
-            relax_to_diagonal(1) = shifted_k.cos_y;
-            relax_to_diagonal(2) = shifted_k.cos_z;
-            relax_to_diagonal *= (alpha_beta_diff * z_epsilon / normalization);
+            relax_to_diagonal[0] = shifted_k.cos_x;
+            relax_to_diagonal[1] = shifted_k.cos_y;
+            relax_to_diagonal[2] = shifted_k.cos_z;
+            for (auto& r : relax_to_diagonal) r *= (alpha_beta_diff * z_epsilon / normalization);
         
-            relax_to_offdiagonal(0) = alpha_beta_prod * (  shifted_k.cos_y * shifted_k.cos_y + shifted_k.cos_z * z_epsilon);
-            relax_to_offdiagonal(1) = alpha_beta_prod * (- shifted_k.cos_x * shifted_k.cos_y);
-            relax_to_offdiagonal(2) = alpha_beta_prod * (- shifted_k.cos_x * z_epsilon);
+            relax_to_offdiagonal[0] = alpha_beta_prod * (  shifted_k.cos_y * shifted_k.cos_y + shifted_k.cos_z * z_epsilon);
+            relax_to_offdiagonal[1] = alpha_beta_prod * (- shifted_k.cos_x * shifted_k.cos_y);
+            relax_to_offdiagonal[2] = alpha_beta_prod * (- shifted_k.cos_x * z_epsilon);
 
-            relax_to_offdiagonal(0) += alpha_beta_imag * (- shifted_k.cos_x * shifted_k.cos_y); 
-            relax_to_offdiagonal(1) += alpha_beta_imag * (  shifted_k.cos_x * shifted_k.cos_x + shifted_k.cos_z * z_epsilon);
-            relax_to_offdiagonal(2) += alpha_beta_imag * (- shifted_k.cos_y * z_epsilon);
-            relax_to_offdiagonal /= normalization;
+            relax_to_offdiagonal[0] += alpha_beta_imag * (- shifted_k.cos_x * shifted_k.cos_y); 
+            relax_to_offdiagonal[1] += alpha_beta_imag * (  shifted_k.cos_x * shifted_k.cos_x + shifted_k.cos_z * z_epsilon);
+            relax_to_offdiagonal[2] += alpha_beta_imag * (- shifted_k.cos_y * z_epsilon);
+            for (auto& r : relax_to_offdiagonal) r /= normalization;
         };
 
         update_equilibrium_state(laser->laser_function(time_config.t_begin));
@@ -181,9 +157,12 @@ namespace HHG::Systems {
         auto right_side = [this, &k, &laser, &prefactor, &update_equilibrium_state, &relax_to_diagonal, &relax_to_offdiagonal](const sigma_state_type& state, sigma_state_type& dxdt, const h_float t) {
             const sigma_state_type m = {k.cos_x, k.cos_y, std::cos(k.z - laser->laser_function(t))};
             update_equilibrium_state(laser->laser_function(t));
-            dxdt = prefactor * m.cross(state) 
-                - inverse_diagonal_relaxation_time * (state / 3.0 - relax_to_diagonal) // sigma^z
-                - inverse_offdiagonal_relaxation_time * (state * (2. / 3.) - relax_to_offdiagonal); // sigma^x and sigma^y -> therefore 2*state
+            dxdt = cross_product(m, state);
+            for(size_t i = 0U; i < dxdt.size(); ++i) {
+                dxdt[i] *= prefactor;
+                dxdt[i] -= inverse_diagonal_relaxation_time * (state[i] / 3.0 - relax_to_diagonal[i]) // sigma^z
+                    + inverse_offdiagonal_relaxation_time * (state[i] * (2. / 3.) - relax_to_offdiagonal[i]); // sigma^x and sigma^y -> therefore 2*state
+            }
         };
 
         const h_float measure_every = time_config.measure_every();
@@ -192,11 +171,27 @@ namespace HHG::Systems {
         h_float t_end = t_begin + measure_every;
 
         rhos.resize(time_config.n_measurements + 1);
-        rhos[0] = current_state(2);
+
+#ifdef DDT_J
+        constexpr double LASER_DT = 1e-5;
+        sigma_state_type ddt_rho;
+        right_side(current_state, ddt_rho, t_begin);
+        rhos[0] = ddt_rho[2] * std::sin(k.z - laser->laser_function(t_begin)) 
+            + current_state[2] * std::cos(k.z - laser->laser_function(t_begin)) * (laser->laser_function(t_begin + LASER_DT) - laser->laser_function(t_begin - LASER_DT)) / (2 * LASER_DT);
+#else
+        rhos[0] = current_state[2];
+#endif
 
         for (int i = 1; i <= time_config.n_measurements; ++i) {
             integrate_adaptive(make_controlled<sigma_error_stepper_type>(abs_error, rel_error), right_side, current_state, t_begin, t_end, dt);
-            rhos[i] = current_state(2);
+#ifdef DDT_J
+            right_side(current_state, ddt_rho, t_begin);
+            rhos[i] = ddt_rho[2] * std::sin(k.z - laser->laser_function(t_begin)) 
+                - current_state[2] * std::cos(k.z - laser->laser_function(t_begin)) 
+                * (laser->laser_function(t_begin + LASER_DT) - laser->laser_function(t_begin - LASER_DT)) / (2 * LASER_DT);
+#else
+            rhos[i] = current_state[2];
+#endif
             t_begin = t_end;
             t_end += measure_every;
         }
@@ -219,10 +214,10 @@ namespace HHG::Systems {
             }
             return OccupationContainer::occupation_t{ 
                 std::sqrt( 
-                    0.5 * ( -input(2) + norm(input(0), input(1), input(2) ) )
+                    0.5 * ( -input[2] + norm(input[0], input[1], input[2] ) )
                 ),
                 std::sqrt( 
-                    0.5 * ( input(2) + norm(input(0), input(1), input(2) ) )
+                    0.5 * ( input[2] + norm(input[0], input[1], input[2] ) )
                 )
             };
         };
@@ -262,19 +257,19 @@ namespace HHG::Systems {
             z_epsilon = shifted_k.cos_z + dispersion(shifted_k);
             normalization = dispersion(shifted_k) * z_epsilon;
             
-            relax_to_diagonal(0) = shifted_k.cos_x;
-            relax_to_diagonal(1) = shifted_k.cos_y;
-            relax_to_diagonal(2) = shifted_k.cos_z;
-            relax_to_diagonal *= (alpha_beta_diff * z_epsilon / normalization);
+            relax_to_diagonal[0] = shifted_k.cos_x;
+            relax_to_diagonal[1] = shifted_k.cos_y;
+            relax_to_diagonal[2] = shifted_k.cos_z;
+            for (auto& r : relax_to_diagonal) r *= (alpha_beta_diff * z_epsilon / normalization);
         
-            relax_to_offdiagonal(0) = alpha_beta_prod * (  shifted_k.cos_y * shifted_k.cos_y + shifted_k.cos_z * z_epsilon);
-            relax_to_offdiagonal(1) = alpha_beta_prod * (- shifted_k.cos_x * shifted_k.cos_y);
-            relax_to_offdiagonal(2) = alpha_beta_prod * (- shifted_k.cos_x * z_epsilon);
+            relax_to_offdiagonal[0] = alpha_beta_prod * (  shifted_k.cos_y * shifted_k.cos_y + shifted_k.cos_z * z_epsilon);
+            relax_to_offdiagonal[1] = alpha_beta_prod * (- shifted_k.cos_x * shifted_k.cos_y);
+            relax_to_offdiagonal[2] = alpha_beta_prod * (- shifted_k.cos_x * z_epsilon);
 
-            relax_to_offdiagonal(0) += alpha_beta_imag * (- shifted_k.cos_x * shifted_k.cos_y); 
-            relax_to_offdiagonal(1) += alpha_beta_imag * (  shifted_k.cos_x * shifted_k.cos_x + shifted_k.cos_z * z_epsilon);
-            relax_to_offdiagonal(2) += alpha_beta_imag * (- shifted_k.cos_y * z_epsilon);
-            relax_to_offdiagonal /= normalization;
+            relax_to_offdiagonal[0] += alpha_beta_imag * (- shifted_k.cos_x * shifted_k.cos_y); 
+            relax_to_offdiagonal[1] += alpha_beta_imag * (  shifted_k.cos_x * shifted_k.cos_x + shifted_k.cos_z * z_epsilon);
+            relax_to_offdiagonal[2] += alpha_beta_imag * (- shifted_k.cos_y * z_epsilon);
+            for (auto& r : relax_to_offdiagonal) r /= normalization;
         };
 
         update_equilibrium_state(laser->laser_function(time_config.t_begin), 0.0);
@@ -282,9 +277,12 @@ namespace HHG::Systems {
         auto right_side = [this, &k, &laser, &prefactor, &update_equilibrium_state, &relax_to_diagonal, &relax_to_offdiagonal](const sigma_state_type& state, sigma_state_type& dxdt, const h_float t) {
             const sigma_state_type m = {k.cos_x, k.cos_y, std::cos(k.z - laser->laser_function(t))};
             update_equilibrium_state(laser->laser_function(t), t);
-            dxdt = prefactor * m.cross(state) 
-                - inverse_diagonal_relaxation_time * (state / 3.0 - relax_to_diagonal) // sigma^z
-                - inverse_offdiagonal_relaxation_time * (state * (2. / 3.) - relax_to_offdiagonal); // sigma^x and sigma^y -> therefore 2*state
+            dxdt = cross_product(m, state);
+            for(size_t i = 0U; i < dxdt.size(); ++i) {
+                dxdt[i] *= prefactor;
+                dxdt[i] -= inverse_diagonal_relaxation_time * (state[i] / 3.0 - relax_to_diagonal[i]) // sigma^z
+                    + inverse_offdiagonal_relaxation_time * (state[i] * (2. / 3.) - relax_to_offdiagonal[i]); // sigma^x and sigma^y -> therefore 2*state
+            }
         };
         
         const h_float measure_every = time_config.measure_every();
@@ -807,7 +805,11 @@ namespace HHG::Systems {
 
             x_buffer = improved_xy_integral(k, rhos_buffer, laser, time_config);
             for (int i = 0; i <= time_config.n_measurements; ++i) {
-                x_buffer[i] *= z_gauss::weights[z] * std::sin(k.z - laser->laser_function(i * time_step + time_config.t_begin));
+                x_buffer[i] *= z_gauss::weights[z]
+#ifndef DDT_J
+                    * std::sin(k.z - laser->laser_function(i * time_step + time_config.t_begin))
+#endif
+                ;
             }
             std::transform(current_density_time.begin(), current_density_time.end(), x_buffer.begin(), current_density_time.begin(), std::plus<>());
         
@@ -822,7 +824,11 @@ namespace HHG::Systems {
 
             x_buffer = improved_xy_integral(k, rhos_buffer, laser, time_config);
             for (int i = 0; i <= time_config.n_measurements; ++i) {
-                x_buffer[i] *= z_gauss::weights[z] * std::sin(k.z - laser->laser_function(i * time_step + time_config.t_begin));
+                x_buffer[i] *= z_gauss::weights[z]
+#ifndef DDT_J
+                    * std::sin(k.z - laser->laser_function(i * time_step + time_config.t_begin))
+#endif
+                ;
             }
             std::transform(current_density_time.begin(), current_density_time.end(), x_buffer.begin(), current_density_time.begin(), std::plus<>());
         }
@@ -1018,9 +1024,9 @@ namespace HHG::Systems {
         const h_float __xy = 2 * k.cos_x * k.cos_y;
 
         return { 
-            (input(0) * (z*z - k.cos_x*k.cos_x + k.cos_y*k.cos_y) - __xy * input(1) - __xz * input(2)) / norm,
-            (input(1) * (z*z + k.cos_x*k.cos_x - k.cos_y*k.cos_y) - __xy * input(0) - __yz * input(2)) / norm,
-            (input(2) * (z*z - k.cos_x*k.cos_x - k.cos_y*k.cos_y) + __xz * input(0) + __yz * input(1)) / norm 
+            (input[0] * (z*z - k.cos_x*k.cos_x + k.cos_y*k.cos_y) - __xy * input[1] - __xz * input[2]) / norm,
+            (input[1] * (z*z + k.cos_x*k.cos_x - k.cos_y*k.cos_y) - __xy * input[0] - __yz * input[2]) / norm,
+            (input[2] * (z*z - k.cos_x*k.cos_x - k.cos_y*k.cos_y) + __xz * input[0] + __yz * input[1]) / norm 
         };
     }
 }
