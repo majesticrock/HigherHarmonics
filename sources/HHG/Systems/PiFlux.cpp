@@ -177,7 +177,8 @@ namespace HHG::Systems {
         sigma_state_type ddt_rho;
         right_side(current_state, ddt_rho, t_begin);
         rhos[0] = ddt_rho[2] * std::sin(k.z - laser->laser_function(t_begin)) 
-            + current_state[2] * std::cos(k.z - laser->laser_function(t_begin)) * (laser->laser_function(t_begin + LASER_DT) - laser->laser_function(t_begin - LASER_DT)) / (2 * LASER_DT);
+            - current_state[2] * std::cos(k.z - laser->laser_function(t_begin)) 
+            * (laser->laser_function(t_begin + LASER_DT) - laser->laser_function(t_begin - LASER_DT)) / (2 * LASER_DT);
 #else
         rhos[0] = current_state[2];
 #endif
@@ -185,10 +186,10 @@ namespace HHG::Systems {
         for (int i = 1; i <= time_config.n_measurements; ++i) {
             integrate_adaptive(make_controlled<sigma_error_stepper_type>(abs_error, rel_error), right_side, current_state, t_begin, t_end, dt);
 #ifdef DDT_J
-            right_side(current_state, ddt_rho, t_begin);
-            rhos[i] = ddt_rho[2] * std::sin(k.z - laser->laser_function(t_begin)) 
-                - current_state[2] * std::cos(k.z - laser->laser_function(t_begin)) 
-                * (laser->laser_function(t_begin + LASER_DT) - laser->laser_function(t_begin - LASER_DT)) / (2 * LASER_DT);
+            right_side(current_state, ddt_rho, t_end);
+            rhos[i] = ddt_rho[2] * std::sin(k.z - laser->laser_function(t_end)) 
+                - current_state[2] * std::cos(k.z - laser->laser_function(t_end)) 
+                * (laser->laser_function(t_end + LASER_DT) - laser->laser_function(t_end - LASER_DT)) / (2 * LASER_DT);
 #else
             rhos[i] = current_state[2];
 #endif
