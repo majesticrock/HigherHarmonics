@@ -18,8 +18,6 @@ namespace HHG::Laser {
         this->compute_spline();
     }
 
-    constexpr int begin_zero = 8;
-    constexpr int zero_buff = 8;
     typedef std::array<h_float, N_experiment + N_extra + zero_buff + begin_zero> A_arr;
 
     A_arr vector_potential(const std::array<h_float, N_experiment>& electric_field, h_float dt) 

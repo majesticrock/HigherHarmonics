@@ -15,8 +15,8 @@ A = data[:, 1]
 B = data[:, 2]
 
 N = len(time)
-FFT_MIN = int(0.25 * N)
-FFT_MAX = int(0.65 * N)
+FFT_MIN = int(0 * N)
+FFT_MAX = int(1 * N)
 
 signal_A = hilbert(A)
 env_A = np.abs(signal_A)
@@ -27,21 +27,22 @@ env_B = np.abs(signal_B)
 fig, axes = plt.subplots(nrows=3, sharex=True, figsize=(6.8, 6))
 fig.subplots_adjust(hspace=0.0)
 
-def vector_potential(electric_field, time):
-    dt = time[1] - time[0]
+def vector_potential(electric_field, dt):
     return -np.cumsum(electric_field) * dt
+
+dt = np.abs(np.average(np.diff(time)))
 
 axes[0].plot(time, A, "-",label="$E$")
 axes[0].plot(time, env_A, "--", label="Envelope")
-axes[0].plot(time, 10 * vector_potential(A, time), label="$10 \\times A$")
+axes[0].plot(time, 10 * vector_potential(A, dt), label="$10 \\times A$")
 
 axes[1].plot(time, B, "-",label="$E_B$")
 axes[1].plot(time, env_B, "--", label="Envelope")
-axes[1].plot(time, 10 * vector_potential(B, time), label="$10 \\times A$")
+axes[1].plot(time, 10 * vector_potential(B, dt), label="$10 \\times A$")
 
 axes[2].plot(time, A + B)
 axes[2].axvline(time[FFT_MIN], c='k')
-axes[2].axvline(time[FFT_MAX], c='k')
+axes[2].axvline(time[FFT_MAX - 1], c='k')
 
 tA = time[np.argmax(env_A)]
 ampA = np.max(env_A)
@@ -63,10 +64,7 @@ fftA = np.abs(rfft(A, n=PAD*N))
 fftB = np.abs(rfft(B, n=PAD*N))
 fft_total = np.abs(rfft((A+B)[FFT_MIN:FFT_MAX], n=PAD*N))
 
-dt = 0
-for i in range(N - 1):
-    dt += time[i + 1] - time[i]
-dt /= N
+print(dt)
 
 freq = 2 * np.pi * HBAR * rfftfreq(PAD*N, dt)
 

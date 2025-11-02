@@ -48,7 +48,7 @@ constexpr HHG::h_float rel_error = 1.0e-8;
 //#define DEBUG_INTEGRATE
 constexpr double RESCUE_TRAFO = 1e-4;
 
-#define DDT_J
+//#define DDT_J
 
 namespace HHG::Systems {
     PiFlux::PiFlux(h_float temperature, h_float _E_F, h_float _v_F, h_float _band_width, h_float _photon_energy, h_float _diagonal_relaxation_time, h_float _offdiagonal_relaxation_time)
