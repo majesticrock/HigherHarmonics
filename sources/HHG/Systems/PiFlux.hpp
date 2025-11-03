@@ -16,8 +16,8 @@
 #define __Z 240
 #define __C 16
 #else
-#define __Z 16
-#define __C 2
+#define __Z 32
+#define __C 4
 #endif
 #endif
 
