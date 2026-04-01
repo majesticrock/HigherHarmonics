@@ -7,6 +7,7 @@ namespace HHG::Laser {
         enum class Active { A, B, Both };
         const h_float second_laser_shift{}; ///< in units of hbar omega
         const h_float lattice_constant{}; ///< in 1/m
+        const h_float laser_amplification{}; ///< scalar
         
         // photon_energy and E_0 should be given in units of the experimental input
         // That is, they merely rescale the experimental data

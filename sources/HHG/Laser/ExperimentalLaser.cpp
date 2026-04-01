@@ -13,7 +13,8 @@ namespace HHG::Laser {
             true), 
         second_laser_shift{_second_laser_shift * (_photon_energy * exp_photon_energy / (1e12 * hbar))},
         lattice_constant{model_ratio},
-        active_laser{_active_laser}
+        active_laser{_active_laser},
+        laser_amplification{_E_0}
     {
         this->compute_spline();
     }
@@ -100,13 +101,13 @@ namespace HHG::Laser {
             if (second_laser_shift >= 0) {
                 const h_float __A = t <= unitless_laser_end ? __spline_A(t) : h_float{};
                 const h_float __B = (t - second_laser_shift >= 0 && t - second_laser_shift <= unitless_laser_end) ? __spline_B(t - second_laser_shift) : h_float{};
-                __temp[i] = (0.1 / HHG::hbar) * lattice_constant * add_laser(__A, __B);
+                __temp[i] = (0.1 / HHG::hbar) * laser_amplification * lattice_constant * add_laser(__A, __B);
                 // See above for the reason of 0.1 / HHG::hbar
             }
             else {
                 const h_float __A = (t + second_laser_shift >= 0 && t + second_laser_shift <= unitless_laser_end) ? __spline_A(t + second_laser_shift) : h_float{};
                 const h_float __B = t <= unitless_laser_end ? __spline_B(t) : h_float{};
-                __temp[i] = (0.1 / HHG::hbar) * lattice_constant * add_laser(__A, __B);
+                __temp[i] = (0.1 / HHG::hbar) * laser_amplification * lattice_constant * add_laser(__A, __B);
             }
         }
         std::cout << "Maximum shift = " 
