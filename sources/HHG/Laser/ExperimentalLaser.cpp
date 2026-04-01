@@ -13,8 +13,8 @@ namespace HHG::Laser {
             true), 
         second_laser_shift{_second_laser_shift * (_photon_energy * exp_photon_energy / (1e12 * hbar))},
         lattice_constant{model_ratio},
-        active_laser{_active_laser},
-        laser_amplification{_E_0}
+        laser_amplification{_E_0},
+        active_laser{_active_laser}
     {
         this->compute_spline();
     }
