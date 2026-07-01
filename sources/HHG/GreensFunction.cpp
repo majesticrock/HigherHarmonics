@@ -1,7 +1,7 @@
 #include "GreensFunction.hpp"
 #include "Fourier/ComplexFFT.hpp"
 
-#include <mrock/utility/FunctionTime.hpp>
+#include <mrock/utility/function_time.hpp>
 #include <mrock/utility/ComplexNumberIterators.hpp>
 
 #include <iostream>
