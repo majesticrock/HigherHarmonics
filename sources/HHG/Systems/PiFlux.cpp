@@ -158,7 +158,7 @@ namespace HHG::Systems {
             const sigma_state_type m = {k.cos_x, k.cos_y, std::cos(k.z - laser->laser_function(t))};
             update_equilibrium_state(laser->laser_function(t));
             dxdt = cross_product(m, state);
-            for(size_t i = 0U; i < dxdt.size(); ++i) {
+            for(std::size_t i = 0U; i < dxdt.size(); ++i) {
                 dxdt[i] *= prefactor;
                 dxdt[i] -= inverse_diagonal_relaxation_time * (state[i] / 3.0 - relax_to_diagonal[i]) // sigma^z
                     + inverse_offdiagonal_relaxation_time * (state[i] * (2. / 3.) - relax_to_offdiagonal[i]); // sigma^x and sigma^y -> therefore 2*state
@@ -279,7 +279,7 @@ namespace HHG::Systems {
             const sigma_state_type m = {k.cos_x, k.cos_y, std::cos(k.z - laser->laser_function(t))};
             update_equilibrium_state(laser->laser_function(t), t);
             dxdt = cross_product(m, state);
-            for(size_t i = 0U; i < dxdt.size(); ++i) {
+            for(std::size_t i = 0U; i < dxdt.size(); ++i) {
                 dxdt[i] *= prefactor;
                 dxdt[i] -= inverse_diagonal_relaxation_time * (state[i] / 3.0 - relax_to_diagonal[i]) // sigma^z
                     + inverse_offdiagonal_relaxation_time * (state[i] * (2. / 3.) - relax_to_offdiagonal[i]); // sigma^x and sigma^y -> therefore 2*state

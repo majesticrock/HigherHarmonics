@@ -126,7 +126,7 @@ int main(int argc, char** argv) {
         std::vector<HHG::two_D_vector<HHG::h_float>> lower_band_data(N_time + int(laser_type != "continuous"));
         std::vector<HHG::two_D_vector<HHG::h_float>> upper_band_data(N_time + int(laser_type != "continuous"));
 
-        for(size_t t = 0; t < N_time + int(laser_type != "continuous"); ++t) {
+        for(std::size_t t = 0; t < N_time + int(laser_type != "continuous"); ++t) {
             lower_band_data[t] = result[t].entire_lower_band();
             upper_band_data[t] = result[t].entire_upper_band();
         }

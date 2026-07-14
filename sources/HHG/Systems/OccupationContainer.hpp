@@ -10,9 +10,9 @@ namespace HHG {
 
         two_D_vector<occupation_t> _data;
 
-        const size_t N{};
+        const std::size_t N{};
 
-        OccupationContainer(size_t _N)
+        OccupationContainer(std::size_t _N)
             : _data(
                 _N, std::vector<occupation_t>(
                     _N, occupation_t{0.0, 0.0}
@@ -20,31 +20,31 @@ namespace HHG {
             ), N{_N}
         {}
 
-        inline h_float& lower_band(size_t x, size_t z) {
+        inline h_float& lower_band(std::size_t x, std::size_t z) {
             return _data[x][z].first;
         }
-        inline h_float lower_band(size_t x, size_t z) const {
+        inline h_float lower_band(std::size_t x, std::size_t z) const {
             return _data[x][z].first;
         }
 
-        inline h_float& upper_band(size_t x, size_t z) {
+        inline h_float& upper_band(std::size_t x, std::size_t z) {
             return _data[x][z].second;
         }
-        inline h_float upper_band(size_t x, size_t z) const {
+        inline h_float upper_band(std::size_t x, std::size_t z) const {
             return _data[x][z].second;
         }
 
-        inline occupation_t& operator()(size_t x, size_t z) {
+        inline occupation_t& operator()(std::size_t x, std::size_t z) {
             return _data[x][z];
         }
-        inline const occupation_t& operator()(size_t x, size_t z) const {
+        inline const occupation_t& operator()(std::size_t x, std::size_t z) const {
             return _data[x][z];
         }
 
         inline two_D_vector<h_float> entire_lower_band() const {
             two_D_vector<h_float> ret(N, std::vector<h_float>(N));
-            for (size_t x = 0U; x < N; ++x) {
-                for (size_t z = 0U; z < N; ++z) {
+            for (std::size_t x = 0U; x < N; ++x) {
+                for (std::size_t z = 0U; z < N; ++z) {
                     ret[x][z] = _data[x][z].first;
                 }
             }
@@ -52,8 +52,8 @@ namespace HHG {
         }
         inline two_D_vector<h_float> entire_upper_band() const {
             two_D_vector<h_float> ret(N, std::vector<h_float>(N));
-            for (size_t x = 0U; x < N; ++x) {
-                for (size_t z = 0U; z < N; ++z) {
+            for (std::size_t x = 0U; x < N; ++x) {
+                for (std::size_t z = 0U; z < N; ++z) {
                     ret[x][z] = _data[x][z].second;
                 }
             }

@@ -28,7 +28,7 @@ namespace HHG::Laser {
             ret[i] = h_float{};
         }
         ret[begin_zero] = -electric_field[0] * dt;
-        for (size_t i = 1U; i < N_experiment; ++i) {
+        for (std::size_t i = 1U; i < N_experiment; ++i) {
              // A = - c int_0^t E(t') dt'. The factor c cancels in the Peierls substitution
             ret[i + begin_zero] = ret[i + begin_zero - 1] - electric_field[i] * dt;
         }
