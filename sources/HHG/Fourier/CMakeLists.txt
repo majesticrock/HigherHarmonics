@@ -11,5 +11,4 @@ SET_COMPILER_FLAGS(Fourier)
 
 target_include_directories(Fourier PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
-target_include_directories(Fourier PUBLIC ${mrock_INCLUDE_DIRS} ${FFTW3_INCLUDE_DIRS})
-target_link_libraries(Fourier PUBLIC ${mrock_LIBRARIES} ${FFTW3_LIB})
+target_link_libraries(Fourier PUBLIC mrock::utility ${FFTW3_LIB})

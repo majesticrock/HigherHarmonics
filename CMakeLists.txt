@@ -7,9 +7,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 list(APPEND CMAKE_PREFIX_PATH "~/usr/local")
-include_directories(
-    $ENV{HOME}/usr/local/include
-)
 
 execute_process(
     COMMAND hostname
@@ -26,7 +23,11 @@ find_package(OpenMP REQUIRED)
 find_package(MPI REQUIRED)
 find_package(FFTW3 REQUIRED)
 find_library(FFTW3_LIB fftw3)
-find_package(mrock REQUIRED)
+find_package(mrock 
+    REQUIRED 
+    COMPONENTS 
+        utility
+)
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/../../PhdUtility/cmake/mrock-information.cmake)
 
@@ -50,4 +51,3 @@ if(NOT CMAKE_BUILD_TYPE STREQUAL "NO_MPI")
 endif()
 
 target_link_libraries(hhg PRIVATE Dispatch Fourier ${mrock_LIBRARIES})
-target_include_directories(hhg PRIVATE ${mrock_INCLUDE_DIRS})
