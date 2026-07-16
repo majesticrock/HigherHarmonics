@@ -31,7 +31,7 @@ date
 echo "--- START ---"
 
 ## execute binary using mpirun on the allocated computation resource; the number of cores is $
-./build_CascadeLake/hhg params/cluster.config
+./build/cascadelake/hhg params/cluster.config
 
 echo "--- END ---"
 date

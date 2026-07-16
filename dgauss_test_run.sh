@@ -25,11 +25,11 @@ for value in "${values[@]}"; do
     sed -i "s/^$name.*/$name $value/" "$config_file"
 
     sed -i "s/^laser_type.*/laser_type dgaussA/" "$config_file"
-    ./build_no_mpi/hhg $config_file
+    ./build/default/hhg $config_file
 
     sed -i "s/^laser_type.*/laser_type dgaussB/" "$config_file"
-    ./build_no_mpi/hhg $config_file
+    ./build/default/hhg $config_file
 
     sed -i "s/^laser_type.*/laser_type dgauss/" "$config_file"
-    ./build_no_mpi/hhg $config_file
+    ./build/default/hhg $config_file
 done

@@ -1,0 +1,67 @@
+{
+  "version": 3,
+
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Unix Makefiles",
+      "cacheVariables": {
+        "CMAKE_CXX_COMPILER": "g++",
+        "USE_MPI": "ON"
+      }
+    },
+
+    {
+      "name": "default",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build/default"
+    },
+
+    {
+      "name": "cascadelake",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build/cascadelake",
+      "cacheVariables": {
+        "TARGET_ARCH": "cascadelake"
+      }
+    },
+
+    {
+      "name": "icelake",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build/icelake",
+      "cacheVariables": {
+        "TARGET_ARCH": "icelake"
+      }
+    },
+
+    {
+      "name": "debug",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build/debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    }
+  ],
+
+  "buildPresets": [
+    {
+      "name": "default",
+      "configurePreset": "default"
+    },
+    {
+      "name": "cascadelake",
+      "configurePreset": "cascadelake"
+    },
+    {
+      "name": "icelake",
+      "configurePreset": "icelake"
+    },
+    {
+      "name": "debug",
+      "configurePreset": "debug"
+    }
+  ]
+}

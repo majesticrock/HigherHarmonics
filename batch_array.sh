@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Set architecture: "IceLake" or "CascadeLake"
-arch="IceLake"
+# Set architecture: "icelake" or "cascadelake"
+arch="icelake"
 
 input_file="params/for_auto.txt"
 readarray -t NEW_VALUES < "${input_file}"
@@ -68,7 +68,7 @@ for NEW_VALUE in "${NEW_VALUES[@]}"; do
   sed -e "s|#SBATCH --job-name=hhg|#SBATCH --job-name=${CURRENT_TIME}_$NEW_NAME|" \
       -e "s|#SBATCH --output=/home/althueser/phd/cpp/HigherHarmonics/output.txt|#SBATCH --output=/home/althueser/phd/cpp/HigherHarmonics/${CURRENT_TIME}_output_$NEW_NAME.txt|" \
       -e "s|^#SBATCH --constraint=.*|#SBATCH --constraint=${arch}|" \
-      -e "s|mpirun ./build_.*/hhg .*|mpirun ./build_${arch}/hhg auto_generated_${CURRENT_TIME}/$NEW_NAME.config|" \
+      -e "s|mpirun ./build/.*/hhg .*|mpirun ./build/${arch}/hhg auto_generated_${CURRENT_TIME}/$NEW_NAME.config|" \
       slurm/hhg.slurm > "$slurm_path"
 
   # Submit the job

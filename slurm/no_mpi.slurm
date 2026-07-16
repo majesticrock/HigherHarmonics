@@ -30,7 +30,7 @@ date
 echo "--- START ---"
 
 ## execute binary using mpirun on the allocated computation resource; the number of cores is $
-./build_no_mpi/hhg params/cluster.config
+./build/default/hhg params/cluster.config
 
 echo "--- END ---"
 date

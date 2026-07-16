@@ -2,19 +2,37 @@ cmake_minimum_required(VERSION 3.30)
 
 project(HigherHarmonics VERSION 2.1.0 LANGUAGES CXX)
 
-list(APPEND CMAKE_PREFIX_PATH "$ENV{HOME}/usr/local")
+#
+# Set local settings and set the default build type as Release
+#
 
-execute_process(
-    COMMAND hostname
-    OUTPUT_VARIABLE HOSTNAME
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-)
-if(HOSTNAME STREQUAL "gw9.cluster.cl1")
-# the new cluster needs help finding the correct version of boost
-    set(Boost_DIR /usr/lib64/openmpi/lib/cmake/Boost-1.78.0)
+list(APPEND CMAKE_PREFIX_PATH "$ENV{HOME}/usr/local")
+set(Boost_DIR /usr/lib64/openmpi/lib/cmake/Boost-1.78.0)
+
+set(default_build_type "Release")
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  set(CMAKE_BUILD_TYPE "${default_build_type}" CACHE
+      STRING "Choose the type of build." FORCE)
+  # Set the possible values of build type for cmake-gui
+  set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
+    "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
+endif()
+message(STATUS "Build type is '${CMAKE_BUILD_TYPE}'.")
+
+#
+# Library specifics
+#
+
+if(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
+    set(USE_MPI OFF)
+else()
+    option(USE_MPI
+        "Use OpenMPI for parallelization"
+        ON
+    )
 endif()
 
-if(NOT CMAKE_BUILD_TYPE STREQUAL "NO_MPI")
+if(USE_MPI)
     find_package(MPI REQUIRED)
 endif()
 
@@ -52,7 +70,7 @@ add_subdirectory(sources/HHG/Fourier)
 add_subdirectory(sources/HHG/Systems)
 add_subdirectory(sources/HHG/Laser)
 
-if(NOT CMAKE_BUILD_TYPE STREQUAL "NO_MPI")
+if(USE_MPI)
     target_link_libraries(hhg PRIVATE MPI::MPI_CXX)
 endif()
 

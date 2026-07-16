@@ -27,5 +27,5 @@ for value in "${values[@]}"; do
     sed -i "s/^$name.*/$name $value/" "$config_file"
 
     # Execute the script ./exec.sh
-    ./build_no_mpi/hhg params/experiment.config
+    ./build/default/hhg params/experiment.config
 done

@@ -9,7 +9,7 @@ add_library(Dispatch STATIC ${DISPATCH_SOURCES})
 
 target_include_directories(Dispatch PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
-if(NOT CMAKE_BUILD_TYPE STREQUAL "NO_MPI")
+if(USE_MPI)
     target_link_libraries(Dispatch PUBLIC MPI::MPI_CXX)
 endif()
 

@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Set architecture: "IceLake" or "CascadeLake"
-arch="IceLake"
+# Set architecture: "icelake" or "cascadelake"
+arch="icelake"
 
 shifts=(0)
 current_date=$(date +"%Y%m%d_%H%M%S")
@@ -10,11 +10,11 @@ output_dir="auto_generated_${current_date}"
 mkdir -p "$output_dir"
 
 cp params/icelake_experiment_A.config "$output_dir/A.config"
-sed -e "s|mpirun ./build_.*/hhg .*|mpirun ./build_${arch}/hhg ${output_dir}/A.config|" \
+sed -e "s|mpirun ./build/.*/hhg .*|mpirun ./build/${arch}/hhg ${output_dir}/A.config|" \
         slurm/icelake_experiment.slurm > "${output_dir}/A.slurm"
 
 cp params/icelake_experiment_B.config "$output_dir/B.config"
-sed -e "s|mpirun ./build_.*/hhg .*|mpirun ./build_${arch}/hhg ${output_dir}/B.config|" \
+sed -e "s|mpirun ./build/.*/hhg .*|mpirun ./build/${arch}/hhg ${output_dir}/B.config|" \
         slurm/icelake_experiment.slurm > "${output_dir}/B.slurm"
 
 sbatch "${output_dir}/A.slurm"
@@ -29,7 +29,7 @@ for num in "${shifts[@]}"; do
     sed -e "s|^#SBATCH --job-name=exp|#SBATCH --job-name=exp_${current_date}_${num}|" \
         -e "s|^#SBATCH --output=.*/output_exp.txt|#SBATCH --output=/home/althueser/phd/cpp/HigherHarmonics/output_exp_${current_date}_${num}.txt|" \
         -e "s|^#SBATCH --constraint=.*|#SBATCH --constraint=${arch}|" \
-        -e "s|mpirun ./build_.*/hhg .*|mpirun ./build_${arch}/hhg ${config_path}|" \
+        -e "s|mpirun ./build/.*/hhg .*|mpirun ./build/${arch}/hhg ${config_path}|" \
         slurm/icelake_experiment.slurm > "$slurm_path"
     
     sbatch "$slurm_path"
