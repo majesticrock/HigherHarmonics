@@ -11,6 +11,5 @@ set(LASER_SOURCES
 
 add_library(Laser STATIC ${LASER_SOURCES})
 
-SET_COMPILER_FLAGS(Laser)
-
 target_include_directories(Laser PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(Laser PRIVATE hhg_options)

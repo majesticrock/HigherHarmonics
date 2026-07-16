@@ -8,7 +8,7 @@ namespace HHG::Laser {
         this->compute_spline();
     }
 
-    h_float QuenchedField::envelope(h_float t) const {
+    h_float QuenchedField::envelope([[maybe_unused]] h_float t) const {
         throw std::runtime_error("Enevelope of QuenchedField should never be called!");
     }
 

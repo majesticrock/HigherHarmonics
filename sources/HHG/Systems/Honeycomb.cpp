@@ -119,8 +119,8 @@ namespace HHG::Systems {
         }
     }
 
-    std::array<std::vector<h_float>, n_debug_points> Honeycomb::compute_current_density_debug(Laser::Laser const * const laser, 
-            TimeIntegrationConfig const& time_config, const int n_z) const
+    std::array<std::vector<h_float>, n_debug_points> Honeycomb::compute_current_density_debug([[maybe_unused]] Laser::Laser const * const laser, 
+            [[maybe_unused]] TimeIntegrationConfig const& time_config) const
     {
         throw std::runtime_error("Honeycomb::compute_current_density_debug is not implemented yet!");
     }
@@ -221,8 +221,8 @@ namespace HHG::Systems {
         return time_evolution_sigma(rho_x, rho_y, laser, k, time_config);
     }
 
-    std::vector<h_float> Honeycomb::compute_current_density(Laser::Laser const * const laser, TimeIntegrationConfig const& time_config, 
-        const int rank, const int n_ranks, const int n_x) const
+    std::vector<h_float> Honeycomb::compute_current_density(Laser::Laser const * const laser, 
+        TimeIntegrationConfig const& time_config, [[maybe_unused]] const int rank, [[maybe_unused]] const int n_ranks) const
     {
         constexpr h_float min_x = - 2 * pi / 3;
         constexpr h_float max_x = 2 * pi / 3;

@@ -24,11 +24,11 @@ namespace HHG::Laser {
     A_arr vector_potential(const std::array<h_float, N_experiment>& electric_field, h_float dt) 
     {
         A_arr ret;
-        for (int i = 0; i < begin_zero; ++i) {
+        for (auto i = 0; i < begin_zero; ++i) {
             ret[i] = h_float{};
         }
         ret[begin_zero] = -electric_field[0] * dt;
-        for (std::size_t i = 1U; i < N_experiment; ++i) {
+        for (auto i = 0; i < N_experiment; ++i) {
              // A = - c int_0^t E(t') dt'. The factor c cancels in the Peierls substitution
             ret[i + begin_zero] = ret[i + begin_zero - 1] - electric_field[i] * dt;
         }
@@ -44,10 +44,10 @@ namespace HHG::Laser {
             return ret[N_experiment + begin_zero - 1] + prime * t + primeprime * t*t + third * t*t*t + fourth * t*t*t*t;
         };
 
-        for (int i = 1; i < N_extra; ++i) {
+        for (auto i = 1; i < N_extra; ++i) {
             ret[N_experiment + begin_zero - 1 + i] = pol(i * dt);
         }
-        for (int i = ret.size() - begin_zero - 1; i < ret.size(); ++i) {
+        for (auto i = ret.size() - begin_zero - 1; i < ret.size(); ++i) {
             ret[i] = h_float{};
         }
         return ret;
@@ -116,7 +116,7 @@ namespace HHG::Laser {
         this->laser_spline = Spline(__temp.data(), N_temp + 1, t_begin, dt, h_float{}, h_float{});
     }
 
-    h_float ExperimentalLaser::envelope(h_float t) const {
+    h_float ExperimentalLaser::envelope([[maybe_unused]] h_float t) const {
         throw std::runtime_error("Envelope of the experimental pulse should never be called!");
     }
 }

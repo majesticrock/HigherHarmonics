@@ -68,10 +68,10 @@ namespace HHG::Systems {
             const momentum_type& k, const TimeIntegrationConfig& time_config) const;
 
         std::vector<h_float> compute_current_density(Laser::Laser const * const laser, TimeIntegrationConfig const& time_config, 
-            const int rank, const int n_ranks, const int n_z) const;
+            const int rank, const int n_ranks) const;
         
         std::array<std::vector<h_float>, n_debug_points> compute_current_density_debug(Laser::Laser const * const laser, 
-            TimeIntegrationConfig const& time_config, const int n_z) const;
+            TimeIntegrationConfig const& time_config) const;
 
         std::string info() const;
 

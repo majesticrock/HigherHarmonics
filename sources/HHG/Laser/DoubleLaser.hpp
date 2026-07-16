@@ -35,7 +35,7 @@ namespace HHG::Laser {
             this->compute_spline();
         };
         
-        h_float envelope(h_float t) const final
+        h_float envelope([[maybe_unused]] h_float t) const final
         {
             throw std::runtime_error("Envelope of the DoubleLaser should never be called!");
         };

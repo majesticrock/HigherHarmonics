@@ -61,23 +61,23 @@ HHG::Dispatch::HoneycombDispatcher::HoneycombDispatcher(mrock::utility::InputFil
     std::cout << "Hopping element = " << system.get_property_in_SI_units("t", photon_energy) << std::endl;
 }
 
-void HHG::Dispatch::HoneycombDispatcher::compute(int rank, int n_ranks, int n_z)
+void HHG::Dispatch::HoneycombDispatcher::compute(int rank, int n_ranks, [[maybe_unused]] int n_z)
 {
     std::chrono::high_resolution_clock::time_point begin = std::chrono::high_resolution_clock::now();
     std::cout << "Computing the k integrals..." << std::endl;
 
-    current_density_time = system.compute_current_density(laser.get(), time_config, rank, n_ranks, n_z);
+    current_density_time = system.compute_current_density(laser.get(), time_config, rank, n_ranks);
 
     std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
 	std::cout << "Runtime = " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "[ms]" << std::endl;
 }
 
-void HHG::Dispatch::HoneycombDispatcher::debug(int n_z)
+void HHG::Dispatch::HoneycombDispatcher::debug([[maybe_unused]] int n_z)
 {
     std::chrono::high_resolution_clock::time_point begin = std::chrono::high_resolution_clock::now();
     std::cout << "Computing the debug data sets..." << std::endl;
 
-    time_evolutions = system.compute_current_density_debug(laser.get(), time_config, n_z);
+    time_evolutions = system.compute_current_density_debug(laser.get(), time_config);
 
     std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
 	std::cout << "Runtime = " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "[ms]" << std::endl;

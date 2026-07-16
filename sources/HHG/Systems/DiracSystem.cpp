@@ -248,7 +248,8 @@ namespace HHG::Systems {
     }
 
     std::vector<h_float> DiracSystem::compute_current_density(Laser::Laser const *const laser, TimeIntegrationConfig const &time_config, 
-        const int rank, const int n_ranks, const int n_z, const int n_kappa, const h_float kappa_threshold) const
+        [[maybe_unused]] const int rank, [[maybe_unused]] const int n_ranks, 
+        const int n_z, const int n_kappa, const h_float kappa_threshold) const
     {
         nd_vector rhos_buffer = nd_vector::Zero(time_config.n_measurements + 1);
         std::vector<h_float> current_density_time(time_config.n_measurements + 1, h_float{});
@@ -304,7 +305,7 @@ namespace HHG::Systems {
     }
 
     std::array<std::vector<h_float>, n_debug_points> DiracSystem::compute_current_density_debug(Laser::Laser const *const laser, TimeIntegrationConfig const &time_config, 
-        const int n_z, const int n_kappa, const h_float kappa_threshold) const
+        const int n_z, [[maybe_unused]] const int n_kappa, [[maybe_unused]] const h_float kappa_threshold) const
     {
         auto integration_weight = [](h_float k_z, h_float kappa) {
             return k_z * kappa / norm(k_z, kappa);
@@ -335,7 +336,8 @@ namespace HHG::Systems {
     }
 
     std::vector<h_float> DiracSystem::compute_current_density_diagonal_relaxation(Laser::Laser const *const laser, TimeIntegrationConfig const &time_config,
-         const int rank, const int n_ranks, const int n_z, const int n_kappa, const h_float kappa_threshold) const
+        [[maybe_unused]] const int rank, [[maybe_unused]] const int n_ranks, 
+        const int n_z, const int n_kappa, const h_float kappa_threshold) const
     {
         nd_vector rhos_buffer = nd_vector::Zero(time_config.n_measurements + 1);
         std::vector<h_float> current_density_time(time_config.n_measurements + 1, h_float{});
@@ -391,7 +393,7 @@ namespace HHG::Systems {
     }
 
     std::array<std::vector<h_float>, n_debug_points> DiracSystem::compute_current_density_diagonal_relaxation_debug(Laser::Laser const * const laser, TimeIntegrationConfig const& time_config,
-        const int n_z, const int n_kappa/*  = 20 */, const h_float kappa_threshold/*  = 1e-3 */) const 
+        const int n_z, [[maybe_unused]] const int n_kappa/*  = 20 */, [[maybe_unused]] const h_float kappa_threshold/*  = 1e-3 */) const 
     {
         auto integration_weight = [](h_float k_z, h_float kappa) {
             return k_z * kappa / norm(k_z, kappa);

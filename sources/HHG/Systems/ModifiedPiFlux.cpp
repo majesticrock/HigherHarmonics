@@ -299,7 +299,7 @@ namespace HHG::Systems {
             return 0.5 * (high - low);
         };
 
-        auto y_integration = [&]<int __N>(h_float y_low, h_float y_high, h_float main_weight, h_float error_weight) {
+        auto y_integration = [&]<int __N>(h_float y_low, h_float y_high, h_float main_weight, [[maybe_unused]] h_float error_weight) {
             INTEGRATOR_TYPEDEF(__N);
 
             for (int j = 0; j < __N; ++j) {
@@ -415,7 +415,7 @@ namespace HHG::Systems {
     }
 
     std::vector<h_float> ModifiedPiFlux::current_density_continuum_limit(Laser::Laser const * const laser, TimeIntegrationConfig const& time_config, 
-        const int rank, const int n_ranks, const int n_z) const
+        [[maybe_unused]] const int rank, [[maybe_unused]] const int n_ranks, [[maybe_unused]] const int n_z) const
     {
         typedef gauss::container<2 * z_range> z_gauss;
 
@@ -531,7 +531,7 @@ namespace HHG::Systems {
             
             sigma_state_type current_state = ic_sigma(k, alpha_beta_diff, alpha_beta_prod, z_epsilon);
             
-            auto update_equilibrium_state = [&](const h_float laser_at_t, const h_float __t) {
+            auto update_equilibrium_state = [&](const h_float laser_at_t) {
                 shifted_k.update_z(k.z - laser_at_t);
 
                 if (is_zero(shifted_k.C_x) && is_zero(shifted_k.C_y) && shifted_k.C_z < h_float{}) {
@@ -566,11 +566,11 @@ namespace HHG::Systems {
                 relax_to_offdiagonal /= normalization;
             };
 
-            update_equilibrium_state(laser->laser_function(time_config.t_begin), 0.0);
+            update_equilibrium_state(laser->laser_function(time_config.t_begin));
 
             auto right_side = [this, &k, &laser, &prefactor, &update_equilibrium_state, &relax_to_diagonal, &relax_to_offdiagonal](const sigma_state_type& state, sigma_state_type& dxdt, const h_float t) {
                 const sigma_state_type m = {k.C_x, k.C_y, std::cos(k.z - laser->laser_function(t))};
-                update_equilibrium_state(laser->laser_function(t), t);
+                update_equilibrium_state(laser->laser_function(t));
 
                 dxdt = prefactor * m.cross(state) 
                     - inverse_diagonal_relaxation_time * (state / 3.0 - relax_to_diagonal) // sigma^z

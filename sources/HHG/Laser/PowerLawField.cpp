@@ -8,7 +8,7 @@ namespace HHG::Laser {
         this->compute_spline();
     }
 
-    h_float PowerLawField::envelope(h_float t) const {
+    h_float PowerLawField::envelope([[maybe_unused]] h_float t) const {
         throw std::runtime_error("Enevelope of PowerLawField should never be called!");
     }
 

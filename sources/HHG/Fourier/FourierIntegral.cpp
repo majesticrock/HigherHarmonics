@@ -1,6 +1,7 @@
 #include "FourierIntegral.hpp"
 #include <cmath>
 #include <cassert>
+#include <cstddef>
 
 namespace HHG::Fourier {
     FourierIntegral::FourierIntegral(TimeIntegrationConfig const& time_config)
@@ -8,10 +9,10 @@ namespace HHG::Fourier {
     {
         const h_float omega_max = 64;
         const h_float delta_omega = omega_max / frequencies.size();
-        for (int i = 0; i < frequencies.size(); ++i) {
+        for (std::size_t i = 0U; i < frequencies.size(); ++i) {
             frequencies[i] = i * delta_omega;
         }
-        for (int i = 0; i < time_samples.size(); ++i) {
+        for (std::size_t  i = 0U; i < time_samples.size(); ++i) {
             time_samples[i] = time_config.t_begin + i * delta_t;
         }
     }
@@ -22,7 +23,7 @@ namespace HHG::Fourier {
         real_output.resize(frequencies.size());
         imag_output.resize(frequencies.size());
 
-        for (int i = 0; i < frequencies.size(); ++i) {
+        for (std::size_t  i = 0U; i < frequencies.size(); ++i) {
             real_output[i] = 0.5 * (
                 std::cos(frequencies[i] * time_samples[0]) * input[0] + std::cos(frequencies[i] * time_samples.back()) * input.back()
             );
@@ -30,7 +31,7 @@ namespace HHG::Fourier {
                 std::sin(frequencies[i] * time_samples[0]) * input[0] + std::sin(frequencies[i] * time_samples.back()) * input.back()
             );
 
-            for (int t = 1; t < time_samples.size() - 1; ++t) {
+            for (std::size_t  t = 1U; t < time_samples.size() - 1; ++t) {
                 real_output[i] += std::cos(frequencies[i] * time_samples[t]) * input[t];
                 imag_output[i] += std::sin(frequencies[i] * time_samples[t]) * input[t];
             }

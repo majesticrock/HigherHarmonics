@@ -238,7 +238,7 @@ namespace HHG::Systems {
         sigma_state_type relax_to_offdiagonal; 
         sigma_state_type current_state = ic_sigma(k, alpha_beta_diff, alpha_beta_prod, z_epsilon);
             
-        auto update_equilibrium_state = [&](const h_float laser_at_t, const h_float __t) {
+        auto update_equilibrium_state = [&](const h_float laser_at_t) {
             shifted_k.update_z(k.z - laser_at_t);
 
             if (is_zero(shifted_k.cos_x) && is_zero(shifted_k.cos_y) && shifted_k.cos_z < h_float{}) {
@@ -273,11 +273,11 @@ namespace HHG::Systems {
             for (auto& r : relax_to_offdiagonal) r /= normalization;
         };
 
-        update_equilibrium_state(laser->laser_function(time_config.t_begin), 0.0);
+        update_equilibrium_state(laser->laser_function(time_config.t_begin));
 
         auto right_side = [this, &k, &laser, &prefactor, &update_equilibrium_state, &relax_to_diagonal, &relax_to_offdiagonal](const sigma_state_type& state, sigma_state_type& dxdt, const h_float t) {
             const sigma_state_type m = {k.cos_x, k.cos_y, std::cos(k.z - laser->laser_function(t))};
-            update_equilibrium_state(laser->laser_function(t), t);
+            update_equilibrium_state(laser->laser_function(t));
             dxdt = cross_product(m, state);
             for(std::size_t i = 0U; i < dxdt.size(); ++i) {
                 dxdt[i] *= prefactor;
@@ -302,7 +302,7 @@ namespace HHG::Systems {
 
 
     std::array<std::vector<h_float>, n_debug_points> PiFlux::compute_current_density_debug(Laser::Laser const * const laser, 
-        TimeIntegrationConfig const& time_config, const int n_z) const
+        TimeIntegrationConfig const& time_config, [[maybe_unused]] const int n_z) const
     {
         // Debug setup
         std::array<nd_vector, n_debug_points> time_evolutions{};
@@ -364,7 +364,8 @@ namespace HHG::Systems {
         return time_evolutions_std;
     }
 
-    std::vector<h_float> PiFlux::compute_current_density(Laser::Laser const *const laser, TimeIntegrationConfig const &time_config, const int rank, const int n_ranks, const int n_z) const
+    std::vector<h_float> PiFlux::compute_current_density(Laser::Laser const *const laser, TimeIntegrationConfig const &time_config, 
+        const int rank, const int n_ranks, const int n_z) const
     {
         //return current_density_lattice_sum(laser, time_config, rank, n_ranks, n_z);
         return current_density_continuum_limit(laser, time_config, rank, n_ranks, n_z);
@@ -535,7 +536,7 @@ namespace HHG::Systems {
     }
 
     std::vector<h_float> PiFlux::current_density_lattice_sum(Laser::Laser const * const laser, TimeIntegrationConfig const& time_config, 
-        const int rank, const int n_ranks, const int n_z) const
+        [[maybe_unused]] const int rank, [[maybe_unused]] const int n_ranks, const int n_z) const
     {
         nd_vector rhos_buffer = nd_vector::Zero(time_config.n_measurements + 1);
         std::vector<h_float> current_density_time(time_config.n_measurements + 1, h_float{});
@@ -658,7 +659,7 @@ namespace HHG::Systems {
             return 0.5 * (high - low);
         };
 
-        auto y_integration = [&]<int __N>(h_float y_low, h_float y_high, h_float main_weight, h_float error_weight) {
+        auto y_integration = [&]<int __N>(h_float y_low, h_float y_high, h_float main_weight, [[maybe_unused]] h_float error_weight) {
             INTEGRATOR_TYPEDEF(__N);
 
             for (int j = 0; j < __N; ++j) {
@@ -774,7 +775,7 @@ namespace HHG::Systems {
     }
 
     std::vector<h_float> PiFlux::current_density_continuum_limit(Laser::Laser const * const laser, TimeIntegrationConfig const& time_config, 
-        const int rank, const int n_ranks, const int n_z) const
+        [[maybe_unused]] const int rank, [[maybe_unused]] const int n_ranks, [[maybe_unused]] const int n_z) const
     {
         typedef gauss::container<2 * z_range> z_gauss;
 
@@ -836,8 +837,9 @@ namespace HHG::Systems {
         return current_density_time;
     }
 
-    std::vector<h_float> PiFlux::current_density_monte_carlo(Laser::Laser const * const laser, TimeIntegrationConfig const& time_config, 
-        const int rank, const int n_ranks, const int n_z) const
+    std::vector<h_float> PiFlux::current_density_monte_carlo([[maybe_unused]] Laser::Laser const * const laser, 
+        [[maybe_unused]] TimeIntegrationConfig const& time_config, 
+        [[maybe_unused]] const int rank, [[maybe_unused]] const int n_ranks, [[maybe_unused]] const int n_z) const
     {
         std::vector<h_float> current_density_time(time_config.n_measurements + 1, h_float{});
 #ifdef NO_MPI

@@ -25,7 +25,7 @@ namespace HHG::Fourier {
 
     void ComplexFFT::compute(const std::vector<h_complex>& input, std::vector<h_float>& real_output, std::vector<h_float>& imag_output)
     {
-        assert(input.size() >= N);
+        assert(std::ssize(input) >= N);
         std::copy(input.begin(), input.end(), reinterpret_cast<h_complex*>(in));
         fftw_execute(plan);
 
@@ -43,7 +43,7 @@ namespace HHG::Fourier {
 
     void ComplexFFT::compute(const std::vector<h_complex> &input, std::vector<h_complex> &output)
     {
-        assert(input.size() == N);
+        assert(std::ssize(input) == N);
         std::copy(input.begin(), input.end(), reinterpret_cast<h_complex*>(in));
         fftw_execute(plan);
 
