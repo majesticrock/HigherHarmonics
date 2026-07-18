@@ -2,22 +2,22 @@ cmake_minimum_required(VERSION 3.30)
 
 project(HigherHarmonics VERSION 2.1.0 LANGUAGES CXX)
 
-#
-# Set local settings and set the default build type as Release
-#
+# Set local user-specific settings
+# By default, this adds ~/usr/local/ and ../../.mrock/ to the cmake and include paths
+# If additional configurations/includes are needed, provide them in cmake/user_settings.cmake
+# Extra include dirs are stored in the cmake variable EXTRA_INCLUDE_DIRS
+include(cmake/include_settings.cmake)
 
-list(APPEND CMAKE_PREFIX_PATH "$ENV{HOME}/usr/local")
-set(Boost_DIR /usr/lib64/openmpi/lib/cmake/Boost-1.78.0)
-
+# Build type settings; defaults to Release
 set(default_build_type "Release")
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  message(STATUS "Setting build type to '${default_build_type}' as none was specified.")
   set(CMAKE_BUILD_TYPE "${default_build_type}" CACHE
       STRING "Choose the type of build." FORCE)
   # Set the possible values of build type for cmake-gui
   set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
     "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif()
-message(STATUS "Build type is '${CMAKE_BUILD_TYPE}'.")
 
 #
 # Library specifics
@@ -36,7 +36,7 @@ if(USE_MPI)
     find_package(MPI REQUIRED)
 endif()
 
-find_package(OpenMP REQUIRED)
+find_package(OpenMP REQUIRED COMPONENTS CXX)
 find_package(FFTW3 REQUIRED)
 find_library(FFTW3_LIB fftw3)
 find_package(mrock 

@@ -7,7 +7,7 @@ debug: PRESET = debug
 
 all cascadelake icelake debug:
 	@cmake --preset $(PRESET) -DUSE_MPI=$(USE_MPI)
-	@cmake --build --preset $(PRESET)
+	+@cmake --build --preset $(PRESET)
 
 clean:
 	@rm -rf build
