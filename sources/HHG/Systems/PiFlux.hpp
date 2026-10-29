@@ -41,15 +41,6 @@ namespace HHG::Systems {
             momentum_type() = default;
             momentum_type(h_float x, h_float y, h_float z) noexcept;
 
-            // Abused the symmetry; x -> -x and y -> -y yields the same result because everything depends only on cos x and cos y
-            static momentum_type SymmetrizedRandom();
-            template<typename Generator>
-            static momentum_type SymmetrizedRandom(Generator& gen) {
-                static std::uniform_real_distribution<h_float> dist_z(0.0, pi);
-                static std::uniform_real_distribution<h_float> dist_xy(0.0, 0.5 * pi);
-                return momentum_type(dist_xy(gen), dist_xy(gen), dist_z(gen));
-            };
-
             void update(h_float x, h_float y, h_float z) noexcept;
             void update_x(h_float val) noexcept;
             void update_y(h_float val) noexcept;
@@ -118,26 +109,21 @@ namespace HHG::Systems {
         h_float alpha(const momentum_type &k, h_float t, Laser::Laser const * const laser) const;
         h_float xi(const momentum_type& k, h_float t, Laser::Laser const * const laser) const;
 
-        std::array<std::array<h_float, 3>, 4> magnus_coefficients(const momentum_type& k, h_float delta_t, h_float t_0, Laser::Laser const * const laser) const;
-    
         void __time_evolution__(nd_vector& rhos, Laser::Laser const * const laser, const momentum_type& k, const TimeIntegrationConfig& time_config) const;
 
         nd_vector xy_integral(momentum_type& k, nd_vector& rhos_buffer, Laser::Laser const * const laser, TimeIntegrationConfig const& time_config) const;
         nd_vector improved_xy_integral(momentum_type& k, nd_vector& rhos_buffer, Laser::Laser const * const laser, TimeIntegrationConfig const& time_config) const;
 
-        h_float ic_sigma_x(const momentum_type& k, h_float alpha_beta_diff, h_float alpha_beta_prod, h_float z_epsilon) const noexcept;
-        h_float ic_sigma_y(const momentum_type& k, h_float alpha_beta_diff, h_float alpha_beta_prod, h_float z_epsilon) const noexcept;
-        h_float ic_sigma_z(const momentum_type& k, h_float alpha_beta_diff, h_float alpha_beta_prod, h_float z_epsilon) const noexcept;
+        h_float ic_sigma_x(const momentum_type& k, h_float alpha_beta_diff) const noexcept;
+        h_float ic_sigma_y(const momentum_type& k, h_float alpha_beta_diff) const noexcept;
+        h_float ic_sigma_z(const momentum_type& k, h_float alpha_beta_diff) const noexcept;
 
-        sigma_state_type ic_sigma(const momentum_type& k, h_float alpha_beta_diff, h_float alpha_beta_prod, h_float z_epsilon) const noexcept;
+        sigma_state_type ic_sigma(const momentum_type& k, h_float alpha_beta_diff) const noexcept;
 
         std::vector<h_float> current_density_lattice_sum(Laser::Laser const * const laser, TimeIntegrationConfig const& time_config, 
             const int rank, const int n_ranks, const int n_z) const;
 
         std::vector<h_float> current_density_continuum_limit(Laser::Laser const * const laser, TimeIntegrationConfig const& time_config, 
-            const int rank, const int n_ranks, const int n_z) const;
-
-        std::vector<h_float> current_density_monte_carlo(Laser::Laser const * const laser, TimeIntegrationConfig const& time_config, 
             const int rank, const int n_ranks, const int n_z) const;
 
         std::array<h_float, 3> diagonal_sigma(sigma_state_type const& input, momentum_type const& k) const;
