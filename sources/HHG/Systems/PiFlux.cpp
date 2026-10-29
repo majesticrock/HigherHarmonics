@@ -426,9 +426,8 @@ std::vector<h_float> PiFlux::compute_current_density(Laser::Laser const* const l
                                                      const int rank,
                                                      const int n_ranks,
                                                      const int n_z) const {
-    // return current_density_lattice_sum(laser, time_config, rank, n_ranks, n_z);
-    return current_density_continuum_limit(laser, time_config, rank, n_ranks, n_z);
-    // return current_density_monte_carlo(laser, time_config, rank, n_ranks, n_z);
+    return current_density_lattice_sum(laser, time_config, rank, n_ranks, n_z);
+    //return current_density_continuum_limit(laser, time_config, rank, n_ranks, n_z);
 }
 
 std::string PiFlux::info() const {
