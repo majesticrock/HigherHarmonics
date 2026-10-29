@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# Set architecture: "icelake" or "cascadelake"
-arch="cascadelake"
+# Set architecture: "icelake" or "CascadeLake"
+arch="CascadeLake"
 
-shifts=(0.21)
+shifts=(0.0 0.21)
 current_date=$(date +"%Y%m%d_%H%M%S")
 
 output_dir="auto_generated_${current_date}"
