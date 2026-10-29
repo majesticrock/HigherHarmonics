@@ -28,8 +28,6 @@ namespace HHG::Systems {
 
         static constexpr int N_coarse = __C; // Must be divisible by 2.
         static constexpr int N_fine = 8 * N_coarse; // Must be divisible by 4. Otherwise the error integrator breaks
-
-        static constexpr int n_xy_inner = 64;
     public:
         typedef std::array<HHG::h_float, 3> sigma_state_type;
         struct momentum_type {

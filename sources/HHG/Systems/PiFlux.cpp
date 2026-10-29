@@ -535,18 +535,20 @@ PiFlux::sigma_state_type PiFlux::ic_sigma(const momentum_type& k, h_float alpha_
                             ic_sigma_z(k, alpha_beta_diff)};
 }
 
-std::vector<h_float> PiFlux::current_density_lattice_sum(Laser::Laser const* const laser,
-                                                         TimeIntegrationConfig const& time_config,
-                                                         [[maybe_unused]] const int rank,
-                                                         [[maybe_unused]] const int n_ranks,
-                                                         const int n_z) const {
+std::vector<h_float> PiFlux::current_density_lattice_sum(
+    Laser::Laser const* const laser,
+    TimeIntegrationConfig const& time_config,
+    [[maybe_unused]] const int rank,
+    [[maybe_unused]] const int n_ranks,
+    const int n_z) const
+{
     nd_vector rhos_buffer = nd_vector::Zero(time_config.n_measurements + 1);
     std::vector<h_float> current_density_time(time_config.n_measurements + 1, h_float{});
 
-    const h_float momentum_ratio = 2.0 * pi / n_z;
-    const int n_xy = n_z / 2;
-
     const h_float time_step = time_config.measure_every();
+    const int n_xy = n_z / 2;       // points in full [-π/2, π/2) for x and y
+    const int n_half = n_xy / 2;    // interior points in (0, π/2); total in [0, π/2] is n_half+1
+    const h_float dk = pi / n_xy;   // uniform spacing in x and y  (= 2π/n_z)
 
 #ifdef NO_MPI
     std::vector<int> progresses(omp_get_max_threads(), int{});
@@ -556,94 +558,56 @@ std::vector<h_float> PiFlux::current_density_lattice_sum(Laser::Laser const* con
     int jobs_per_rank = n_z / n_ranks;
     if (jobs_per_rank * n_ranks < n_z)
         ++jobs_per_rank;
-    const int this_rank_min_z = rank * jobs_per_rank + 1;
-    const int this_rank_max_z = this_rank_min_z + jobs_per_rank > n_z ? n_z : this_rank_min_z + jobs_per_rank;
+    const int this_rank_min_z = rank * jobs_per_rank;
+    const int this_rank_max_z = std::min(this_rank_min_z + jobs_per_rank, n_z);
     for (int z = this_rank_min_z; z < this_rank_max_z; ++z)
 #endif
     {
         PROGRESS_BAR_UPDATE(n_z);
 
+        const h_float kz = -pi + z * (2.0 * pi / n_z);
         momentum_type k;
-        k.update_z(z * momentum_ratio - pi);
+        k.update_z(kz);
 
         nd_vector x_buffer = nd_vector::Zero(time_config.n_measurements + 1);
-        // At k_x = k_y = \pm pi (that would be x=y=\pm n_z / 2), we have nothing but a rotation around the z-axis,
-        // therefore sigma_z = const.
-        // We also have the symmetry that rho(k_x) = rho(-k_x) as everything depends merely on cos(k_x).
-        // The same applies to k_y, but not to k_z.
-        for (int x = 1; x < n_xy / 2; ++x) {
-            k.update_x(x * momentum_ratio);
+
+        // Sum over the first quadrant [0, π/2] × [0, π/2],
+        // exploiting σ^z(kx,ky,kz) = σ^z(-kx,ky,kz) = σ^z(kx,-ky,kz).
+        // Weight: 1 at the axes/boundaries, 2 in the interior (each direction).
+        for (int ix = 0; ix <= n_half; ++ix) {
+            const h_float kx = ix * dk;   // 0, π/n_xy, 2π/n_xy, …, π/2
+            k.update_x(kx);
+            const h_float wx = (ix == 0 || ix == n_half) ? 1.0 : 2.0;
 
             nd_vector y_buffer = nd_vector::Zero(time_config.n_measurements + 1);
-            for (int y = 1; y < n_xy / 2; ++y) {
-                k.update_y(y * 0.5 * momentum_ratio);
+
+            for (int iy = 0; iy <= n_half; ++iy) {
+                const h_float ky = iy * dk;   // 0, π/n_xy, 2π/n_xy, …, π/2
+                k.update_y(ky);
+                const h_float wy = (iy == 0 || iy == n_half) ? 1.0 : 2.0;
+
                 __time_evolution__(rhos_buffer, laser, k, time_config);
-                y_buffer += rhos_buffer;
+
+                y_buffer += wy * rhos_buffer;
             }
-            y_buffer *= 2.0;
 
-            k.update_y(0.0);
-            __time_evolution__(rhos_buffer, laser, k, time_config);
-            y_buffer += rhos_buffer;
-
-            k.update_y(pi / 2.0);
-            __time_evolution__(rhos_buffer, laser, k, time_config);
-            y_buffer += rhos_buffer;
-
-            x_buffer += y_buffer;
-        }
-        x_buffer *= 2.0;
-
-        {
-            k.update_x(0.0);
-
-            nd_vector y_buffer = nd_vector::Zero(time_config.n_measurements + 1);
-            for (int y = 1; y < n_xy / 2; ++y) {
-                k.update_y(y * 0.5 * momentum_ratio);
-                __time_evolution__(rhos_buffer, laser, k, time_config);
-                y_buffer += rhos_buffer;
-            }
-            y_buffer *= 2.0;
-
-            k.update_y(0.0);
-            __time_evolution__(rhos_buffer, laser, k, time_config);
-            y_buffer += rhos_buffer;
-
-            k.update_y(pi / 2.0);
-            __time_evolution__(rhos_buffer, laser, k, time_config);
-            y_buffer += rhos_buffer;
-
-            x_buffer += y_buffer;
-        }
-        {
-            k.update_x(pi / 2.0);
-
-            nd_vector y_buffer = nd_vector::Zero(time_config.n_measurements + 1);
-            for (int y = 1; y < n_xy / 2; ++y) {
-                k.update_y(y * 0.5 * momentum_ratio);
-                __time_evolution__(rhos_buffer, laser, k, time_config);
-                y_buffer += rhos_buffer;
-            }
-            y_buffer *= 2.0;
-
-            k.update_y(0.0);
-            __time_evolution__(rhos_buffer, laser, k, time_config);
-            y_buffer += rhos_buffer;
-
-            x_buffer += y_buffer;
+            x_buffer += wx * y_buffer;
         }
 
+        // Multiply by the z-component of the current-density kernel.
         for (int i = 0; i <= time_config.n_measurements; ++i) {
-            x_buffer[i] *= std::sin(k.z - laser->laser_function(time_config.t_begin + i * time_step));
+            x_buffer[i] *= std::sin(kz - laser->laser_function(time_config.t_begin + i * time_step));
         }
 
-        std::transform(current_density_time.begin(), current_density_time.end(), x_buffer.begin(),
-                       current_density_time.begin(), std::plus<>());
+        std::transform(current_density_time.begin(), current_density_time.end(),
+                       x_buffer.begin(), current_density_time.begin(), std::plus<>());
     }
     std::cout << std::endl;
 
+    // Normalise by the total number of k-points in the full BZ.
+    const h_float n_points = static_cast<h_float>(n_z) * n_xy * n_xy;
     for (auto& j : current_density_time) {
-        j /= (n_z * n_z * n_z);
+        j /= n_points;
     }
 
     return current_density_time;

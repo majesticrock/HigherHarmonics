@@ -1,6 +1,5 @@
 {
   "version": 3,
-
   "configurePresets": [
     {
       "name": "base",
@@ -11,31 +10,29 @@
         "USE_MPI": "ON"
       }
     },
-
     {
       "name": "default",
       "inherits": "base",
       "binaryDir": "${sourceDir}/build/default"
     },
-
     {
       "name": "cascadelake",
       "inherits": "base",
       "binaryDir": "${sourceDir}/build/cascadelake",
       "cacheVariables": {
-        "TARGET_ARCH": "cascadelake"
+        "TARGET_ARCH": "cascadelake",
+        "CMAKE_CXX_FLAGS": "-DMROCK_CL1_CASCADE"
       }
     },
-
     {
       "name": "icelake",
       "inherits": "base",
       "binaryDir": "${sourceDir}/build/icelake",
       "cacheVariables": {
-        "TARGET_ARCH": "icelake"
+        "TARGET_ARCH": "icelake",
+        "CMAKE_CXX_FLAGS": "-DMROCK_CL1"
       }
     },
-
     {
       "name": "debug",
       "inherits": "base",
@@ -45,7 +42,6 @@
       }
     }
   ],
-
   "buildPresets": [
     {
       "name": "default",
