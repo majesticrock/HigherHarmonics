@@ -545,9 +545,9 @@ std::vector<h_float> PiFlux::current_density_lattice_sum(
     std::vector<h_float> current_density_time(time_config.n_measurements + 1, h_float{});
 
     const h_float time_step = time_config.measure_every();
-    const int n_xy = n_z / 2;       // points in full [-π/2, π/2) for x and y
-    const int n_half = n_xy / 2;    // interior points in (0, π/2); total in [0, π/2] is n_half+1
+    const int n_xy = n_z / 2;       // points in full [-π, π) for x and y
     const h_float dk = pi / n_xy;   // uniform spacing in x and y  (= 2π/n_z)
+    const h_float dkz = 2 * pi / n_z;
 
 #ifdef NO_MPI
     std::vector<int> progresses(omp_get_max_threads(), int{});
@@ -564,26 +564,26 @@ std::vector<h_float> PiFlux::current_density_lattice_sum(
     {
         PROGRESS_BAR_UPDATE(n_z);
 
-        const h_float kz = -pi + z * (2.0 * pi / n_z);
+        const h_float kz = -pi + z * dkz;
         momentum_type k;
         k.update_z(kz);
 
         nd_vector x_buffer = nd_vector::Zero(time_config.n_measurements + 1);
 
-        // Sum over the first quadrant [0, π/2] × [0, π/2],
+        // Sum over the first quadrant; triagnle with corners [0, 0], [0, π], [π, 0],
         // exploiting σ^z(kx,ky,kz) = σ^z(-kx,ky,kz) = σ^z(kx,-ky,kz).
         // Weight: 1 at the axes/boundaries, 2 in the interior (each direction).
-        for (int ix = 0; ix <= n_half; ++ix) {
-            const h_float kx = ix * dk;   // 0, π/n_xy, 2π/n_xy, …, π/2
+        for (int ix = 0; ix <= n_xy; ++ix) {
+            const h_float kx = ix * dk;   // 0, π/n_xy, 2π/n_xy, …, π
             k.update_x(kx);
-            const h_float wx = (ix == 0 || ix == n_half) ? 1.0 : 2.0;
+            const h_float wx = (ix == 0 || ix == n_xy) ? 1.0 : 2.0;
 
             nd_vector y_buffer = nd_vector::Zero(time_config.n_measurements + 1);
 
-            for (int iy = 0; iy <= n_half; ++iy) {
-                const h_float ky = iy * dk;   // 0, π/n_xy, 2π/n_xy, …, π/2
+            for (int iy = 0; iy <= n_xy - ix; ++iy) {
+                const h_float ky = iy * dk;   // 0, π/n_xy, 2π/n_xy, …, π
                 k.update_y(ky);
-                const h_float wy = (iy == 0 || iy == n_half) ? 1.0 : 2.0;
+                const h_float wy = (iy == 0 || iy == n_xy) ? 1.0 : 2.0;
 
                 __time_evolution__(rhos_buffer, laser, k, time_config);
 
