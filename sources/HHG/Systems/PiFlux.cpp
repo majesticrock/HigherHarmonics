@@ -150,8 +150,7 @@ void PiFlux::time_evolution_diagonal_relaxation(
             return;
         }
 
-        const h_float occupation_diff =
-            occupation_a(shifted_k) - occupation_b(shifted_k);
+        const h_float occupation_diff = occupation_a(shifted_k) - occupation_b(shifted_k);
 
         relax_to_equilibrium = {
             occupation_diff * shifted_k.cos_x / epsilon,
@@ -160,8 +159,7 @@ void PiFlux::time_evolution_diagonal_relaxation(
         };
     };
 
-    update_equilibrium_state(
-        laser->laser_function(time_config.t_begin));
+    update_equilibrium_state(laser->laser_function(time_config.t_begin));
 
     auto right_side = [this, &k, &laser, &prefactor, &update_equilibrium_state, &relax_to_equilibrium](
             const sigma_state_type& state,
@@ -184,16 +182,8 @@ void PiFlux::time_evolution_diagonal_relaxation(
             // prefactor = 4*t
             dxdt[i] *= prefactor;
 
-            // Relax sigma^x and sigma^y toward thermal equilibrium.
-            if (i < 2U) {
-                dxdt[i] -= inverse_offdiagonal_relaxation_time
-                         * (state[i] - relax_to_equilibrium[i]);
-            }
-            // Relax sigma^z toward thermal equilibrium.
-            else {
-                dxdt[i] -= inverse_diagonal_relaxation_time
-                         * (state[i] - relax_to_equilibrium[i]);
-            }
+            // Relax sigma toward thermal equilibrium.
+            dxdt[i] -= inverse_diagonal_relaxation_time * (state[i] - relax_to_equilibrium[i]);
         }
     };
 
@@ -456,11 +446,11 @@ std::string PiFlux::get_property_in_SI_units(const std::string& property, const 
 }
 
 h_float PiFlux::occupation_a(const momentum_type& k) const {
-    return fermi_function(-E_F + 2 * hopping_element * dispersion(k), beta);
+    return fermi_function(2 * hopping_element * dispersion(k) - E_F, beta);
 }
 
 h_float PiFlux::occupation_b(const momentum_type& k) const {
-    return fermi_function(-E_F - 2 * hopping_element * dispersion(k), beta);
+    return fermi_function(2 * hopping_element * dispersion(k) - E_F, beta);
 }
 
 h_float PiFlux::alpha(const momentum_type& k, h_float t, Laser::Laser const* const laser) const {

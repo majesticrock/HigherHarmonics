@@ -20,14 +20,16 @@ HHG::Dispatch::PiFluxDispatcher::PiFluxDispatcher(mrock::utility::InputFileReade
       system([&]() -> std::variant<Systems::PiFlux, Systems::ModifiedPiFlux> {
           if (mod_system) {
               return Systems::ModifiedPiFlux(input.getDouble("T"), input.getDouble("E_F"), input.getDouble("v_F"),
-                                             input.getDouble("band_width"), Dispatcher::get_photon_energy(input),
+                                             input.getDouble("band_width"), 
+                                             Dispatcher::get_photon_energy(input),
                                              input.getDouble("diagonal_relaxation_time"),
                                              input.getDouble("offdiagonal_relaxation_time") > h_float{}
                                                  ? input.getDouble("offdiagonal_relaxation_time")
                                                  : input.getDouble("diagonal_relaxation_time"));
           } else {
               return Systems::PiFlux(input.getDouble("T"), input.getDouble("E_F"), input.getDouble("v_F"),
-                                     input.getDouble("band_width"), Dispatcher::get_photon_energy(input),
+                                     input.getDouble("band_width"), 
+                                     Dispatcher::get_photon_energy(input),
                                      input.getDouble("diagonal_relaxation_time"),
                                      input.getDouble("offdiagonal_relaxation_time") > h_float{}
                                          ? input.getDouble("offdiagonal_relaxation_time")

@@ -78,7 +78,7 @@ ax2.axvline(peak_pos, ls="--", c="k")
 
 # my analysis: 1.489 THz; Wang: 1.45 THz...?
 # Answer: Depends on where we set the FFT frame
-print(peak_pos)
+print(peak_pos, " meV           ", peak_pos / (2*np.pi * HBAR) * 1e-12, " THz")
 
 ax2.set_xlabel(r"$\hbar \omega$ (meV)")
 ax2.set_ylabel(r"FFT (normalized)")
